@@ -11,11 +11,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'target_url is required' }, { status: 400 });
     }
 
-    // Explicitly configure GoogleAuth.
-    // In App Hosting, GOOGLE_APPLICATION_CREDENTIALS is a path to a credentials file.
-    const auth = new GoogleAuth({
-      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    });
+    // Initialize GoogleAuth without arguments. It will automatically
+    // find the credentials from the environment.
+    const auth = new GoogleAuth();
     
     // Get an ID token client that can sign requests.
     // The audience is the URL of the receiving Cloud Run service.
