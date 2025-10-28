@@ -11,8 +11,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'target_url is required' }, { status: 400 });
     }
 
-    // Create a Google Auth client with the correct scope
-    const auth = new GoogleAuth();
+    // Explicitly configure GoogleAuth.
+    // In App Hosting, GOOGLE_APPLICATION_CREDENTIALS is a path to a credentials file.
+    const auth = new GoogleAuth({
+      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    });
     
     // Get an ID token client that can sign requests.
     // The audience is the URL of the receiving Cloud Run service.
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response.data);
   } catch (error: any) {
-    console.error('Proxy API error:', error.response?.data || error.message);
+    console.error('Proxy API error:', error.response?.data || error.message, error.stack);
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
   }
 }
