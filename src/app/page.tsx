@@ -36,7 +36,7 @@ const productSchema = z.object({
     .or(z.literal("")),
   productPrice: z.coerce
     .number()
-    .min(1, { message: "상품 판매가는 0보다 커야 합니다." }),
+    .min(0, { message: "상품 판매가는 0보다 크거나 같아야 합니다." }),
   discountCode: z.string().optional(),
   discountCodePrice: z.coerce.number().nonnegative().optional().default(0),
   storeCouponCode: z.string().optional(),
@@ -56,6 +56,7 @@ type FormData = z.infer<typeof formSchema>;
 interface ProductInfo {
     product_main_image_url: string;
     product_title: string;
+    original_url: string;
 }
 
 export default function Home() {
@@ -113,16 +114,19 @@ export default function Home() {
             body: JSON.stringify({ target_urls: productUrls }),
         });
         
+        console.log('[FRONTEND] Raw response from API:', response);
         const result = await response.json();
+        console.log('[FRONTEND] Parsed JSON from API:', result);
+
 
         if (!response.ok) {
             throw new Error(result.error || `HTTP ${response.status} - 서버 오류가 발생했습니다.`);
         }
 
-        console.log("[FRONTEND] Received from API:", result.productInfos);
         const productInfos = result.productInfos as (ProductInfo | null)[];
+        console.log("[FRONTEND] Received from API:", productInfos);
 
-        if (!productInfos || productInfos.length !== data.products.length) {
+        if (!productInfos || !Array.isArray(productInfos)) {
             throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
         }
         
@@ -130,7 +134,8 @@ export default function Home() {
         let hasErrors = false;
         
         data.products.forEach((product, index) => {
-            const productInfo = productInfos[index];
+            const productInfo = productInfos.find(info => info && info.original_url === product.productUrl);
+            
             if (!productInfo || !productInfo.product_main_image_url || !productInfo.product_title) {
                 console.error(`[FRONTEND] 상품 정보가 누락되었습니다. URL: ${product.productUrl}, 받은 정보:`, productInfo);
                  toast({
@@ -144,7 +149,9 @@ export default function Home() {
 
             let finalUrl = product.productLandingUrl || product.productUrl;
 
-            if (!product.productLandingUrl) {
+            if (product.productLandingUrl) {
+               finalUrl = product.productLandingUrl;
+            } else {
                 const params = 'disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
                 if (finalUrl.includes('?')) {
                     finalUrl += '&' + params;
@@ -165,43 +172,43 @@ export default function Home() {
             if (product.discountCodePrice && product.discountCodePrice > 0) {
             discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>할인코드 (${
                 product.discountCode || ""
-            }):</strong> -${product.discountCodePrice.toLocaleString()}원</p>`;
+            }):</strong> -$${product.discountCodePrice.toLocaleString()}</p>`;
             }
             if (product.storeCouponPrice && product.storeCouponPrice > 0) {
             discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>스토어쿠폰 (${
                 product.storeCouponCode || ""
-            }):</strong> -${product.storeCouponPrice.toLocaleString()}원</p>`;
+            }):</strong> -$${product.storeCouponPrice.toLocaleString()}</p>`;
             }
             if (product.coinPrice && product.coinPrice > 0) {
-            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인 (${product.coinDiscountRate || ''}):</strong> -${product.coinPrice.toLocaleString()}원</p>`;
+            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인 (${product.coinDiscountRate || ''}):</strong> -$${product.coinPrice.toLocaleString()}</p>`;
             }
             if (product.cardPrice && product.cardPrice > 0) {
-            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인 (${product.cardCompanyName || ''}):</strong> -${product.cardPrice.toLocaleString()}원</p>`;
+            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인 (${product.cardCompanyName || ''}):</strong> -$${product.cardPrice.toLocaleString()}</p>`;
             }
 
             const htmlTemplate = `
-    <div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 700px; margin: 20px auto; background: #fafafa;">
+<div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 550px; margin: 20px auto; background: #fafafa;">
+    <div style="max-width: 500px; margin: 0 auto;">
         <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; text-align: center; margin-bottom: 12px;">
-            <img src="${productInfo.product_main_image_url}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: inline-block;">
+            <img src="${productInfo.product_main_image_url}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: block;">
         </a>
         <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #374151;">
-            <p style="text-align: center; font-size: 16px; font-weight: 500; margin: 0 0 20px 0;">${productInfo.product_title}</p>
+            <p style="text-align: left; font-size: 16px; font-weight: 500; margin: 0 0 20px 0;">${productInfo.product_title}</p>
         </a>
         <div style="text-align: left;">
-        <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 600; color: #1f2937;">상품 가격 정보 안내</h3>
-        
-        <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-            <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${product.productPrice.toLocaleString()}원</span></p>
-            ${discountDetails}
-            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
-            <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최종 구매 가격:</strong> ${finalPrice.toLocaleString()}원</p>
+            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 600; color: #1f2937;">상품 가격 정보 안내</h3>
+            <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">$${product.productPrice.toLocaleString()}</span></p>
+                ${discountDetails}
+                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
+                <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최종 구매 가격:</strong> $${finalPrice.toLocaleString()}</p>
+            </div>
+            <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; margin-top: 20px; transition: background-color 0.2s ease;">
+                상품 페이지로 이동하여 확인하기
+            </a>
         </div>
-        
-        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; margin-top: 20px; transition: background-color 0.2s ease;">
-            상품 페이지로 이동하여 확인하기
-        </a>
-        </div>
-    </div>`;
+    </div>
+</div>`;
             allHtml += htmlTemplate;
         });
         
