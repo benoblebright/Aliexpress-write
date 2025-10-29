@@ -124,16 +124,24 @@ export default function Home() {
         }
         
         let allHtml = "";
+        let hasErrors = false;
         
         data.products.forEach((product, index) => {
             const productInfo = productInfos[index];
             if (!productInfo || !productInfo.product_main_image_url) {
                 console.error(`이미지를 가져오지 못했습니다: ${product.productUrl}`);
-                return;
+                 toast({
+                    variant: "destructive",
+                    title: "상품 정보 조회 실패",
+                    description: `다음 URL의 상품 정보를 가져올 수 없습니다: ${product.productUrl}`,
+                });
+                hasErrors = true;
+                return; // Skip this product
             }
 
             let finalUrl = product.productLandingUrl || product.productUrl;
 
+            // Do not use new URL() constructor, just append params as strings.
             if (product.productLandingUrl === undefined || product.productLandingUrl === '') {
                 if (finalUrl.includes('?')) {
                     finalUrl += '&disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
@@ -193,6 +201,13 @@ export default function Home() {
     </div>`;
             allHtml += htmlTemplate;
         });
+        
+      if (!hasErrors) {
+        toast({
+            title: "성공!",
+            description: "HTML 생성이 완료되었습니다.",
+        });
+      }
 
       setGeneratedHtml(allHtml.trim());
     } catch (error: any) {
@@ -355,5 +370,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
