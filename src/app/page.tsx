@@ -93,103 +93,113 @@ export default function Home() {
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     setGeneratedHtml("");
-    let allHtml = "";
 
     try {
-      for (const product of data.products) {
+        const productUrls = data.products.map(p => p.productUrl);
         const response = await fetch("/api/generate-image-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ target_url: product.productUrl }),
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ target_urls: productUrls }),
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({ error: "알 수 없는 서버 오류가 발생했습니다." }));
+            throw new Error(`이미지 URL 생성 실패 (HTTP ${response.status}): ${errorData.error}`);
         }
 
         const result = await response.json();
-        const imageUrl = result.imageUrl;
+        const imageUrls = result.imageUrls as (string | null)[];
 
-        if (!imageUrl) {
-          throw new Error("이미지 URL을 가져올 수 없습니다.");
+        if (!imageUrls || imageUrls.length !== data.products.length) {
+            throw new Error("이미지 URL을 가져오는 데 실패했습니다. 응답 데이터가 올바르지 않습니다.");
         }
         
-        let finalUrl = product.productLandingUrl || product.productUrl;
-
-        if (product.productLandingUrl === undefined || product.productLandingUrl === '') {
-            const params = new URLSearchParams({
-                disableNav: "YES",
-                sourceType: "620",
-                _immersiveMode: "true",
-                wx_navbar_transparent: "true",
-                channel: "coin",
-                wx_statusbar_hidden: "true",
-                isdl: "y",
-                aff_platform: "true",
-            });
-            if (finalUrl.includes('?')) {
-                finalUrl += '&' + params.toString();
-            } else {
-                finalUrl += '?' + params.toString();
+        let allHtml = "";
+        
+        data.products.forEach((product, index) => {
+            const imageUrl = imageUrls[index];
+            if (!imageUrl) {
+                console.error(`이미지를 가져오지 못했습니다: ${product.productUrl}`);
+                // Skip generating HTML for this product or show a placeholder
+                return;
             }
-        }
+
+            let finalUrl = product.productLandingUrl || product.productUrl;
+
+            if (product.productLandingUrl === undefined || product.productLandingUrl === '') {
+                const params = new URLSearchParams({
+                    disableNav: "YES",
+                    sourceType: "620",
+                    _immersiveMode: "true",
+                    wx_navbar_transparent: "true",
+                    channel: "coin",
+                    wx_statusbar_hidden: "true",
+                    isdl: "y",
+                    aff_platform: "true",
+                });
+                if (finalUrl.includes('?')) {
+                    finalUrl += '&' + params.toString();
+                } else {
+                    finalUrl += '?' + params.toString();
+                }
+            }
 
 
-        const finalPrice =
-          product.productPrice -
-          (product.discountCodePrice || 0) -
-          (product.storeCouponPrice || 0) -
-          (product.coinPrice || 0) -
-          (product.cardPrice || 0);
+            const finalPrice =
+            product.productPrice -
+            (product.discountCodePrice || 0) -
+            (product.storeCouponPrice || 0) -
+            (product.coinPrice || 0) -
+            (product.cardPrice || 0);
 
-        let discountDetails = "";
-        if (product.discountCodePrice && product.discountCodePrice > 0) {
-          discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>할인코드 (${
-            product.discountCode || ""
-          }):</strong> -${product.discountCodePrice.toLocaleString()}원</p>`;
-        }
-        if (product.storeCouponPrice && product.storeCouponPrice > 0) {
-          discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>스토어쿠폰 (${
-            product.storeCouponCode || ""
-          }):</strong> -${product.storeCouponPrice.toLocaleString()}원</p>`;
-        }
-        if (product.coinPrice && product.coinPrice > 0) {
-          discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인:</strong> -${product.coinPrice.toLocaleString()}원</p>`;
-        }
-        if (product.cardPrice && product.cardPrice > 0) {
-          discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인:</strong> -${product.cardPrice.toLocaleString()}원</p>`;
-        }
+            let discountDetails = "";
+            if (product.discountCodePrice && product.discountCodePrice > 0) {
+            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>할인코드 (${
+                product.discountCode || ""
+            }):</strong> -${product.discountCodePrice.toLocaleString()}원</p>`;
+            }
+            if (product.storeCouponPrice && product.storeCouponPrice > 0) {
+            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>스토어쿠폰 (${
+                product.storeCouponCode || ""
+            }):</strong> -${product.storeCouponPrice.toLocaleString()}원</p>`;
+            }
+            if (product.coinPrice && product.coinPrice > 0) {
+            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인:</strong> -${product.coinPrice.toLocaleString()}원</p>`;
+            }
+            if (product.cardPrice && product.cardPrice > 0) {
+            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인:</strong> -${product.cardPrice.toLocaleString()}원</p>`;
+            }
 
-        const htmlTemplate = `
-  <div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 700px; margin: 20px auto; background: #fafafa;">
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; text-align: center; margin-bottom: 20px;">
-      <img src="${imageUrl}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: inline-block;">
-    </a>
-    <div style="text-align: left;">
-      <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 600; color: #1f2937;">상품 가격 정보 안내</h3>
-      
-      <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-        <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${product.productPrice.toLocaleString()}원</span></p>
-        ${discountDetails}
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
-        <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최종 구매 가격:</strong> ${finalPrice.toLocaleString()}원</p>
-      </div>
-      
-      <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; margin-top: 20px; transition: background-color 0.2s ease;">
-        상품 페이지로 이동하여 확인하기
-      </a>
-    </div>
-  </div>`;
-        allHtml += htmlTemplate;
-      }
+            const htmlTemplate = `
+    <div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 700px; margin: 20px auto; background: #fafafa;">
+        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; text-align: center; margin-bottom: 20px;">
+        <img src="${imageUrl}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: inline-block;">
+        </a>
+        <div style="text-align: left;">
+        <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 600; color: #1f2937;">상품 가격 정보 안내</h3>
+        
+        <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${product.productPrice.toLocaleString()}원</span></p>
+            ${discountDetails}
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
+            <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최종 구매 가격:</strong> ${finalPrice.toLocaleString()}원</p>
+        </div>
+        
+        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; margin-top: 20px; transition: background-color 0.2s ease;">
+            상품 페이지로 이동하여 확인하기
+        </a>
+        </div>
+    </div>`;
+            allHtml += htmlTemplate;
+        });
+
       setGeneratedHtml(allHtml.trim());
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating HTML:", error);
       toast({
         variant: "destructive",
         title: "오류 발생",
-        description:
-          "HTML 생성에 실패했습니다. 입력값을 확인하거나 다시 시도해주세요.",
+        description: error.message || "HTML 생성 중 오류가 발생했습니다. 입력값을 확인하거나 다시 시도해주세요.",
       });
     } finally {
       setIsLoading(false);
