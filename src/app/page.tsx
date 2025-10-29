@@ -116,7 +116,7 @@ export default function Home() {
         
         let finalUrl = product.productLandingUrl || product.productUrl;
 
-        if (!product.productLandingUrl) {
+        if (product.productLandingUrl === undefined || product.productLandingUrl === '') {
             const params = new URLSearchParams({
                 disableNav: "YES",
                 sourceType: "620",
@@ -162,8 +162,8 @@ export default function Home() {
 
         const htmlTemplate = `
   <div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 700px; margin: 20px auto; background: #fafafa;">
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; margin-bottom: 20px;">
-      <img src="${imageUrl}" alt="Product Image" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0;">
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; text-align: center; margin-bottom: 20px;">
+      <img src="${imageUrl}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: inline-block;">
     </a>
     <div style="text-align: left;">
       <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 600; color: #1f2937;">상품 가격 정보 안내</h3>
