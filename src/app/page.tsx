@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -143,40 +144,41 @@ export default function Home() {
 
         let discountDetails = "";
         if (product.discountCodePrice && product.discountCodePrice > 0) {
-          discountDetails += `<p style="margin: 5px 0; font-size: 16px;"><strong>할인코드 (${
+          discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>할인코드 (${
             product.discountCode || ""
           }):</strong> -${product.discountCodePrice.toLocaleString()}원</p>`;
         }
         if (product.storeCouponPrice && product.storeCouponPrice > 0) {
-          discountDetails += `<p style="margin: 5px 0; font-size: 16px;"><strong>스토어쿠폰 (${
+          discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>스토어쿠폰 (${
             product.storeCouponCode || ""
           }):</strong> -${product.storeCouponPrice.toLocaleString()}원</p>`;
         }
         if (product.coinPrice && product.coinPrice > 0) {
-          discountDetails += `<p style="margin: 5px 0; font-size: 16px;"><strong>코인할인:</strong> -${product.coinPrice.toLocaleString()}원</p>`;
+          discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인:</strong> -${product.coinPrice.toLocaleString()}원</p>`;
         }
         if (product.cardPrice && product.cardPrice > 0) {
-          discountDetails += `<p style="margin: 5px 0; font-size: 16px;"><strong>카드할인:</strong> -${product.cardPrice.toLocaleString()}원</p>`;
+          discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인:</strong> -${product.cardPrice.toLocaleString()}원</p>`;
         }
 
         const htmlTemplate = `
-  <div style="font-family: 'Inter', sans-serif; border: 1px solid #e0e0e0; border-radius: 12px; padding: 24px; max-width: 700px; margin: 20px auto; text-align: center; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
-      <img src="${imageUrl}" alt="Product Image" style="max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 20px;">
+  <div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 700px; margin: 20px auto; background: #fafafa;">
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; margin-bottom: 20px;">
+      <img src="${imageUrl}" alt="Product Image" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0;">
     </a>
-    <h2 style="margin-top: 0; font-size: 28px; font-weight: 700; color: #111;">놓칠 수 없는 특별가!</h2>
-    <p style="font-size: 18px; color: #555;">지금 바로 확인해보세요.</p>
-    
-    <div style="text-align: left; margin: 25px 0; padding: 20px; background-color: #FFF9F6; border-radius: 8px; border: 1px dashed #FFD9C7;">
-      <p style="margin: 5px 0; font-size: 16px; color: #777;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${product.productPrice.toLocaleString()}원</span></p>
-      ${discountDetails}
-      <hr style="border: 0; border-top: 1px solid #FFEAE0; margin: 15px 0;">
-      <p style="margin: 10px 0; font-size: 22px; font-weight: 800; color: #FF4F00;"><strong>🔥 최종혜택가:</strong> ${finalPrice.toLocaleString()}원</p>
+    <div style="text-align: left;">
+      <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 600; color: #1f2937;">상품 가격 정보 안내</h3>
+      
+      <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${product.productPrice.toLocaleString()}원</span></p>
+        ${discountDetails}
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
+        <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최종 구매 가격:</strong> ${finalPrice.toLocaleString()}원</p>
+      </div>
+      
+      <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; margin-top: 20px; transition: background-color 0.2s ease;">
+        상품 페이지로 이동하여 확인하기
+      </a>
     </div>
-    
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #FF4F00; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 20px; transition: background-color 0.3s ease;">
-      최저가로 구매하기
-    </a>
   </div>`;
         allHtml += htmlTemplate;
       }
