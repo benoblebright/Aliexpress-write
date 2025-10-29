@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { GoogleAuth } from 'google-auth-library';
 
 const CLOUD_RUN_URL = 'https://alihelper-imageurl-53912196882.asia-northeast3.run.app';
 
@@ -10,33 +9,31 @@ export async function POST(request: Request) {
     if (!target_url) {
       return NextResponse.json({ error: 'target_url is required' }, { status: 400 });
     }
-
-    // Initialize Google Auth client. It will automatically find the
-    // application default credentials in the App Hosting environment.
-    const auth = new GoogleAuth();
-    const client = await auth.getIdTokenClient(CLOUD_RUN_URL);
-
-    // Make an authenticated request to the Cloud Run service.
-    const response = await client.request({
-      url: CLOUD_RUN_URL,
+    
+    // NOTE: This is a direct, unauthenticated request. If the target Cloud Run
+    // service requires authentication, this call will fail. This proxy is
+    // here to solve CORS issues, not authentication.
+    const response = await fetch(CLOUD_RUN_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      data: { target_url },
+      body: JSON.stringify({ target_url }),
     });
 
-    // The actual response data is in the `data` property of the response object.
-    // Return this data directly.
-    return NextResponse.json(response.data);
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`Error from external service: ${response.status}`, errorBody);
+        return NextResponse.json({ error: `External service failed: ${response.status}` }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
 
   } catch (error: any) {
-    // Log the detailed error on the server for debugging.
-    console.error('Proxy API error:', error.message, error.stack);
-    
-    // Provide a clear error message to the client.
+    console.error('Proxy API error:', error);
     return NextResponse.json(
-        { error: 'An internal server error occurred while fetching the image URL.', details: error.message }, 
+        { error: 'An internal server error occurred in the proxy.' }, 
         { status: 500 }
     );
   }
