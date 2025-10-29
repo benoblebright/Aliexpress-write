@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { GoogleAuth } from 'google-auth-library';
 
 const CLOUD_RUN_URL = 'https://alihelper-imageurl-53912196882.asia-northeast3.run.app';
 
@@ -9,32 +10,34 @@ export async function POST(request: Request) {
     if (!target_url) {
       return NextResponse.json({ error: 'target_url is required' }, { status: 400 });
     }
-    
-    // NOTE: This is a direct, unauthenticated request. If the target Cloud Run
-    // service requires authentication, this call will fail. This proxy is
-    // here to solve CORS issues, not authentication.
-    const response = await fetch(CLOUD_RUN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ target_url }),
+
+    // Initialize Google Auth client
+    // By default, it will use the application's service account credentials
+    // when running on Google Cloud infrastructure like App Hosting.
+    const auth = new GoogleAuth();
+    const client = await auth.getIdTokenClient(CLOUD_RUN_URL);
+
+    // Make an authenticated request to the Cloud Run service.
+    const response = await client.request({
+        url: CLOUD_RUN_URL,
+        method: 'POST',
+        data: { target_url },
     });
-
-    if (!response.ok) {
-        const errorBody = await response.text();
-        console.error(`Error from external service: ${response.status}`, errorBody);
-        return NextResponse.json({ error: `External service failed: ${response.status}` }, { status: response.status });
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
+    
+    // The actual data from the response is in the `data` property.
+    return NextResponse.json(response.data);
 
   } catch (error: any) {
+    // Log the full error to the server console for debugging.
     console.error('Proxy API error:', error);
+    
+    // Return a generic error message to the client.
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error || 'An internal server error occurred in the proxy.';
+    
     return NextResponse.json(
-        { error: 'An internal server error occurred in the proxy.' }, 
-        { status: 500 }
+        { error: message }, 
+        { status: status }
     );
   }
 }
