@@ -3,7 +3,7 @@ import { GoogleAuth } from 'google-auth-library';
 
 const CLOUD_RUN_URL = 'https://alihelper-imageurl-53912196882.asia-northeast3.run.app';
 
-async function getImageUrl(authClient: any, targetUrl: string): Promise<string | null> {
+async function getProductInfo(authClient: any, targetUrl: string): Promise<any | null> {
     try {
         console.log(`[PROXY] Calling Cloud Run for URL: ${targetUrl}`);
         const response = await authClient.request({
@@ -12,15 +12,18 @@ async function getImageUrl(authClient: any, targetUrl: string): Promise<string |
             data: { target_url: targetUrl },
         });
 
-        if (response && response.data && typeof response.data === 'object') {
-            const responseData = response.data as { product_main_image_url?: string };
-            console.log(`[PROXY] Response for ${targetUrl}:`, JSON.stringify(responseData, null, 2));
-
-            if (responseData.product_main_image_url) {
-                return responseData.product_main_image_url;
+        if (response && response.data && Array.isArray((response.data as any).results)) {
+            const result = (response.data as any).results[0];
+            if(result && result.product_main_image_url && result.product_title) {
+                 console.log(`[PROXY] Success for ${targetUrl}:`, JSON.stringify(result));
+                return {
+                    product_main_image_url: result.product_main_image_url,
+                    product_title: result.product_title
+                };
             }
         }
-        console.error(`[PROXY] Error: "product_main_image_url" not found for ${targetUrl}. Response:`, response.data);
+        
+        console.error(`[PROXY] Error: "results" not found or invalid for ${targetUrl}. Response:`, response.data);
         return null;
 
     } catch (error: any) {
@@ -44,15 +47,15 @@ export async function POST(request: Request) {
     const auth = new GoogleAuth();
     const client = await auth.getIdTokenClient(CLOUD_RUN_URL);
     
-    const imageUrlPromises = target_urls.map(url => getImageUrl(client, url));
-    const imageUrls = await Promise.all(imageUrlPromises);
+    const productInfoPromises = target_urls.map(url => getProductInfo(client, url));
+    const productInfos = await Promise.all(productInfoPromises);
 
-    const failedUrls = target_urls.filter((_, index) => !imageUrls[index]);
+    const failedUrls = target_urls.filter((_, index) => !productInfos[index]);
     if (failedUrls.length > 0) {
-        console.warn(`[PROXY] Failed to fetch image URLs for: ${failedUrls.join(', ')}`);
+        console.warn(`[PROXY] Failed to fetch product info for: ${failedUrls.join(', ')}`);
     }
 
-    return NextResponse.json({ imageUrls });
+    return NextResponse.json({ productInfos });
 
   } catch (error: any) {
     console.error('[PROXY] An unexpected error occurred in POST handler:', error);
@@ -62,3 +65,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+    

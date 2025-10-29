@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Copy, Rocket, Plus, Trash2 } from "lucide-react";
@@ -41,7 +41,9 @@ const productSchema = z.object({
   discountCodePrice: z.coerce.number().nonnegative().optional().default(0),
   storeCouponCode: z.string().optional(),
   storeCouponPrice: z.coerce.number().nonnegative().optional().default(0),
+  coinDiscountRate: z.string().optional(),
   coinPrice: z.coerce.number().nonnegative().optional().default(0),
+  cardCompanyName: z.string().optional(),
   cardPrice: z.coerce.number().nonnegative().optional().default(0),
 });
 
@@ -50,6 +52,11 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+interface ProductInfo {
+    product_main_image_url: string;
+    product_title: string;
+}
 
 export default function Home() {
   const [generatedHtml, setGeneratedHtml] = useState("");
@@ -68,7 +75,9 @@ export default function Home() {
           discountCodePrice: 0,
           storeCouponCode: "",
           storeCouponPrice: 0,
+          coinDiscountRate: "",
           coinPrice: 0,
+          cardCompanyName: "",
           cardPrice: 0,
         },
       ],
@@ -108,39 +117,28 @@ export default function Home() {
         }
 
         const result = await response.json();
-        const imageUrls = result.imageUrls as (string | null)[];
+        const productInfos = result.productInfos as (ProductInfo | null)[];
 
-        if (!imageUrls || imageUrls.length !== data.products.length) {
-            throw new Error("이미지 URL을 가져오는 데 실패했습니다. 응답 데이터가 올바르지 않습니다.");
+        if (!productInfos || productInfos.length !== data.products.length) {
+            throw new Error("상품 정보를 가져오는 데 실패했습니다. 응답 데이터가 올바르지 않습니다.");
         }
         
         let allHtml = "";
         
         data.products.forEach((product, index) => {
-            const imageUrl = imageUrls[index];
-            if (!imageUrl) {
+            const productInfo = productInfos[index];
+            if (!productInfo || !productInfo.product_main_image_url) {
                 console.error(`이미지를 가져오지 못했습니다: ${product.productUrl}`);
-                // Skip generating HTML for this product or show a placeholder
                 return;
             }
 
             let finalUrl = product.productLandingUrl || product.productUrl;
 
             if (product.productLandingUrl === undefined || product.productLandingUrl === '') {
-                const params = new URLSearchParams({
-                    disableNav: "YES",
-                    sourceType: "620",
-                    _immersiveMode: "true",
-                    wx_navbar_transparent: "true",
-                    channel: "coin",
-                    wx_statusbar_hidden: "true",
-                    isdl: "y",
-                    aff_platform: "true",
-                });
                 if (finalUrl.includes('?')) {
-                    finalUrl += '&' + params.toString();
+                    finalUrl += '&disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
                 } else {
-                    finalUrl += '?' + params.toString();
+                    finalUrl += '?disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
                 }
             }
 
@@ -164,16 +162,19 @@ export default function Home() {
             }):</strong> -${product.storeCouponPrice.toLocaleString()}원</p>`;
             }
             if (product.coinPrice && product.coinPrice > 0) {
-            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인:</strong> -${product.coinPrice.toLocaleString()}원</p>`;
+            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인 (${product.coinDiscountRate || ''}):</strong> -${product.coinPrice.toLocaleString()}원</p>`;
             }
             if (product.cardPrice && product.cardPrice > 0) {
-            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인:</strong> -${product.cardPrice.toLocaleString()}원</p>`;
+            discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인 (${product.cardCompanyName || ''}):</strong> -${product.cardPrice.toLocaleString()}원</p>`;
             }
 
             const htmlTemplate = `
     <div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 700px; margin: 20px auto; background: #fafafa;">
-        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; text-align: center; margin-bottom: 20px;">
-        <img src="${imageUrl}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: inline-block;">
+        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; text-align: center; margin-bottom: 12px;">
+            <img src="${productInfo.product_main_image_url}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: inline-block;">
+        </a>
+        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #374151;">
+            <p style="text-align: center; font-size: 16px; font-weight: 500; margin: 0 0 20px 0;">${productInfo.product_title}</p>
         </a>
         <div style="text-align: left;">
         <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 600; color: #1f2937;">상품 가격 정보 안내</h3>
@@ -208,13 +209,15 @@ export default function Home() {
   
   const formFields = [
     { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
-    { name: "productLandingUrl", label: "상품 랜딩 URL (선택사항)", placeholder: "https://s.click.aliexpress.com/..." },
+    { name: "productLandingUrl", label: "상품 랜딩 URL (선택사항)", placeholder: "http:s.click.aliexpress.com/..." },
     { name: "productPrice", label: "상품판매가", placeholder: "숫자만 입력", type: "number", isRequired: true },
     { name: "discountCode", label: "할인코드", placeholder: "예: KR1234" },
     { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "숫자만 입력", type: "number" },
     { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000" },
     { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가", placeholder: "숫자만 입력", type: "number" },
+    { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10%" },
     { name: "coinPrice", label: "코인할인가", placeholder: "숫자만 입력", type: "number" },
+    { name: "cardCompanyName", label: "카드사명", placeholder: "예: 카카오페이" },
     { name: "cardPrice", label: "카드할인가", placeholder: "숫자만 입력", type: "number" },
   ] as const;
 
@@ -298,7 +301,9 @@ export default function Home() {
                         discountCodePrice: 0,
                         storeCouponCode: "",
                         storeCouponPrice: 0,
+                        coinDiscountRate: "",
                         coinPrice: 0,
+                        cardCompanyName: "",
                         cardPrice: 0,
                      })}
                   >
@@ -350,3 +355,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
