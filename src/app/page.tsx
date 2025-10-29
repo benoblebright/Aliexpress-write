@@ -63,14 +63,17 @@ const parsePrice = (priceStr: string | undefined | null): { amount: number; curr
     if (cleanStr.includes('원')) {
         return { amount: parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0, currency: 'KRW' };
     }
-    return { amount: parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0, currency: 'USD' };
+    // Check for $ prefix, but also handle cases with just numbers.
+    const amount = parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0;
+    return { amount, currency: 'USD' };
 };
+
 
 const formatPrice = (price: { amount: number; currency: 'KRW' | 'USD' }): string => {
     if (price.currency === 'KRW') {
         return `${price.amount.toLocaleString('ko-KR')}원`;
     }
-    return `$${price.amount.toLocaleString('en-US')}`;
+    return `$${price.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 export default function Home() {
@@ -131,7 +134,9 @@ export default function Home() {
         
         console.log('[FRONTEND] Raw response from API:', response);
         const result = await response.json();
+        
         console.log('[FRONTEND] Parsed JSON from API:', result);
+        console.log('[FRONTEND] Received from API:', result.productInfos);
 
 
         if (!response.ok) {
@@ -139,8 +144,7 @@ export default function Home() {
         }
 
         const productInfos = result.productInfos as (ProductInfo | null)[];
-        console.log('[FRONTEND] Received from API:', productInfos);
-
+        
         if (!productInfos || !Array.isArray(productInfos)) {
             throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
         }
@@ -182,29 +186,30 @@ export default function Home() {
             const cardPrice = parsePrice(product.cardPrice);
 
             let finalPriceAmount = mainPrice.amount;
-            if (mainPrice.currency === discountCodePrice.currency) finalPriceAmount -= discountCodePrice.amount;
-            if (mainPrice.currency === storeCouponPrice.currency) finalPriceAmount -= storeCouponPrice.amount;
-            if (mainPrice.currency === coinPrice.currency) finalPriceAmount -= coinPrice.amount;
-            if (mainPrice.currency === cardPrice.currency) finalPriceAmount -= cardPrice.amount;
+            if (discountCodePrice.amount > 0) finalPriceAmount -= discountCodePrice.amount;
+            if (storeCouponPrice.amount > 0) finalPriceAmount -= storeCouponPrice.amount;
+            if (coinPrice.amount > 0) finalPriceAmount -= coinPrice.amount;
+            if (cardPrice.amount > 0) finalPriceAmount -= cardPrice.amount;
 
+            // Ensure the currency of the final price matches the main price
             const finalPrice = { amount: finalPriceAmount > 0 ? finalPriceAmount : 0, currency: mainPrice.currency };
 
             let discountDetails = "";
             if (discountCodePrice.amount > 0) {
               discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>할인코드 (${
                   product.discountCode || ""
-              }):</strong> -${formatPrice(discountCodePrice)}</p>`;
+              }):</strong> -${formatPrice({...discountCodePrice, currency: mainPrice.currency})}</p>`;
             }
             if (storeCouponPrice.amount > 0) {
               discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>스토어쿠폰 (${
                   product.storeCouponCode || ""
-              }):</strong> -${formatPrice(storeCouponPrice)}</p>`;
+              }):</strong> -${formatPrice({...storeCouponPrice, currency: mainPrice.currency})}</p>`;
             }
             if (coinPrice.amount > 0) {
-              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인 (${product.coinDiscountRate || ''}):</strong> -${formatPrice(coinPrice)}</p>`;
+              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인 (${product.coinDiscountRate || ''}):</strong> -${formatPrice({...coinPrice, currency: mainPrice.currency})}</p>`;
             }
             if (cardPrice.amount > 0) {
-              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인 (${product.cardCompanyName || ''}):</strong> -${formatPrice(cardPrice)}</p>`;
+              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인 (${product.cardCompanyName || ''}):</strong> -${formatPrice({...cardPrice, currency: mainPrice.currency})}</p>`;
             }
 
             const htmlTemplate = `
@@ -222,7 +227,7 @@ export default function Home() {
                 <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
                 ${discountDetails}
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
-                <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최종 구매 가격:</strong> ${formatPrice(finalPrice)}</p>
+                <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최대 할인가:</strong> ${formatPrice(finalPrice)}</p>
             </div>
             <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; margin-top: 20px; transition: background-color 0.2s ease;">
                 상품 페이지로 이동하여 확인하기
