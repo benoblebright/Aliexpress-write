@@ -26,15 +26,20 @@ export async function POST(request: Request) {
     });
     
     console.log('[PROXY] Received response from Cloud Run. Status:', response.status);
-    console.log('[PROXY] Full response object:', JSON.stringify(response, null, 2));
-
+    
     // The actual data from the response is in the `data` property.
     // It is crucial to check if `response.data` exists and has the expected structure.
     if (response && response.data) {
+        // response.data could be a string or an object. If it's a string, we might need to parse it.
+        // Let's log its type to be sure.
+        console.log('[PROXY] Type of response.data:', typeof response.data);
         console.log('[PROXY] Response data:', JSON.stringify(response.data, null, 2));
+        
+        // Let's assume response.data is the object we want, like { imageUrl: '...' }
         return NextResponse.json(response.data);
     } else {
         console.error('[PROXY] Error: Response from Cloud Run is missing the "data" property or is invalid.');
+        console.error('[PROXY] Full response object:', JSON.stringify(response, null, 2));
         return NextResponse.json(
             { error: 'Invalid response from image generation service.' }, 
             { status: 502 } // Bad Gateway, indicates an issue with the upstream service response
