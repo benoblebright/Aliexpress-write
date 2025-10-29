@@ -102,25 +102,28 @@ export default function Home() {
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     setGeneratedHtml("");
+    console.log("[FRONTEND] Form submitted with data:", data);
 
     try {
         const productUrls = data.products.map(p => p.productUrl);
+        console.log("[FRONTEND] Sending URLs to API:", productUrls);
         const response = await fetch("/api/generate-image-url", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ target_urls: productUrls }),
         });
+        
+        const result = await response.json();
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: "알 수 없는 서버 오류가 발생했습니다." }));
-            throw new Error(`이미지 URL 생성 실패 (HTTP ${response.status}): ${errorData.error}`);
+            throw new Error(result.error || `HTTP ${response.status} - 서버 오류가 발생했습니다.`);
         }
 
-        const result = await response.json();
+        console.log("[FRONTEND] Received response from API:", result);
         const productInfos = result.productInfos as (ProductInfo | null)[];
 
         if (!productInfos || productInfos.length !== data.products.length) {
-            throw new Error("상품 정보를 가져오는 데 실패했습니다. 응답 데이터가 올바르지 않습니다.");
+            throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
         }
         
         let allHtml = "";
@@ -128,8 +131,8 @@ export default function Home() {
         
         data.products.forEach((product, index) => {
             const productInfo = productInfos[index];
-            if (!productInfo || !productInfo.product_main_image_url) {
-                console.error(`이미지를 가져오지 못했습니다: ${product.productUrl}`);
+            if (!productInfo || !productInfo.product_main_image_url || !productInfo.product_title) {
+                console.error(`[FRONTEND] 상품 정보가 누락되었습니다. URL: ${product.productUrl}, 받은 정보:`, productInfo);
                  toast({
                     variant: "destructive",
                     title: "상품 정보 조회 실패",
@@ -141,12 +144,12 @@ export default function Home() {
 
             let finalUrl = product.productLandingUrl || product.productUrl;
 
-            // Do not use new URL() constructor, just append params as strings.
-            if (product.productLandingUrl === undefined || product.productLandingUrl === '') {
+            if (!product.productLandingUrl) {
+                const params = 'disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
                 if (finalUrl.includes('?')) {
-                    finalUrl += '&disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
+                    finalUrl += '&' + params;
                 } else {
-                    finalUrl += '?disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
+                    finalUrl += '?' + params;
                 }
             }
 
@@ -211,7 +214,7 @@ export default function Home() {
 
       setGeneratedHtml(allHtml.trim());
     } catch (error: any) {
-      console.error("Error generating HTML:", error);
+      console.error("[FRONTEND] Error during HTML generation process:", error);
       toast({
         variant: "destructive",
         title: "오류 발생",
