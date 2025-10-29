@@ -31,7 +31,6 @@ const productSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
   productLandingUrl: z
     .string()
-    .url({ message: "유효한 랜딩 URL을 입력해주세요." })
     .optional()
     .or(z.literal("")),
   productPrice: z.coerce
@@ -114,18 +113,24 @@ export default function Home() {
           throw new Error("이미지 URL을 가져올 수 없습니다.");
         }
         
-        const baseUrl = product.productLandingUrl || product.productUrl;
-        const finalUrl = new URL(baseUrl);
+        let finalUrl = product.productLandingUrl || product.productUrl;
 
         if (!product.productLandingUrl) {
-            finalUrl.searchParams.set("disableNav", "YES");
-            finalUrl.searchParams.set("sourceType", "620");
-            finalUrl.searchParams.set("_immersiveMode", "true");
-            finalUrl.searchParams.set("wx_navbar_transparent", "true");
-            finalUrl.searchParams.set("channel", "coin");
-            finalUrl.searchParams.set("wx_statusbar_hidden", "true");
-            finalUrl.searchParams.set("isdl", "y");
-            finalUrl.searchParams.set("aff_platform", "true");
+            const params = new URLSearchParams({
+                disableNav: "YES",
+                sourceType: "620",
+                _immersiveMode: "true",
+                wx_navbar_transparent: "true",
+                channel: "coin",
+                wx_statusbar_hidden: "true",
+                isdl: "y",
+                aff_platform: "true",
+            });
+            if (finalUrl.includes('?')) {
+                finalUrl += '&' + params.toString();
+            } else {
+                finalUrl += '?' + params.toString();
+            }
         }
 
 
@@ -156,7 +161,7 @@ export default function Home() {
 
         const htmlTemplate = `
   <div style="font-family: 'Inter', sans-serif; border: 1px solid #e0e0e0; border-radius: 12px; padding: 24px; max-width: 700px; margin: 20px auto; text-align: center; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-    <a href="${finalUrl.toString()}" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
       <img src="${imageUrl}" alt="Product Image" style="max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 20px;">
     </a>
     <h2 style="margin-top: 0; font-size: 28px; font-weight: 700; color: #111;">놓칠 수 없는 특별가!</h2>
@@ -169,7 +174,7 @@ export default function Home() {
       <p style="margin: 10px 0; font-size: 22px; font-weight: 800; color: #FF4F00;"><strong>🔥 최종혜택가:</strong> ${finalPrice.toLocaleString()}원</p>
     </div>
     
-    <a href="${finalUrl.toString()}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #FF4F00; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 20px; transition: background-color 0.3s ease;">
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #FF4F00; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 20px; transition: background-color 0.3s ease;">
       최저가로 구매하기
     </a>
   </div>`;
@@ -191,7 +196,7 @@ export default function Home() {
   
   const formFields = [
     { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
-    { name: "productLandingUrl", label: "상품 랜딩 URL (선택사항)", placeholder: "https://example.com/landing-page" },
+    { name: "productLandingUrl", label: "상품 랜딩 URL (선택사항)", placeholder: "https://s.click.aliexpress.com/..." },
     { name: "productPrice", label: "상품판매가", placeholder: "숫자만 입력", type: "number", isRequired: true },
     { name: "discountCode", label: "할인코드", placeholder: "예: KR1234" },
     { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "숫자만 입력", type: "number" },
