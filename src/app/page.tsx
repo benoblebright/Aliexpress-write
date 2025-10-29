@@ -193,10 +193,10 @@ export default function Home() {
             <img src="${productInfo.product_main_image_url}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: block;">
         </a>
         <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #374151;">
-            <p style="text-align: left; font-size: 16px; font-weight: 500; margin: 0 0 20px 0;">${productInfo.product_title}</p>
+            <p style="text-align: left; font-size: 16px; font-weight: 500; margin: 0 0 20px 0;">🔥 ${productInfo.product_title}</p>
         </a>
         <div style="text-align: left;">
-            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 600; color: #1f2937;">상품 가격 정보 안내</h3>
+            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; font-weight: 600; color: #1f2937;">상품 할인 정보 안내</h3>
             <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
                 <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">$${product.productPrice.toLocaleString()}</span></p>
                 ${discountDetails}
