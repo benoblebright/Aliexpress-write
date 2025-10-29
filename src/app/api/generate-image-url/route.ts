@@ -11,31 +11,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'target_url is required' }, { status: 400 });
     }
 
-    // Initialize GoogleAuth without arguments. It will automatically
-    // find the credentials from the environment.
     const auth = new GoogleAuth();
-    
-    // Get an ID token client that can sign requests.
-    // The audience is the URL of the receiving Cloud Run service.
     const client = await auth.getIdTokenClient(CLOUD_RUN_URL);
-    
-    // Make an authenticated request to the Cloud Run service
-    const response = await client.request({
-      url: CLOUD_RUN_URL,
+    const idToken = await client.idTokenProvider.fetchIdToken(CLOUD_RUN_URL);
+
+    const response = await fetch(CLOUD_RUN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      data: { target_url },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ target_url }),
     });
 
-
-    if (response.status !== 200) {
-      console.error(`External API error: ${response.status}`, response.data);
-      return NextResponse.json({ error: `Failed to fetch image URL. Status: ${response.status}` }, { status: response.status });
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`External API error: ${response.status}`, errorText);
+        return NextResponse.json({ error: `Failed to fetch image URL. Status: ${response.status}. Message: ${errorText}` }, { status: response.status });
     }
 
-    return NextResponse.json(response.data);
+    const data = await response.json();
+    return NextResponse.json(data);
+
   } catch (error: any) {
-    console.error('Proxy API error:', error.response?.data || error.message, error.stack);
-    return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
+    console.error('Proxy API error:', error.message, error.stack);
+    return NextResponse.json({ error: 'An internal server error occurred.', details: error.message }, { status: 500 });
   }
 }
