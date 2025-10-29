@@ -119,7 +119,7 @@ export default function Home() {
             throw new Error(result.error || `HTTP ${response.status} - 서버 오류가 발생했습니다.`);
         }
 
-        console.log("[FRONTEND] Received response from API:", result);
+        console.log("[FRONTEND] Received from API:", result.productInfos);
         const productInfos = result.productInfos as (ProductInfo | null)[];
 
         if (!productInfos || productInfos.length !== data.products.length) {
@@ -372,4 +372,5 @@ export default function Home() {
       </div>
     </main>
   );
-}
+
+    
