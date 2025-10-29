@@ -4,7 +4,41 @@ import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'AliExpress HTML Generator',
-  description: '알리익스프레스 상품 포스팅용 HTML을 생성합니다.',
+  description: '알리익스프레스 상품 포스팅용 HTML을 생성하고, SEO에 최적화된 메타 태그를 자동으로 추가하여 블로그 방문자를 늘려보세요.',
+  keywords: ['AliExpress', '알리익스프레스', 'HTML 생성기', '블로그 포스팅', '제휴 마케팅', 'SEO', '메타 태그'],
+  openGraph: {
+    title: 'AliExpress 포스팅 HTML 생성기',
+    description: '클릭 몇 번으로 알리익스프레스 상품의 HTML 포스팅을 생성하고 SEO를 강화하세요.',
+    url: 'https://your-app-url.com', // TODO: 실제 앱 URL로 변경해주세요.
+    siteName: 'AliExpress HTML Generator',
+    images: [
+      {
+        url: 'https://your-app-url.com/og-image.png', // TODO: OG 이미지 URL로 변경해주세요.
+        width: 1200,
+        height: 630,
+        alt: 'AliExpress HTML Generator OG Image',
+      },
+    ],
+    locale: 'ko_KR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AliExpress 포스팅 HTML 생성기',
+    description: '클릭 몇 번으로 알리익스프레스 상품의 HTML 포스팅을 생성하고 SEO를 강화하세요.',
+    images: ['https://your-app-url.com/twitter-image.png'], // TODO: Twitter 이미지 URL로 변경해주세요.
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 };
 
 export default function RootLayout({
