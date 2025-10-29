@@ -11,14 +11,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'target_url is required' }, { status: 400 });
     }
 
-    // Initialize Google Auth client
-    // By default, it will use the application's service account credentials
-    // when running on Google Cloud infrastructure like App Hosting.
     const auth = new GoogleAuth();
     const client = await auth.getIdTokenClient(CLOUD_RUN_URL);
 
     console.log(`[PROXY] Calling Cloud Run service at: ${CLOUD_RUN_URL}`);
-    // Make an authenticated request to the Cloud Run service.
     const response = await client.request({
         url: CLOUD_RUN_URL,
         method: 'POST',
@@ -27,35 +23,38 @@ export async function POST(request: Request) {
     
     console.log('[PROXY] Received response from Cloud Run. Status:', response.status);
     
-    // The actual data from the response is in the `data` property.
-    // It is crucial to check if `response.data` exists and has the expected structure.
-    if (response && response.data) {
-        // response.data could be a string or an object. If it's a string, we might need to parse it.
-        // Let's log its type to be sure.
-        console.log('[PROXY] Type of response.data:', typeof response.data);
-        console.log('[PROXY] Response data:', JSON.stringify(response.data, null, 2));
+    if (response && response.data && typeof response.data === 'object') {
+        const responseData = response.data as { product_main_image_url?: string };
+        console.log('[PROXY] Response data:', JSON.stringify(responseData, null, 2));
         
-        // Let's assume response.data is the object we want, like { imageUrl: '...' }
-        return NextResponse.json(response.data);
+        const productImageUrl = responseData.product_main_image_url;
+
+        if (productImageUrl) {
+            // Map product_main_image_url to imageUrl for the frontend
+            return NextResponse.json({ imageUrl: productImageUrl });
+        } else {
+            console.error('[PROXY] Error: "product_main_image_url" not found in the response from Cloud Run.');
+            return NextResponse.json(
+                { error: 'Image URL key not found in the response.' }, 
+                { status: 502 }
+            );
+        }
     } else {
-        console.error('[PROXY] Error: Response from Cloud Run is missing the "data" property or is invalid.');
+        console.error('[PROXY] Error: Response from Cloud Run is missing the "data" property or is not a valid object.');
         console.error('[PROXY] Full response object:', JSON.stringify(response, null, 2));
         return NextResponse.json(
             { error: 'Invalid response from image generation service.' }, 
-            { status: 502 } // Bad Gateway, indicates an issue with the upstream service response
+            { status: 502 }
         );
     }
 
   } catch (error: any) {
-    // Log the full error to the server console for debugging.
     console.error('[PROXY] An unexpected error occurred:', error);
     
-    // Check for specific Google Auth related errors
     if (error.response) {
       console.error('[PROXY] Error response from upstream:', JSON.stringify(error.response.data, null, 2));
     }
     
-    // Return a generic error message to the client.
     const status = error.response?.status || 500;
     const message = error.response?.data?.error || 'An internal server error occurred in the proxy.';
     
