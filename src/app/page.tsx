@@ -108,6 +108,7 @@ export default function Home() {
     try {
         const productUrls = data.products.map(p => p.productUrl);
         console.log("[FRONTEND] Sending URLs to API:", productUrls);
+
         const response = await fetch("/api/generate-image-url", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -117,6 +118,7 @@ export default function Home() {
         console.log('[FRONTEND] Raw response from API:', response);
         const result = await response.json();
         console.log('[FRONTEND] Parsed JSON from API:', result);
+        console.log("[FRONTEND] Received from API:", result.productInfos);
 
 
         if (!response.ok) {
@@ -124,7 +126,6 @@ export default function Home() {
         }
 
         const productInfos = result.productInfos as (ProductInfo | null)[];
-        console.log("[FRONTEND] Received from API:", productInfos);
 
         if (!productInfos || !Array.isArray(productInfos)) {
             throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
@@ -149,7 +150,7 @@ export default function Home() {
 
             let finalUrl = product.productLandingUrl || product.productUrl;
 
-            if (product.productLandingUrl) {
+            if (product.productLandingUrl && product.productLandingUrl.trim() !== '') {
                finalUrl = product.productLandingUrl;
             } else {
                 const params = 'disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
@@ -379,5 +380,6 @@ export default function Home() {
       </div>
     </main>
   );
+}
 
     
