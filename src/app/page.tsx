@@ -181,7 +181,12 @@ export default function Home() {
             const coinPrice = parsePrice(product.coinPrice);
             const cardPrice = parsePrice(product.cardPrice);
 
-            const finalPriceAmount = mainPrice.amount - discountCodePrice.amount - storeCouponPrice.amount - coinPrice.amount - cardPrice.amount;
+            let finalPriceAmount = mainPrice.amount;
+            if (mainPrice.currency === discountCodePrice.currency) finalPriceAmount -= discountCodePrice.amount;
+            if (mainPrice.currency === storeCouponPrice.currency) finalPriceAmount -= storeCouponPrice.amount;
+            if (mainPrice.currency === coinPrice.currency) finalPriceAmount -= coinPrice.amount;
+            if (mainPrice.currency === cardPrice.currency) finalPriceAmount -= cardPrice.amount;
+
             const finalPrice = { amount: finalPriceAmount > 0 ? finalPriceAmount : 0, currency: mainPrice.currency };
 
             let discountDetails = "";
@@ -208,11 +213,11 @@ export default function Home() {
         <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; text-align: center; margin-bottom: 12px;">
             <img src="${productInfo.product_main_image_url}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: block;">
         </a>
-        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #374151;">
+        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; outline: none; text-decoration-line: none !important;">
             <p style="text-align: left; font-size: 16px; font-weight: 500; margin: 0 0 20px 0;">🔥 ${productInfo.product_title}</p>
         </a>
         <div style="text-align: left;">
-            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; font-weight: 600; color: #1f2937;">상품 할인 정보 안내</h3>
+            <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">상품 할인 정보 안내</h3>
             <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
                 <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
                 ${discountDetails}
@@ -396,5 +401,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
