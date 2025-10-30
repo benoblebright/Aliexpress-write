@@ -236,10 +236,14 @@ export default function Home() {
             let reviewHtml = '';
             if (reviewInfo && reviewInfo.korean_summary) {
                 const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
-                const saleVolumeText = productInfo.sale_volume ? `총판매 ${productInfo.sale_volume}, ` : '';
+                const saleVolume = productInfo.sale_volume ? Number(productInfo.sale_volume) : 0;
+                const saleVolumeText = saleVolume > 0 ? `총판매 ${saleVolume.toLocaleString('ko-KR')}개, ` : '';
+                const totalNum = reviewInfo.total_num ? reviewInfo.total_num.toLocaleString('ko-KR') : '0';
+                const koreanLocalCount = reviewInfo.korean_local_count ? reviewInfo.korean_local_count.toLocaleString('ko-KR') : '0';
+
                 reviewHtml = `
 <div style="text-align: left; margin-top: 20px;">
-    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약 ( ${saleVolumeText}총리뷰 ${reviewInfo.total_num}개, 국내리뷰 ${reviewInfo.korean_local_count}개)</h3>
+    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약 ( ${saleVolumeText}총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개)</h3>
     <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
         ${reviews.map(review => `<p style="margin: 0 0 10px 0;">- ${review}</p>`).join('')}
     </div>
@@ -443,3 +447,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
