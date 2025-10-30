@@ -241,14 +241,25 @@ export default function Home() {
                 const totalNum = reviewInfo.total_num ? reviewInfo.total_num.toLocaleString('ko-KR') : '0';
                 const koreanLocalCount = reviewInfo.korean_local_count ? reviewInfo.korean_local_count.toLocaleString('ko-KR') : '0';
 
+                const reviewTitle = `리뷰 요약 (${saleVolumeText}총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개)`;
+
                 reviewHtml = `
 <div style="text-align: left; margin-top: 20px;">
-    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약 ( ${saleVolumeText}총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개)</h3>
+    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">${reviewTitle}</h3>
     <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
         ${reviews.map(review => `<p style="margin: 0 0 10px 0;">- ${review}</p>`).join('')}
     </div>
 </div>`;
+            } else if (reviewInfo) {
+                 reviewHtml = `
+<div style="text-align: left; margin-top: 20px;">
+    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약</h3>
+    <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0;">국내 리뷰가 없습니다.</p>
+    </div>
+</div>`;
             }
+
 
             const htmlTemplate = `
 <div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 550px; margin: 20px auto; background: #fafafa;">
@@ -447,5 +458,7 @@ export default function Home() {
     </main>
   );
 }
+
+    
 
     
