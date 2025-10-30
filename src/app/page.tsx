@@ -57,15 +57,22 @@ interface ProductInfo {
     original_url: string;
 }
 
+interface ReviewInfo {
+    korean_summary: string;
+    korean_local_count: number;
+    total_num: number;
+    source_url: string;
+}
+
+
 const parsePrice = (priceStr: string | undefined | null): { amount: number; currency: 'KRW' | 'USD' } => {
     if (!priceStr) return { amount: 0, currency: 'USD' };
     const cleanStr = String(priceStr).trim();
     if (cleanStr.includes('원')) {
         return { amount: parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0, currency: 'KRW' };
     }
-    // Check for $ prefix, but also handle cases with just numbers.
     const amount = parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0;
-    return { amount, currency: 'USD' };
+    return { amount, currency: amount > 0 ? 'USD' : 'KRW' };
 };
 
 
@@ -120,33 +127,43 @@ export default function Home() {
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     setGeneratedHtml("");
-    console.log("[FRONTEND] Form submitted with data:", data);
 
     try {
         const productUrls = data.products.map(p => p.productUrl);
-        console.log("[FRONTEND] Sending URLs to API:", productUrls);
 
-        const response = await fetch("/api/generate-image-url", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ target_urls: productUrls }),
-        });
-        
-        console.log('[FRONTEND] Raw response from API:', response);
-        const result = await response.json();
-        
-        console.log('[FRONTEND] Parsed JSON from API:', result);
-        console.log('[FRONTEND] Received from API:', result.productInfos);
+        const [productInfoResponse, reviewResponse] = await Promise.all([
+            fetch("/api/generate-image-url", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ target_urls: productUrls }),
+            }),
+            fetch("/api/generate-reviews", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ target_urls: productUrls }),
+            })
+        ]);
 
-
-        if (!response.ok) {
-            throw new Error(result.error || `HTTP ${response.status} - 서버 오류가 발생했습니다.`);
+        if (!productInfoResponse.ok) {
+            const errorResult = await productInfoResponse.json();
+            throw new Error(errorResult.error || `상품 정보 API 오류: ${productInfoResponse.status}`);
+        }
+         if (!reviewResponse.ok) {
+            const errorResult = await reviewResponse.json();
+            throw new Error(errorResult.error || `리뷰 정보 API 오류: ${reviewResponse.status}`);
         }
 
-        const productInfos = result.productInfos as (ProductInfo | null)[];
-        
+        const productInfoResult = await productInfoResponse.json();
+        const reviewResult = await reviewResponse.json();
+
+        const productInfos = productInfoResult.productInfos as (ProductInfo | null)[];
+        const reviewInfos = reviewResult.reviewInfos as (ReviewInfo | null)[];
+
         if (!productInfos || !Array.isArray(productInfos)) {
             throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
+        }
+        if (!reviewInfos || !Array.isArray(reviewInfos)) {
+            throw new Error("리뷰 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
         }
         
         let allHtml = "";
@@ -154,7 +171,8 @@ export default function Home() {
         
         data.products.forEach((product, index) => {
             const productInfo = productInfos.find(info => info && info.original_url === product.productUrl);
-            
+            const reviewInfo = reviewInfos.find(info => info && info.source_url === product.productUrl);
+
             if (!productInfo || !productInfo.product_main_image_url || !productInfo.product_title) {
                 console.error(`[FRONTEND] 상품 정보가 누락되었습니다. URL: ${product.productUrl}, 받은 정보:`, productInfo);
                  toast({
@@ -180,36 +198,51 @@ export default function Home() {
             }
             
             const mainPrice = parsePrice(product.productPrice);
-            const discountCodePrice = parsePrice(product.discountCodePrice);
-            const storeCouponPrice = parsePrice(product.storeCouponPrice);
-            const coinPrice = parsePrice(product.coinPrice);
-            const cardPrice = parsePrice(product.cardPrice);
+            
+            const allDiscountPrices = [
+                product.discountCodePrice,
+                product.storeCouponPrice,
+                product.coinPrice,
+                product.cardPrice
+            ].map(price => parsePrice(price));
 
             let finalPriceAmount = mainPrice.amount;
-            if (discountCodePrice.amount > 0) finalPriceAmount -= discountCodePrice.amount;
-            if (storeCouponPrice.amount > 0) finalPriceAmount -= storeCouponPrice.amount;
-            if (coinPrice.amount > 0) finalPriceAmount -= coinPrice.amount;
-            if (cardPrice.amount > 0) finalPriceAmount -= cardPrice.amount;
 
-            // Ensure the currency of the final price matches the main price
+            allDiscountPrices.forEach(discountPrice => {
+                // Important: Assume discounts are in the same currency or handle conversion
+                finalPriceAmount -= discountPrice.amount;
+            });
+            
             const finalPrice = { amount: finalPriceAmount > 0 ? finalPriceAmount : 0, currency: mainPrice.currency };
 
             let discountDetails = "";
-            if (discountCodePrice.amount > 0) {
+             if (product.discountCodePrice && parsePrice(product.discountCodePrice).amount > 0) {
               discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>할인코드 (${
                   product.discountCode || ""
-              }):</strong> -${formatPrice({...discountCodePrice, currency: mainPrice.currency})}</p>`;
+              }):</strong> -${formatPrice(parsePrice(product.discountCodePrice))}</p>`;
             }
-            if (storeCouponPrice.amount > 0) {
+            if (product.storeCouponPrice && parsePrice(product.storeCouponPrice).amount > 0) {
               discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>스토어쿠폰 (${
                   product.storeCouponCode || ""
-              }):</strong> -${formatPrice({...storeCouponPrice, currency: mainPrice.currency})}</p>`;
+              }):</strong> -${formatPrice(parsePrice(product.storeCouponPrice))}</p>`;
             }
-            if (coinPrice.amount > 0) {
-              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인 (${product.coinDiscountRate || ''}):</strong> -${formatPrice({...coinPrice, currency: mainPrice.currency})}</p>`;
+            if (product.coinPrice && parsePrice(product.coinPrice).amount > 0) {
+              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인 (${product.coinDiscountRate || ''}):</strong> -${formatPrice(parsePrice(product.coinPrice))}</p>`;
             }
-            if (cardPrice.amount > 0) {
-              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인 (${product.cardCompanyName || ''}):</strong> -${formatPrice({...cardPrice, currency: mainPrice.currency})}</p>`;
+            if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
+              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인 (${product.cardCompanyName || ''}):</strong> -${formatPrice(parsePrice(product.cardPrice))}</p>`;
+            }
+
+            let reviewHtml = '';
+            if (reviewInfo && reviewInfo.korean_summary) {
+                const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
+                reviewHtml = `
+<div style="text-align: left; margin-top: 20px;">
+    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">한국인 리뷰 요약 (총 ${reviewInfo.total_num}개, 한국인 ${reviewInfo.korean_local_count}개)</h3>
+    <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+        ${reviews.map(review => `<p style="margin: 0 0 10px 0;">- ${review}</p>`).join('')}
+    </div>
+</div>`;
             }
 
             const htmlTemplate = `
@@ -229,7 +262,10 @@ export default function Home() {
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
                 <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최대 할인가:</strong> ${formatPrice(finalPrice)}</p>
             </div>
-            <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; margin-top: 20px; transition: background-color 0.2s ease;">
+        </div>
+        ${reviewHtml}
+        <div style="text-align: left; margin-top: 20px;">
+            <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; transition: background-color 0.2s ease;">
                 상품 페이지로 이동하여 확인하기
             </a>
         </div>
