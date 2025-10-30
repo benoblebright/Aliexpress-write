@@ -72,7 +72,7 @@ const parsePrice = (priceStr: string | undefined | null): { amount: number; curr
         return { amount: parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0, currency: 'KRW' };
     }
     const amount = parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0;
-    return { amount, currency: amount > 0 ? 'USD' : 'KRW' };
+    return { amount, currency: 'USD' };
 };
 
 
@@ -209,7 +209,6 @@ export default function Home() {
             let finalPriceAmount = mainPrice.amount;
 
             allDiscountPrices.forEach(discountPrice => {
-                // Important: Assume discounts are in the same currency or handle conversion
                 finalPriceAmount -= discountPrice.amount;
             });
             
@@ -238,7 +237,7 @@ export default function Home() {
                 const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
                 reviewHtml = `
 <div style="text-align: left; margin-top: 20px;">
-    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">한국인 리뷰 요약 (총 ${reviewInfo.total_num}개, 한국인 ${reviewInfo.korean_local_count}개)</h3>
+    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약 ( 총리뷰 ${reviewInfo.total_num}개, 국내리뷰 ${reviewInfo.korean_local_count}개)</h3>
     <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
         ${reviews.map(review => `<p style="margin: 0 0 10px 0;">- ${review}</p>`).join('')}
     </div>
@@ -255,7 +254,7 @@ export default function Home() {
             <p style="text-align: left; font-size: 16px; font-weight: 500; margin: 0 0 20px 0;">🔥 ${productInfo.product_title}</p>
         </a>
         <div style="text-align: left;">
-            <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">상품 할인 정보 안내</h3>
+            <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 15px; font-weight: 600; color: #1f2937;">상품 할인 정보 안내</h3>
             <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
                 <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
                 ${discountDetails}
