@@ -34,7 +34,8 @@ export async function POST(request: Request) {
                 return {
                     product_main_image_url: result.product_main_image_url,
                     product_title: result.product_title,
-                    original_url: result.original_url
+                    original_url: result.original_url,
+                    sale_volume: result.sale_volume,
                 };
             }
             return null;

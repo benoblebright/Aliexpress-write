@@ -55,6 +55,7 @@ interface ProductInfo {
     product_main_image_url: string;
     product_title: string;
     original_url: string;
+    sale_volume: string;
 }
 
 interface ReviewInfo {
@@ -235,9 +236,10 @@ export default function Home() {
             let reviewHtml = '';
             if (reviewInfo && reviewInfo.korean_summary) {
                 const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
+                const saleVolumeText = productInfo.sale_volume ? `총판매 ${productInfo.sale_volume}, ` : '';
                 reviewHtml = `
 <div style="text-align: left; margin-top: 20px;">
-    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약 ( 총리뷰 ${reviewInfo.total_num}개, 국내리뷰 ${reviewInfo.korean_local_count}개)</h3>
+    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약 ( ${saleVolumeText}총리뷰 ${reviewInfo.total_num}개, 국내리뷰 ${reviewInfo.korean_local_count}개)</h3>
     <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
         ${reviews.map(review => `<p style="margin: 0 0 10px 0;">- ${review}</p>`).join('')}
     </div>
