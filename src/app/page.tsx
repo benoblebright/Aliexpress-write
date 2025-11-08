@@ -273,7 +273,7 @@ export default function Home() {
         <div style="text-align: left;">
             <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 15px; font-weight: 600; color: #1f2937;">상품 할인 정보 안내</h3>
             <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-                <p style="margin: 4px 0;"><strong>정상가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
+                <p style="margin: 4px 0;"><strong>할인판매가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
                 ${discountDetails}
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
                 <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최대 할인가:</strong> ${formatPrice(finalPrice)}</p>
@@ -458,7 +458,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
-
-    
