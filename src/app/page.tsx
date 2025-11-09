@@ -244,8 +244,8 @@ export default function Home() {
                 const reviewTitle = `리뷰 요약 (${saleVolumeText}총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개)`;
 
                 const reviewContent = reviews.map((review) => {
-                    if (review.length > 20) {
-                        const shortText = review.substring(0, 20);
+                    if (review.length > 50) {
+                        const shortText = review.substring(0, 50);
                         return `
                             <p style="margin: 0 0 10px 0;">
                                 - ${shortText}... <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>
@@ -471,4 +471,5 @@ export default function Home() {
   );
 }
 
+    
     
