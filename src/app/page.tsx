@@ -243,15 +243,12 @@ export default function Home() {
 
                 const reviewTitle = `리뷰 요약 (${saleVolumeText}총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개)`;
 
-                const reviewContent = reviews.map((review, idx) => {
-                    const uniqueId = `review-${index}-${idx}`;
+                const reviewContent = reviews.map((review) => {
                     if (review.length > 20) {
                         const shortText = review.substring(0, 20);
-                        const longText = review;
                         return `
                             <p style="margin: 0 0 10px 0;">
-                                - <span id="${uniqueId}-short">${shortText}... <a href="#" onclick="showMore('${uniqueId}'); return false;" style="color: #2761c4; text-decoration: none;">더보기</a></span>
-                                <span id="${uniqueId}-full" style="display: none;">${longText}</span>
+                                - ${shortText}... <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>
                             </p>`;
                     }
                     return `<p style="margin: 0 0 10px 0;">- ${review}</p>`;
@@ -305,21 +302,6 @@ export default function Home() {
             allHtml += htmlTemplate;
         });
 
-        // Add script for 'showMore' functionality at the end of all product HTMLs
-        if (data.products.length > 0) {
-            allHtml += `
-<script type="text/javascript">
-    function showMore(id) {
-        var shortSpan = document.getElementById(id + '-short');
-        var fullSpan = document.getElementById(id + '-full');
-        if (shortSpan && fullSpan) {
-            shortSpan.style.display = 'none';
-            fullSpan.style.display = 'inline';
-        }
-    }
-</script>`;
-        }
-        
       if (!hasErrors) {
         toast({
             title: "성공!",
