@@ -189,10 +189,14 @@ export default function Home() {
                 return; // Skip this product
             }
 
-            let finalUrl = product.productLandingUrl || product.productUrl;
+            let finalUrl = product.productUrl;
 
             if (product.productLandingUrl && product.productLandingUrl.trim() !== '') {
-               finalUrl = product.productLandingUrl;
+               if (product.productLandingUrl.startsWith('https://s.click.aliexpress.com')) {
+                    finalUrl = product.productLandingUrl.replace('https://', 'http:');
+                } else {
+                    finalUrl = product.productLandingUrl;
+                }
             } else {
                 const params = 'disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
                 if (finalUrl.includes('?')) {
@@ -464,4 +468,5 @@ ${reviewHtml}
       </div>
     </main>
   );
-}
+
+    
