@@ -282,8 +282,8 @@ export default function Home() {
     </a>
 </p>
 <p>&nbsp;</p>
-<p style="font-size: 16px; font-weight: 500;">
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #111; text-decoration: none;">
+<p>
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; font-size: 18px; font-weight: 700; text-decoration: none;">
         ${productInfo.product_title}
     </a>
 </p>
@@ -463,6 +463,8 @@ ${reviewHtml}
       </div>
     </main>
   );
+
+    
 
     
 
