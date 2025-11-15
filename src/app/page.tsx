@@ -176,7 +176,6 @@ export default function Home() {
             }
             
             const productInfo = productInfos.find(info => info && info.original_url === product.productUrl);
-            const reviewInfo = reviewInfos.find(info => info && info.source_url === product.productUrl);
 
             if (!productInfo || !productInfo.product_main_image_url || !productInfo.product_title) {
                 console.error(`[FRONTEND] 상품 정보가 누락되었습니다. URL: ${product.productUrl}, 받은 정보:`, productInfo);
@@ -189,6 +188,8 @@ export default function Home() {
                 return; // Skip this product
             }
 
+            const reviewInfo = reviewInfos.find(info => info && info.source_url === product.productUrl);
+            
             let finalUrl = product.productUrl;
 
             if (product.productLandingUrl && product.productLandingUrl.trim() !== '') {
@@ -225,26 +226,27 @@ export default function Home() {
 
             let discountDetails = "";
             if (product.discountCodePrice && parsePrice(product.discountCodePrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인코드:</strong> -${formatPrice(parsePrice(product.discountCodePrice))} ${product.discountCode ? `( ${product.discountCode} )` : ""}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인코드:</strong> -${formatPrice(parsePrice(product.discountCodePrice))}${product.discountCode ? ` ( ${product.discountCode} )` : ""}</p>`;
             }
             if (product.storeCouponPrice && parsePrice(product.storeCouponPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰:</strong> -${formatPrice(parsePrice(product.storeCouponPrice))} ${product.storeCouponCode ? `( ${product.storeCouponCode} )` : ""}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰:</strong> -${formatPrice(parsePrice(product.storeCouponPrice))}${product.storeCouponCode ? ` ( ${product.storeCouponCode} )` : ""}</p>`;
             }
             if (product.coinPrice && parsePrice(product.coinPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인:</strong> -${formatPrice(parsePrice(product.coinPrice))} ${product.coinDiscountRate ? `( ${product.coinDiscountRate} )` : ""}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인:</strong> -${formatPrice(parsePrice(product.coinPrice))}${product.coinDiscountRate ? ` ( ${product.coinDiscountRate} )` : ""}</p>`;
             }
             if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인:</strong> -${formatPrice(parsePrice(product.cardPrice))} ${product.cardCompanyName ? `( ${product.cardCompanyName} )` : ""}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인:</strong> -${formatPrice(parsePrice(product.cardPrice))}${product.cardCompanyName ? ` ( ${product.cardCompanyName} )` : ""}</p>`;
             }
 
 
             let reviewHtml = '';
             if (reviewInfo && reviewInfo.korean_summary) {
                 const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
-                const saleVolume = productInfo.sale_volume ? Number(productInfo.sale_volume) : 0;
+                const saleVolume = productInfo.sale_volume ? Number(productInfo.sale_volume).toLocaleString('ko-KR') : '0';
+                
                 let saleVolumeText = '';
-                if (saleVolume > 0) {
-                    saleVolumeText = `총판매 ${saleVolume.toLocaleString('ko-KR')}개, `;
+                if (Number(productInfo.sale_volume) > 0) {
+                    saleVolumeText = `총판매 ${saleVolume}개, `;
                 }
 
                 const totalNum = reviewInfo.total_num ? reviewInfo.total_num.toLocaleString('ko-KR') : '0';
@@ -468,15 +470,6 @@ ${reviewHtml}
       </div>
     </main>
   );
-
-    
-
-    
-
-    
-
-    
-
-    
+}
 
     
