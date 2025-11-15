@@ -284,7 +284,7 @@ export default function Home() {
 <p>&nbsp;</p>
 <p style="font-size: 16px; font-weight: 500;">
     <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #111; text-decoration: none;">
-        🔥 ${productInfo.product_title}
+        ${productInfo.product_title}
     </a>
 </p>
 <p>&nbsp;</p>
@@ -292,12 +292,7 @@ export default function Home() {
 ${discountDetails}
 <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최대 할인가:</strong> ${formatPrice(finalPrice)}</p>
 ${reviewHtml}
-<p>&nbsp;</p>
-<p style="text-align: center;">
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #FF4F00; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px;">
-        상품 페이지로 이동하여 확인하기
-    </a>
-</p>`;
+<p>&nbsp;</p>`;
             allHtml += htmlTemplate;
         });
 
@@ -468,5 +463,7 @@ ${reviewHtml}
       </div>
     </main>
   );
+
+    
 
     
