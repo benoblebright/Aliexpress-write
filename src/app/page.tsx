@@ -224,24 +224,29 @@ export default function Home() {
             const finalPrice = { amount: finalPriceAmount > 0 ? finalPriceAmount : 0, currency: mainPrice.currency };
 
             let discountDetails = "";
-             if (product.discountCodePrice && parsePrice(product.discountCodePrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인코드(${product.discountCode || ""}):</strong> -${formatPrice(parsePrice(product.discountCodePrice))}</p>`;
+            if (product.discountCodePrice && parsePrice(product.discountCodePrice).amount > 0) {
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인코드:</strong> -${formatPrice(parsePrice(product.discountCodePrice))} ${product.discountCode ? `(${product.discountCode})` : ""}</p>`;
             }
             if (product.storeCouponPrice && parsePrice(product.storeCouponPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰(${product.storeCouponCode || ""}):</strong> -${formatPrice(parsePrice(product.storeCouponPrice))}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰:</strong> -${formatPrice(parsePrice(product.storeCouponPrice))} ${product.storeCouponCode ? `(${product.storeCouponCode})` : ""}</p>`;
             }
             if (product.coinPrice && parsePrice(product.coinPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인(${product.coinDiscountRate || ''}):</strong> -${formatPrice(parsePrice(product.coinPrice))}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인:</strong> -${formatPrice(parsePrice(product.coinPrice))} ${product.coinDiscountRate ? `(${product.coinDiscountRate})` : ""}</p>`;
             }
             if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인(${product.cardCompanyName || ''}):</strong> -${formatPrice(parsePrice(product.cardPrice))}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인:</strong> -${formatPrice(parsePrice(product.cardPrice))} ${product.cardCompanyName ? `(${product.cardCompanyName})` : ""}</p>`;
             }
+
 
             let reviewHtml = '';
             if (reviewInfo && reviewInfo.korean_summary) {
                 const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
                 const saleVolume = productInfo.sale_volume ? Number(productInfo.sale_volume) : 0;
-                const saleVolumeText = saleVolume > 0 ? `총판매 ${saleVolume.toLocaleString('ko-KR')}개, ` : '';
+                let saleVolumeText = '';
+                if (saleVolume > 0) {
+                    saleVolumeText = `총판매 ${saleVolume.toLocaleString('ko-KR')}개, `;
+                }
+
                 const totalNum = reviewInfo.total_num ? reviewInfo.total_num.toLocaleString('ko-KR') : '0';
                 const koreanLocalCount = reviewInfo.korean_local_count ? reviewInfo.korean_local_count.toLocaleString('ko-KR') : '0';
 
@@ -286,7 +291,7 @@ export default function Home() {
     <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; font-size: 18px; font-weight: 700; text-decoration: none;">
         ${productInfo.product_title}
     </a>
-</p>
+p>
 <p>&nbsp;</p>
 <p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인판매가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
 ${discountDetails}
@@ -463,6 +468,8 @@ ${reviewHtml}
       </div>
     </main>
   );
+
+    
 
     
 
