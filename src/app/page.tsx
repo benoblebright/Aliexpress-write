@@ -171,6 +171,10 @@ export default function Home() {
         let hasErrors = false;
         
         data.products.forEach((product, index) => {
+            if (index > 0) {
+              allHtml += `<br><hr style="height: 1px; background-color: #999999; border: none;"><br>`;
+            }
+            
             const productInfo = productInfos.find(info => info && info.original_url === product.productUrl);
             const reviewInfo = reviewInfos.find(info => info && info.source_url === product.productUrl);
 
@@ -217,20 +221,16 @@ export default function Home() {
 
             let discountDetails = "";
              if (product.discountCodePrice && parsePrice(product.discountCodePrice).amount > 0) {
-              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>할인코드 (${
-                  product.discountCode || ""
-              }):</strong> -${formatPrice(parsePrice(product.discountCodePrice))}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인코드(${product.discountCode || ""}):</strong> -${formatPrice(parsePrice(product.discountCodePrice))}</p>`;
             }
             if (product.storeCouponPrice && parsePrice(product.storeCouponPrice).amount > 0) {
-              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>스토어쿠폰 (${
-                  product.storeCouponCode || ""
-              }):</strong> -${formatPrice(parsePrice(product.storeCouponPrice))}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰(${product.storeCouponCode || ""}):</strong> -${formatPrice(parsePrice(product.storeCouponPrice))}</p>`;
             }
             if (product.coinPrice && parsePrice(product.coinPrice).amount > 0) {
-              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>코인할인 (${product.coinDiscountRate || ''}):</strong> -${formatPrice(parsePrice(product.coinPrice))}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인(${product.coinDiscountRate || ''}):</strong> -${formatPrice(parsePrice(product.coinPrice))}</p>`;
             }
             if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
-              discountDetails += `<p style="margin: 4px 0; font-size: 15px; color: #555;"><strong>카드할인 (${product.cardCompanyName || ''}):</strong> -${formatPrice(parsePrice(product.cardPrice))}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인(${product.cardCompanyName || ''}):</strong> -${formatPrice(parsePrice(product.cardPrice))}</p>`;
             }
 
             let reviewHtml = '';
@@ -247,58 +247,53 @@ export default function Home() {
                     if (review.length > 50) {
                         const shortText = review.substring(0, 50);
                         return `
-                            <p style="margin: 0 0 10px 0;">
+                            <p style="margin: 0 0 10px 0; font-size: 14px;">
                                 - ${shortText}... <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>
                             </p>`;
                     }
-                    return `<p style="margin: 0 0 10px 0;">- ${review}</p>`;
+                    return `<p style="margin: 0 0 10px 0; font-size: 14px;">- ${review}</p>`;
                 }).join('');
 
 
                 reviewHtml = `
-<div style="text-align: left; margin-top: 20px;">
-    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">${reviewTitle}</h3>
-    <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-        ${reviewContent}
-    </div>
+<p>&nbsp;</p>
+<h3 style="margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">${reviewTitle}</h3>
+<div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+    ${reviewContent}
 </div>`;
             } else if (reviewInfo) {
                  reviewHtml = `
-<div style="text-align: left; margin-top: 20px;">
-    <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약</h3>
-    <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-        <p style="margin: 0;">국내 리뷰가 없습니다.</p>
-    </div>
+<p>&nbsp;</p>
+<h3 style="margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약</h3>
+<div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
+    <p style="margin: 0;">국내 리뷰가 없습니다.</p>
 </div>`;
             }
 
 
             const htmlTemplate = `
-<div style="font-family: 'Inter', sans-serif; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; max-width: 550px; margin: 20px auto; background: #fafafa;">
-    <div style="max-width: 500px; margin: 0 auto;">
-        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block; text-align: center; margin-bottom: 12px;">
-            <img src="${productInfo.product_main_image_url}" alt="Product Image" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px; border: 1px solid #f0f0f0; display: block;">
-        </a>
-        <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; outline: none; text-decoration-line: none !important;">
-            <p style="text-align: left; font-size: 16px; font-weight: 500; margin: 0 0 20px 0;">🔥 ${productInfo.product_title}</p>
-        </a>
-        <div style="text-align: left;">
-            <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 15px; font-weight: 600; color: #1f2937;">상품 할인 정보 안내</h3>
-            <div style="font-size: 15px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-                <p style="margin: 4px 0;"><strong>할인판매가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
-                ${discountDetails}
-                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 12px 0;">
-                <p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최대 할인가:</strong> ${formatPrice(finalPrice)}</p>
-            </div>
-        </div>
-        ${reviewHtml}
-        <div style="text-align: left; margin-top: 20px;">
-            <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background-color: #374151; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; text-align: center; transition: background-color 0.2s ease;">
-                상품 페이지로 이동하여 확인하기
-            </a>
-        </div>
-    </div>
-</div>`;
+<p style="text-align: center;">
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer">
+        <img src="${productInfo.product_main_image_url}" alt="${productInfo.product_title}" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px;">
+    </a>
+</p>
+<p>&nbsp;</p>
+<p style="font-size: 16px; font-weight: 500;">
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #111; text-decoration: none;">
+        🔥 ${productInfo.product_title}
+    </a>
+</p>
+<p>&nbsp;</p>
+<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인판매가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
+${discountDetails}
+<p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최대 할인가:</strong> ${formatPrice(finalPrice)}</p>
+${reviewHtml}
+<p>&nbsp;</p>
+<p style="text-align: center;">
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #FF4F00; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px;">
+        상품 페이지로 이동하여 확인하기
+    </a>
+</p>`;
             allHtml += htmlTemplate;
         });
 
@@ -470,6 +465,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
-    
