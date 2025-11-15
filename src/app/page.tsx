@@ -225,16 +225,16 @@ export default function Home() {
 
             let discountDetails = "";
             if (product.discountCodePrice && parsePrice(product.discountCodePrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인코드:</strong> -${formatPrice(parsePrice(product.discountCodePrice))} ${product.discountCode ? `(${product.discountCode})` : ""}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인코드:</strong> -${formatPrice(parsePrice(product.discountCodePrice))} ${product.discountCode ? `( ${product.discountCode} )` : ""}</p>`;
             }
             if (product.storeCouponPrice && parsePrice(product.storeCouponPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰:</strong> -${formatPrice(parsePrice(product.storeCouponPrice))} ${product.storeCouponCode ? `(${product.storeCouponCode})` : ""}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰:</strong> -${formatPrice(parsePrice(product.storeCouponPrice))} ${product.storeCouponCode ? `( ${product.storeCouponCode} )` : ""}</p>`;
             }
             if (product.coinPrice && parsePrice(product.coinPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인:</strong> -${formatPrice(parsePrice(product.coinPrice))} ${product.coinDiscountRate ? `(${product.coinDiscountRate})` : ""}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인:</strong> -${formatPrice(parsePrice(product.coinPrice))} ${product.coinDiscountRate ? `( ${product.coinDiscountRate} )` : ""}</p>`;
             }
             if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인:</strong> -${formatPrice(parsePrice(product.cardPrice))} ${product.cardCompanyName ? `(${product.cardCompanyName})` : ""}</p>`;
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인:</strong> -${formatPrice(parsePrice(product.cardPrice))} ${product.cardCompanyName ? `( ${product.cardCompanyName} )` : ""}</p>`;
             }
 
 
@@ -468,6 +468,8 @@ ${reviewHtml}
       </div>
     </main>
   );
+
+    
 
     
 
