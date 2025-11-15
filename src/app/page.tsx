@@ -291,7 +291,7 @@ export default function Home() {
     <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; font-size: 18px; font-weight: 700; text-decoration: none;">
         ${productInfo.product_title}
     </a>
-p>
+</p>
 <p>&nbsp;</p>
 <p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인판매가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
 ${discountDetails}
@@ -468,6 +468,8 @@ ${reviewHtml}
       </div>
     </main>
   );
+
+    
 
     
 
