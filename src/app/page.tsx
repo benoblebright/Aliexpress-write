@@ -131,19 +131,22 @@ export default function Home() {
 
     try {
         const productUrls = data.products.map(p => p.productUrl);
+        const imageBody = JSON.stringify({ target_urls: productUrls });
+        const reviewBody = JSON.stringify({ target_urls: productUrls });
 
-        const [productInfoResponse, reviewResponse] = await Promise.all([
-            fetch("/api/generate-image-url", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ target_urls: productUrls }),
-            }),
-            fetch("/api/generate-reviews", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ target_urls: productUrls }),
-            })
-        ]);
+        console.log("호출하는 JSON (이미지/제목):", imageBody);
+        const productInfoResponse = await fetch("/api/generate-image-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: imageBody,
+        });
+        
+        console.log("호출하는 JSON (리뷰):", reviewBody);
+        const reviewResponse = await fetch("/api/generate-reviews", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: reviewBody,
+        });
 
         if (!productInfoResponse.ok) {
             const errorResult = await productInfoResponse.json();
@@ -185,7 +188,7 @@ export default function Home() {
                     description: `다음 URL의 상품 정보를 가져올 수 없습니다: ${product.productUrl}`,
                 });
                 hasErrors = true;
-                return; // Skip this product
+                return;
             }
 
             const reviewInfo = reviewInfos.find(info => info && info.source_url === product.productUrl);
@@ -242,17 +245,20 @@ export default function Home() {
             let reviewHtml = '';
             if (reviewInfo && reviewInfo.korean_summary) {
                 const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
-                const saleVolume = productInfo.sale_volume ? Number(productInfo.sale_volume).toLocaleString('ko-KR') : '0';
                 
-                let saleVolumeText = '';
-                if (Number(productInfo.sale_volume) > 0) {
-                    saleVolumeText = `총판매 ${saleVolume}개, `;
+                let reviewTitleParts = [];
+                if (productInfo.sale_volume && Number(productInfo.sale_volume) > 0) {
+                    saleVolumeText = `총판매 ${Number(productInfo.sale_volume).toLocaleString('ko-KR')}개`;
+                    reviewTitleParts.push(saleVolumeText);
+                }
+                if (reviewInfo.total_num) {
+                    reviewTitleParts.push(`총리뷰 ${reviewInfo.total_num.toLocaleString('ko-KR')}개`);
+                }
+                if (reviewInfo.korean_local_count) {
+                    reviewTitleParts.push(`국내리뷰 ${reviewInfo.korean_local_count.toLocaleString('ko-KR')}개`);
                 }
 
-                const totalNum = reviewInfo.total_num ? reviewInfo.total_num.toLocaleString('ko-KR') : '0';
-                const koreanLocalCount = reviewInfo.korean_local_count ? reviewInfo.korean_local_count.toLocaleString('ko-KR') : '0';
-
-                const reviewTitle = `리뷰 요약 (${saleVolumeText}총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개)`;
+                const reviewTitle = `리뷰 요약 (${reviewTitleParts.join(', ')})`;
 
                 const reviewContent = reviews.map((review) => {
                     if (review.length > 50) {
@@ -343,7 +349,7 @@ ${reviewHtml}
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-extrabold text-primary flex items-center justify-center gap-3">
             <Rocket className="h-10 w-10" />
-            AliExpress 포스팅 HTML 생성기
+            Aliexpress 밴드 글쓰기
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
             상품 정보를 입력하고 블로그 포스팅용 HTML을 바로 생성하세요.
