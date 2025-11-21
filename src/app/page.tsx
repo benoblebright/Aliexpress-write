@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -138,7 +139,9 @@ export default function Home() {
 
         if (!infoResponse.ok) {
             const errorResult = await infoResponse.json();
-            throw new Error(errorResult.error || `상품 정보 API 오류: ${infoResponse.status}`);
+            const errorMessage = errorResult.error || `상품 정보 API 오류: ${infoResponse.status}`;
+            const errorDetails = errorResult.details ? `\n\n[상세 정보]\n${JSON.stringify(errorResult.details, null, 2)}` : '';
+            throw new Error(`${errorMessage}${errorDetails}`);
         }
 
         const infoResult = await infoResponse.json();
@@ -438,7 +441,7 @@ export default function Home() {
                       {bandPostResult.status === 'error' && '오류'}
                     </AlertTitle>
                     <AlertDescription>
-                      {bandPostResult.message}
+                      <pre className="whitespace-pre-wrap font-sans">{bandPostResult.message}</pre>
                     </AlertDescription>
                   </Alert>
                 )}
@@ -450,3 +453,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
