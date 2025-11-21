@@ -60,7 +60,7 @@ interface AllInfo {
     korean_local_count: number;
     total_num: number;
     final_url: string;
-    sale_volume: string;
+    sale_volume: string | number;
     original_url: string;
 }
 
@@ -70,8 +70,8 @@ interface BandPostResult {
     message: string;
 }
 
-const parsePrice = (priceStr: string | undefined | null): { amount: number; currency: 'KRW' | 'USD' } => {
-    if (!priceStr) return { amount: 0, currency: 'USD' };
+const parsePrice = (priceStr: string | undefined | null | number): { amount: number; currency: 'KRW' | 'USD' } => {
+    if (priceStr === null || priceStr === undefined) return { amount: 0, currency: 'USD' };
     const cleanStr = String(priceStr).trim();
     if (cleanStr.includes('원')) {
         return { amount: parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0, currency: 'KRW' };
@@ -126,7 +126,6 @@ export default function Home() {
         const productUrls = data.products.map(p => p.productUrl);
         const affShortKeys = data.products.map(p => p.affShortKey);
 
-        console.log("호출하는 JSON (상품 정보):", JSON.stringify({ target_urls: productUrls, aff_short_key: affShortKeys }));
         // 1. Get all product infos first
         const infoResponse = await fetch("/api/generate-all", {
             method: "POST",
@@ -137,14 +136,14 @@ export default function Home() {
             }),
         });
 
+        const infoResult = await infoResponse.json();
+
         if (!infoResponse.ok) {
-            const errorResult = await infoResponse.json();
-            const errorMessage = errorResult.error || `상품 정보 API 오류: ${infoResponse.status}`;
-            const errorDetails = errorResult.details ? `\n\n[상세 정보]\n${JSON.stringify(errorResult.details, null, 2)}` : '';
+            const errorMessage = infoResult.error || `상품 정보 API 오류: ${infoResponse.status}`;
+            const errorDetails = infoResult.details ? `\n\n[상세 정보]\n${JSON.stringify(infoResult.details, null, 2)}` : '';
             throw new Error(`${errorMessage}${errorDetails}`);
         }
-
-        const infoResult = await infoResponse.json();
+        
         const allInfos = infoResult.allInfos as (AllInfo | null)[];
 
         if (!allInfos || !Array.isArray(allInfos)) {
@@ -159,14 +158,16 @@ export default function Home() {
 
         let successCount = 0;
         const totalCount = data.products.length;
+        const errorMessages: string[] = [];
 
         // 2. Iterate and post to band for each product
         for (const [index, product] of data.products.entries()) {
             const productInfo = allInfos[index];
 
-            if (!productInfo) {
+            if (!productInfo || !productInfo.product_title) {
                 console.error(`[FRONTEND] 밴드 포스팅 건너뛰기 (상품 정보 누락): ${product.productUrl}`);
-                continue; // Skip if info not found for this product
+                errorMessages.push(`상품 ${index + 1} (${product.productUrl}) : 정보를 가져오지 못해 건너뛰었습니다.`);
+                continue; 
             }
 
             // --- Construct content string ---
@@ -220,7 +221,6 @@ export default function Home() {
                 bandPayload.image_url = productInfo.product_main_image_url;
             }
 
-            console.log("호출하는 JSON (밴드 글쓰기):", JSON.stringify(bandPayload));
             // 3. Call the band posting API
             const bandResponse = await fetch("/api/post-to-band", {
                 method: "POST",
@@ -231,7 +231,9 @@ export default function Home() {
             if (bandResponse.ok) {
                 successCount++;
             } else {
-                console.error(`[FRONTEND] 밴드 포스팅 API 오류: ${product.productUrl}`, await bandResponse.text());
+                const errorText = await bandResponse.text();
+                console.error(`[FRONTEND] 밴드 포스팅 API 오류: ${product.productUrl}`, errorText);
+                errorMessages.push(`상품 ${index + 1} 실패: ${errorText}`);
             }
         }
         
@@ -243,7 +245,8 @@ export default function Home() {
                 description: `총 ${totalCount}개의 상품이 밴드에 성공적으로 게시되었습니다.`,
               });
         } else {
-            setBandPostResult({ status: 'error', message: `총 ${totalCount}개 상품 중 ${successCount}개만 밴드 글쓰기 성공. (실패: ${totalCount - successCount}개)` });
+            const finalErrorMessage = `총 ${totalCount}개 상품 중 ${successCount}개만 성공 (실패: ${totalCount - successCount}개)\n\n[실패 내역]\n${errorMessages.join('\n')}`;
+            setBandPostResult({ status: 'error', message: finalErrorMessage });
              toast({
                 variant: "destructive",
                 title: "일부 실패",
@@ -284,20 +287,20 @@ export default function Home() {
 
   const formFields = {
     required: [
-        { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
-        { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
-        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text", isRequired: true },
-        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10%" },
+        { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true, type: "text" as const },
+        { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true, type: "text" as const },
+        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text" as const, isRequired: true },
+        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10%", type: "text" as const },
     ],
     collapsible: [
-        { name: "discountCode", label: "할인코드", placeholder: "예: KR1234" },
-        { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" },
-        { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000" },
-        { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가", placeholder: "예: 2 또는 2000원", type: "text" },
-        { name: "cardCompanyName", label: "카드사명", placeholder: "예: 카카오페이" },
-        { name: "cardPrice", label: "카드할인가", placeholder: "예: 3 또는 3000원", type: "text" },
+        { name: "discountCode", label: "할인코드", placeholder: "예: KR1234", type: "text" as const },
+        { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" as const },
+        { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000", type: "text" as const },
+        { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가", placeholder: "예: 2 또는 2000원", type: "text" as const },
+        { name: "cardCompanyName", label: "카드사명", placeholder: "예: 카카오페이", type: "text" as const },
+        { name: "cardPrice", label: "카드할인가", placeholder: "예: 3 또는 3000원", type: "text" as const },
     ]
-  } as const;
+  };
   
   const getAlertVariant = (status: BandPostStatus): "default" | "destructive" => {
     switch (status) {
@@ -453,5 +456,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
