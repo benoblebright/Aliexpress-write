@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Copy, Rocket, Plus, Trash2 } from "lucide-react";
+import { Loader2, Copy, Rocket, Plus, Trash2, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,12 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+
 
 const productSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
@@ -35,12 +41,11 @@ const productSchema = z.object({
     .optional()
     .or(z.literal("")),
   productPrice: z.string().min(1, { message: "상품 판매가를 입력해주세요." }),
+  coinDiscountRate: z.string().optional(),
   discountCode: z.string().optional(),
   discountCodePrice: z.string().optional(),
   storeCouponCode: z.string().optional(),
   storeCouponPrice: z.string().optional(),
-  coinDiscountRate: z.string().optional(),
-  coinPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
   cardPrice: z.string().optional(),
 });
@@ -97,12 +102,11 @@ export default function Home() {
           productUrl: "",
           productLandingUrl: "",
           productPrice: "",
+          coinDiscountRate: "",
           discountCode: "",
           discountCodePrice: "",
           storeCouponCode: "",
           storeCouponPrice: "",
-          coinDiscountRate: "",
-          coinPrice: "",
           cardCompanyName: "",
           cardPrice: "",
         },
@@ -132,8 +136,6 @@ export default function Home() {
     try {
         const productUrls = data.products.map(p => p.productUrl);
         const imageBody = JSON.stringify({ target_urls: productUrls });
-        const reviewBody = JSON.stringify({ target_urls: productUrls });
-
         console.log("호출하는 JSON (이미지/제목):", imageBody);
         const productInfoResponse = await fetch("/api/generate-image-url", {
             method: "POST",
@@ -141,6 +143,7 @@ export default function Home() {
             body: imageBody,
         });
         
+        const reviewBody = JSON.stringify({ target_urls: productUrls });
         console.log("호출하는 JSON (리뷰):", reviewBody);
         const reviewResponse = await fetch("/api/generate-reviews", {
             method: "POST",
@@ -174,10 +177,6 @@ export default function Home() {
         let hasErrors = false;
         
         data.products.forEach((product, index) => {
-            if (index > 0) {
-              allHtml += `<br><hr style="height: 1px; background-color: #999999; border: none;"><br>`;
-            }
-            
             const productInfo = productInfos.find(info => info && info.original_url === product.productUrl);
 
             if (!productInfo || !productInfo.product_main_image_url || !productInfo.product_title) {
@@ -188,9 +187,13 @@ export default function Home() {
                     description: `다음 URL의 상품 정보를 가져올 수 없습니다: ${product.productUrl}`,
                 });
                 hasErrors = true;
-                return;
+                return; 
             }
 
+            if (index > 0) {
+              allHtml += `<br><hr style="height: 1px; background-color: #999999; border: none;"><br>`;
+            }
+            
             const reviewInfo = reviewInfos.find(info => info && info.source_url === product.productUrl);
             
             let finalUrl = product.productUrl;
@@ -215,7 +218,6 @@ export default function Home() {
             const allDiscountPrices = [
                 product.discountCodePrice,
                 product.storeCouponPrice,
-                product.coinPrice,
                 product.cardPrice
             ].map(price => parsePrice(price));
 
@@ -224,6 +226,16 @@ export default function Home() {
             allDiscountPrices.forEach(discountPrice => {
                 finalPriceAmount -= discountPrice.amount;
             });
+
+            // Calculate coin discount
+            if (product.coinDiscountRate) {
+                const rateStr = product.coinDiscountRate.replace('%', '').trim();
+                const rate = parseFloat(rateStr);
+                if (!isNaN(rate)) {
+                    const coinDiscountAmount = mainPrice.amount * (rate / 100);
+                    finalPriceAmount -= coinDiscountAmount;
+                }
+            }
             
             const finalPrice = { amount: finalPriceAmount > 0 ? finalPriceAmount : 0, currency: mainPrice.currency };
 
@@ -234,8 +246,8 @@ export default function Home() {
             if (product.storeCouponPrice && parsePrice(product.storeCouponPrice).amount > 0) {
               discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰:</strong> -${formatPrice(parsePrice(product.storeCouponPrice))}${product.storeCouponCode ? ` ( ${product.storeCouponCode} )` : ""}</p>`;
             }
-            if (product.coinPrice && parsePrice(product.coinPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인:</strong> -${formatPrice(parsePrice(product.coinPrice))}${product.coinDiscountRate ? ` ( ${product.coinDiscountRate} )` : ""}</p>`;
+            if (product.coinDiscountRate) {
+              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인:</strong> ${product.coinDiscountRate ? ` ( ${product.coinDiscountRate} )` : ""}</p>`;
             }
             if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
               discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인:</strong> -${formatPrice(parsePrice(product.cardPrice))}${product.cardCompanyName ? ` ( ${product.cardCompanyName} )` : ""}</p>`;
@@ -247,6 +259,7 @@ export default function Home() {
                 const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
                 
                 let reviewTitleParts = [];
+                let saleVolumeText = "";
                 if (productInfo.sale_volume && Number(productInfo.sale_volume) > 0) {
                     saleVolumeText = `총판매 ${Number(productInfo.sale_volume).toLocaleString('ko-KR')}개`;
                     reviewTitleParts.push(saleVolumeText);
@@ -258,7 +271,7 @@ export default function Home() {
                     reviewTitleParts.push(`국내리뷰 ${reviewInfo.korean_local_count.toLocaleString('ko-KR')}개`);
                 }
 
-                const reviewTitle = `리뷰 요약 (${reviewTitleParts.join(', ')})`;
+                const reviewTitle = `리뷰 요약 ( ${reviewTitleParts.join(', ')} )`;
 
                 const reviewContent = reviews.map((review) => {
                     if (review.length > 50) {
@@ -296,7 +309,7 @@ export default function Home() {
 </p>
 <p>&nbsp;</p>
 <p>
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; font-size: 18px; font-weight: 700; text-decoration: none;">
+    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #0056b3; font-size: 20px; font-weight: 700; text-decoration: none;">
         ${productInfo.product_title}
     </a>
 </p>
@@ -329,19 +342,22 @@ ${reviewHtml}
     }
   };
   
-  const formFields = [
-    { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
-    { name: "productLandingUrl", label: "상품 랜딩 URL (선택사항)", placeholder: "http:s.click.aliexpress.com/..." },
-    { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text", isRequired: true },
-    { name: "discountCode", label: "할인코드", placeholder: "예: KR1234" },
-    { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" },
-    { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000" },
-    { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가", placeholder: "예: 2 또는 2000원", type: "text" },
-    { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10%" },
-    { name: "coinPrice", label: "코인할인가", placeholder: "예: 1 또는 1000원", type: "text" },
-    { name: "cardCompanyName", label: "카드사명", placeholder: "예: 카카오페이" },
-    { name: "cardPrice", label: "카드할인가", placeholder: "예: 3 또는 3000원", type: "text" },
-  ] as const;
+  const formFields = {
+    required: [
+        { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
+        { name: "productLandingUrl", label: "수익태그 (선택사항)", placeholder: "http:s.click.aliexpress.com/..." },
+        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text", isRequired: true },
+        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10%" },
+    ],
+    collapsible: [
+        { name: "discountCode", label: "할인코드", placeholder: "예: KR1234" },
+        { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" },
+        { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000" },
+        { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가", placeholder: "예: 2 또는 2000원", type: "text" },
+        { name: "cardCompanyName", label: "카드사명", placeholder: "예: 카카오페이" },
+        { name: "cardPrice", label: "카드할인가", placeholder: "예: 3 또는 3000원", type: "text" },
+    ]
+  } as const;
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
@@ -384,7 +400,7 @@ ${reviewHtml}
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         )}
-                      {formFields.map((fieldInfo) => (
+                      {formFields.required.map((fieldInfo) => (
                         <FormField
                           key={`${item.id}-${fieldInfo.name}`}
                           control={form.control}
@@ -408,6 +424,39 @@ ${reviewHtml}
                           )}
                         />
                       ))}
+                        <Collapsible>
+                            <CollapsibleTrigger asChild>
+                                <Button variant="outline" className="w-full">
+                                    <ChevronDown className="h-4 w-4 mr-2" />
+                                    할인 정보 펼치기/접기
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-4 pt-4">
+                                {formFields.collapsible.map((fieldInfo) => (
+                                    <FormField
+                                    key={`${item.id}-${fieldInfo.name}`}
+                                    control={form.control}
+                                    name={`products.${index}.${fieldInfo.name}`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel>
+                                            {fieldInfo.label}
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                            placeholder={fieldInfo.placeholder}
+                                            type={fieldInfo.type || "text"}
+                                            {...field}
+                                            value={field.value ?? ""}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                    />
+                                ))}
+                            </CollapsibleContent>
+                        </Collapsible>
                     </div>
                   ))}
                   
@@ -419,12 +468,11 @@ ${reviewHtml}
                         productUrl: "",
                         productLandingUrl: "",
                         productPrice: "",
+                        coinDiscountRate: "",
                         discountCode: "",
                         discountCodePrice: "",
                         storeCouponCode: "",
                         storeCouponPrice: "",
-                        coinDiscountRate: "",
-                        coinPrice: "",
                         cardCompanyName: "",
                         cardPrice: "",
                      })}
@@ -477,5 +525,7 @@ ${reviewHtml}
     </main>
   );
 }
+
+    
 
     
