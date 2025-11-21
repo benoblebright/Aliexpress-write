@@ -101,9 +101,10 @@ export default function Home() {
   });
   
     const parsePrice = (price: string | number | undefined | null): number => {
+        if (price === undefined || price === null || price === '') return 0;
         if (typeof price === 'number') return price;
         if (typeof price === 'string') {
-            const parsed = parseFloat(price.replace(/[^0-9.]/g, ''));
+            const parsed = parseFloat(String(price).replace(/[^0-9.-]+/g, ''));
             return isNaN(parsed) ? 0 : parsed;
         }
         return 0;
@@ -169,14 +170,37 @@ export default function Home() {
 
             const productPriceNum = parsePrice(product.productPrice);
             const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+            const discountCodePriceNum = parsePrice(product.discountCodePrice);
+            const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
+            const cardPriceNum = parsePrice(product.cardPrice);
 
+            let finalPrice = productPriceNum;
+            
             if (productPriceNum > 0) {
               content += `할인판매가: ${formatPrice(productPriceNum)}\n`;
             }
-            if (coinDiscountRateNum > 0) {
-              content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
+
+            if (discountCodePriceNum > 0 && product.discountCode) {
+                content += `할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )\n`;
+                finalPrice -= discountCodePriceNum;
+            }
+             if (storeCouponPriceNum > 0 && product.storeCouponCode) {
+                content += `스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )\n`;
+                finalPrice -= storeCouponPriceNum;
             }
 
+            if (coinDiscountRateNum > 0) {
+              content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
+              const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
+              finalPrice -= coinDiscountValue;
+            }
+
+            if (cardPriceNum > 0 && product.cardCompanyName) {
+                content += `카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )\n`;
+                finalPrice -= cardPriceNum;
+            }
+            
+            content += `\n할인구매가: ${formatPrice(finalPrice)}\n`;
             content += `\n상품 링크: ${productInfo.final_url}\n`;
 
             const bandPayload: { content: string; image_url?: string } = { content };
@@ -194,8 +218,14 @@ export default function Home() {
             if (bandResponse.ok) {
                 successCount++;
             } else {
-                const errorText = await bandResponse.text();
-                errorMessages.push(`상품 ${index + 1} (${product.productUrl}) 실패: ${errorText}`);
+                try {
+                    const bandErrorResult = await bandResponse.json();
+                    const bandErrorMessage = bandErrorResult.error || `Status: ${bandResponse.status}`;
+                    errorMessages.push(`상품 ${index + 1} (${product.productUrl}) 실패: ${bandErrorMessage}`);
+                } catch {
+                     const errorText = await bandResponse.text();
+                     errorMessages.push(`상품 ${index + 1} (${product.productUrl}) 실패: ${errorText || `Status: ${bandResponse.status}`}`);
+                }
             }
         }
 
@@ -250,10 +280,10 @@ export default function Home() {
     required: [
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
+        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text", isRequired: false },
+        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10 또는 10%", type: "text", isRequired: false },
     ],
     collapsible: [
-        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text" },
-        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10 또는 10%", type: "text" },
         { name: "discountCode", label: "할인코드", placeholder: "예: KR1234", type: "text" },
         { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" },
         { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000", type: "text" },
@@ -320,7 +350,7 @@ export default function Home() {
                       <FormField
                         key={`${item.id}-${fieldInfo.name}`}
                         control={form.control}
-                        name={`products.${index}.${fieldInfo.name as 'productUrl' | 'affShortKey'}`}
+                        name={`products.${index}.${fieldInfo.name as any}`}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
@@ -343,7 +373,7 @@ export default function Home() {
                           <CollapsibleTrigger asChild>
                               <Button variant="outline" className="w-full">
                                   <ChevronDown className="h-4 w-4 mr-2" />
-                                  가격 정보 입력 (참고용)
+                                  추가 할인 정보 입력 (선택)
                               </Button>
                           </CollapsibleTrigger>
                           <CollapsibleContent className="space-y-4 pt-4">
@@ -416,5 +446,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
