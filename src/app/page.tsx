@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -31,6 +30,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const productSchema = z.object({
@@ -63,6 +63,12 @@ interface AllInfo {
     original_url: string;
 }
 
+type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
+interface BandPostResult {
+    status: BandPostStatus;
+    message: string;
+}
+
 const parsePrice = (priceStr: string | undefined | null): { amount: number; currency: 'KRW' | 'USD' } => {
     if (!priceStr) return { amount: 0, currency: 'USD' };
     const cleanStr = String(priceStr).trim();
@@ -84,6 +90,7 @@ const formatPrice = (price: { amount: number; currency: 'KRW' | 'USD' }): string
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -110,61 +117,51 @@ export default function Home() {
     name: "products",
   });
 
-  const onSubmit = async (data: FormData) => {
+  const handlePostToBand = async (data: FormData) => {
     setIsLoading(true);
+    setBandPostResult({ status: 'loading', message: '상품 정보를 가져오는 중...' });
 
     try {
         const productUrls = data.products.map(p => p.productUrl);
         const affShortKeys = data.products.map(p => p.affShortKey);
 
-        const requestBody = JSON.stringify({ 
-            target_urls: productUrls,
-            aff_short_key: affShortKeys
-        });
-        
-        console.log("호출하는 JSON:", requestBody);
-
-        const response = await fetch("/api/generate-all", {
+        // 1. Get all product infos first
+        const infoResponse = await fetch("/api/generate-all", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: requestBody,
+            body: JSON.stringify({ 
+                target_urls: productUrls,
+                aff_short_key: affShortKeys
+            }),
         });
-        
-        if (!response.ok) {
-            const errorResult = await response.json();
-            throw new Error(errorResult.error || `API 오류: ${response.status}`);
+
+        if (!infoResponse.ok) {
+            const errorResult = await infoResponse.json();
+            throw new Error(errorResult.error || `상품 정보 API 오류: ${infoResponse.status}`);
         }
 
-        const result = await response.json();
-        const allInfos = result.allInfos as (AllInfo | null)[];
+        const infoResult = await infoResponse.json();
+        const allInfos = infoResult.allInfos as (AllInfo | null)[];
 
         if (!allInfos || !Array.isArray(allInfos)) {
-            throw new Error("정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
+            throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
         }
-        
-        let allHtml = "";
-        let hasErrors = false;
-        
-        data.products.forEach((product, index) => {
+
+        setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
+
+        let successCount = 0;
+        const totalCount = data.products.length;
+
+        // 2. Iterate and post to band for each product
+        for (const [index, product] of data.products.entries()) {
             const productInfo = allInfos.find(info => info && info.original_url === product.productUrl);
 
             if (!productInfo) {
-                console.error(`[FRONTEND] 상품 정보가 누락되었습니다. URL: ${product.productUrl}`);
-                 toast({
-                    variant: "destructive",
-                    title: "상품 정보 조회 실패",
-                    description: `다음 URL의 상품 정보를 가져올 수 없습니다: ${product.productUrl}`,
-                });
-                hasErrors = true;
-                return; 
+                console.error(`[FRONTEND] 밴드 포스팅 실패 (상품 정보 누락): ${product.productUrl}`);
+                continue; // Skip if info not found
             }
-            
-            if (index > 0) {
-              allHtml += `<br><hr style="height: 1px; background-color: #999999; border: none;"><br>`;
-            }
-            
-            const finalUrl = productInfo.final_url;
-            
+
+            // --- Construct content string ---
             const mainPrice = parsePrice(product.productPrice);
             
             const allDiscountPrices = [
@@ -190,112 +187,68 @@ export default function Home() {
             
             const finalPrice = { amount: finalPriceAmount > 0 ? finalPriceAmount : 0, currency: mainPrice.currency };
 
-            let discountDetails = "";
+            let content = `${productInfo.product_title}\n\n`;
+            content += `할인판매가: ${formatPrice(mainPrice)}\n`;
+
             if (product.discountCodePrice && parsePrice(product.discountCodePrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인코드:</strong> -${formatPrice(parsePrice(product.discountCodePrice))}${product.discountCode ? ` ( ${product.discountCode} )` : ""}</p>`;
+              content += `할인코드: -${formatPrice(parsePrice(product.discountCodePrice))}${product.discountCode ? ` ( ${product.discountCode} )` : ""}\n`;
             }
             if (product.storeCouponPrice && parsePrice(product.storeCouponPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>스토어쿠폰:</strong> -${formatPrice(parsePrice(product.storeCouponPrice))}${product.storeCouponCode ? ` ( ${product.storeCouponCode} )` : ""}</p>`;
+              content += `스토어쿠폰: -${formatPrice(parsePrice(product.storeCouponPrice))}${product.storeCouponCode ? ` ( ${product.storeCouponCode} )` : ""}\n`;
             }
             if (product.coinDiscountRate) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>코인할인:</strong> ${product.coinDiscountRate ? ` ( ${product.coinDiscountRate} )` : ""}</p>`;
+              content += `코인할인: ${product.coinDiscountRate ? ` ( ${product.coinDiscountRate} )` : ""}\n`;
             }
             if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
-              discountDetails += `<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>카드할인:</strong> -${formatPrice(parsePrice(product.cardPrice))}${product.cardCompanyName ? ` ( ${product.cardCompanyName} )` : ""}</p>`;
+              content += `카드할인: -${formatPrice(parsePrice(product.cardPrice))}${product.cardCompanyName ? ` ( ${product.cardCompanyName} )` : ""}\n`;
             }
 
+            content += `\n최대 할인가: ${formatPrice(finalPrice)}\n\n`;
+            content += `상품 링크: ${productInfo.final_url}\n`;
 
-            let reviewHtml = '';
-            if (productInfo.korean_summary) {
-                const reviews = productInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
-                
-                let reviewTitleParts = [];
-                let saleVolumeText = "";
-                if (productInfo.sale_volume && Number(productInfo.sale_volume) > 0) {
-                    saleVolumeText = `총판매 ${Number(productInfo.sale_volume).toLocaleString('ko-KR')}개`;
-                    reviewTitleParts.push(saleVolumeText);
-                }
-                if (productInfo.total_num) {
-                    reviewTitleParts.push(`총리뷰 ${productInfo.total_num.toLocaleString('ko-KR')}개`);
-                }
-                if (productInfo.korean_local_count) {
-                    reviewTitleParts.push(`국내리뷰 ${productInfo.korean_local_count.toLocaleString('ko-KR')}개`);
-                }
-
-                const reviewTitle = `리뷰 요약 ( ${reviewTitleParts.join(', ')} )`;
-
-                const reviewContent = reviews.map((review) => {
-                    if (review.length > 50) {
-                        const shortText = review.substring(0, 50);
-                        return `
-                            <p style="margin: 0 0 10px 0; font-size: 14px;">
-                                - ${shortText}... <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>
-                            </p>`;
-                    }
-                    return `<p style="margin: 0 0 10px 0; font-size: 14px;">- ${review}</p>`;
-                }).join('');
-
-
-                reviewHtml = `
-<p>&nbsp;</p>
-<h3 style="margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">${reviewTitle}</h3>
-<div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-    ${reviewContent}
-</div>`;
-            } else {
-                 reviewHtml = `
-<p>&nbsp;</p>
-<h3 style="margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약</h3>
-<div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-    <p style="margin: 0;">국내 리뷰가 없습니다.</p>
-</div>`;
+            const bandPayload: { content: string; image_url?: string } = { content };
+            if (productInfo.product_main_image_url) {
+                bandPayload.image_url = productInfo.product_main_image_url;
             }
 
-
-            const htmlTemplate = `
-<p style="text-align: center;">
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer">
-        <img src="${productInfo.product_main_image_url}" alt="${productInfo.product_title}" style="max-width: 500px; width: 100%; height: auto; border-radius: 8px;">
-    </a>
-</p>
-<p>&nbsp;</p>
-<p>
-    <a href="${finalUrl}" target="_blank" rel="noopener noreferrer" style="color: #0056b3; font-size: 20px; font-weight: 700; text-decoration: none;">
-        ${productInfo.product_title}
-    </a>
-</p>
-<p>&nbsp;</p>
-<p style="margin: 2px 0; font-size: 15px; color: #404040;"><strong>할인판매가:</strong> <span style="text-decoration: line-through;">${formatPrice(mainPrice)}</span></p>
-${discountDetails}
-<p style="margin: 10px 0 0; font-size: 18px; font-weight: 700; color: #111827;"><strong>최대 할인가:</strong> ${formatPrice(finalPrice)}</p>
-${reviewHtml}
-<p>&nbsp;</p>`;
-            allHtml += htmlTemplate;
-        });
-
-      if (!hasErrors) {
-          const finalHtml = allHtml.trim();
-          navigator.clipboard.writeText(finalHtml).then(() => {
-              alert("HTML이 클립보드에 복사되었습니다.");
-              toast({
-                title: "성공!",
-                description: "HTML 생성이 완료되었고 클립보드에 복사되었습니다.",
-              });
-          });
-      } else {
-           toast({
-                variant: "destructive",
-                title: "오류 발생",
-                description: "일부 상품 정보 조회에 실패하여 HTML 생성이 중단되었습니다.",
+            // 3. Call the band posting API
+            const bandResponse = await fetch("/api/post-to-band", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(bandPayload),
             });
-      }
+
+            if (bandResponse.ok) {
+                successCount++;
+            } else {
+                console.error(`[FRONTEND] 밴드 포스팅 API 오류: ${product.productUrl}`, await bandResponse.text());
+            }
+        }
+        
+        // 4. Final result
+        if (successCount === totalCount) {
+             setBandPostResult({ status: 'success', message: `총 ${totalCount}개 상품 모두 밴드 글쓰기 성공!` });
+             toast({
+                title: "성공!",
+                description: `총 ${totalCount}개의 상품이 밴드에 성공적으로 게시되었습니다.`,
+              });
+        } else {
+            setBandPostResult({ status: 'error', message: `총 ${totalCount}개 상품 중 ${successCount}개만 밴드 글쓰기 성공. (실패: ${totalCount - successCount}개)` });
+             toast({
+                variant: "destructive",
+                title: "일부 실패",
+                description: `총 ${totalCount}개 중 ${totalCount - successCount}개의 상품을 밴드에 게시하지 못했습니다.`,
+            });
+        }
+
 
     } catch (error: any) {
-      console.error("[FRONTEND] Error during HTML generation process:", error);
+      console.error("[FRONTEND] Error during band posting process:", error);
+      setBandPostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
       toast({
         variant: "destructive",
         title: "오류 발생",
-        description: error.message || "HTML 생성 중 오류가 발생했습니다. 입력값을 확인하거나 다시 시도해주세요.",
+        description: error.message || "밴드 글쓰기 중 오류가 발생했습니다.",
       });
     } finally {
       setIsLoading(false);
@@ -335,6 +288,19 @@ ${reviewHtml}
         { name: "cardPrice", label: "카드할인가", placeholder: "예: 3 또는 3000원", type: "text" },
     ]
   } as const;
+  
+  const getAlertVariant = (status: BandPostStatus): "default" | "destructive" => {
+    switch (status) {
+        case 'success':
+            return 'default';
+        case 'error':
+            return 'destructive';
+        case 'loading':
+        case 'idle':
+        default:
+            return 'default';
+    }
+  }
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
@@ -345,7 +311,7 @@ ${reviewHtml}
             Aliexpress 밴드 글쓰기
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
-            상품 정보를 입력하고 블로그 포스팅용 HTML을 바로 생성하세요.
+            상품 정보를 입력하고 밴드에 바로 글을 게시하세요.
           </p>
         </header>
 
@@ -359,7 +325,7 @@ ${reviewHtml}
           <CardContent>
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit(onSubmit)}
+                onSubmit={form.handleSubmit(handlePostToBand)}
                 className="space-y-6"
               >
                 {fields.map((item, index) => (
@@ -454,8 +420,21 @@ ${reviewHtml}
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                  {isLoading ? "생성 중..." : "밴드 글쓰기"}
+                  {isLoading ? "게시 중..." : "밴드 글쓰기"}
                 </Button>
+
+                {bandPostResult && bandPostResult.status !== 'idle' && (
+                  <Alert variant={getAlertVariant(bandPostResult.status)}>
+                    <AlertTitle>
+                      {bandPostResult.status === 'loading' && '처리 중'}
+                      {bandPostResult.status === 'success' && '성공'}
+                      {bandPostResult.status === 'error' && '오류'}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {bandPostResult.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
               </form>
             </Form>
           </CardContent>
@@ -464,5 +443,3 @@ ${reviewHtml}
     </main>
   );
 }
-
-    
