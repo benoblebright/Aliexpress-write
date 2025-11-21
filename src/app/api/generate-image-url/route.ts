@@ -17,18 +17,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'target_urls is required and must be an array' }, { status: 400 });
     }
 
-    console.log("[PROXY] Initializing Google Auth client...");
     const auth = new GoogleAuth();
     const client = await auth.getIdTokenClient(CLOUD_RUN_URL);
-    console.log("[PROXY] Google Auth client initialized. Calling Cloud Run with URLs:", target_urls);
 
     const response = await client.request({
         url: CLOUD_RUN_URL,
         method: 'POST',
         data: { target_urls: target_urls },
     });
-    
-    console.log(`[PROXY] Full response from Cloud Run:`, JSON.stringify(response.data, null, 2));
 
     const responseData = response.data as any;
 
@@ -45,12 +41,11 @@ export async function POST(request: Request) {
             return null;
         });
 
-        // Match the results back to the original urls
+        // Match the results back to the original urls to ensure the order is correct.
         const sortedProductInfos = target_urls.map(originalUrl => {
             return productInfos.find(info => info && info.original_url === originalUrl) || null;
         });
         
-        console.log("[PROXY] Responding to client with:", JSON.stringify(sortedProductInfos, null, 2));
         return NextResponse.json({ productInfos: sortedProductInfos });
     } else {
         console.error(`[PROXY] Error: "results" array is invalid or empty. Response Data:`, JSON.stringify(responseData));
@@ -62,6 +57,7 @@ export async function POST(request: Request) {
     console.error('[PROXY] Error Message:', error.message);
     if (error.response) {
         console.error(`[PROXY] Upstream error response data:`, JSON.stringify(error.response.data, null, 2));
+         return NextResponse.json(error.response.data, { status: error.response.status });
     }
     return NextResponse.json(
         { error: 'An internal server error occurred in the proxy.' }, 

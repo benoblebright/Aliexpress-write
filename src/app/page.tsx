@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Plus, Trash2, ChevronDown } from "lucide-react";
+import { Loader2, Rocket, Plus, Trash2, ChevronDown, Copy, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -125,6 +125,7 @@ export default function Home() {
         const productUrls = data.products.map(p => p.productUrl);
         const affShortKeys = data.products.map(p => p.affShortKey);
 
+        console.log("호출하는 JSON (상품 정보):", JSON.stringify({ target_urls: productUrls, aff_short_key: affShortKeys }));
         // 1. Get all product infos first
         const infoResponse = await fetch("/api/generate-all", {
             method: "POST",
@@ -161,7 +162,7 @@ export default function Home() {
             const productInfo = allInfos[index];
 
             if (!productInfo) {
-                console.error(`[FRONTEND] 밴드 포스팅 실패 (상품 정보 누락): ${product.productUrl}`);
+                console.error(`[FRONTEND] 밴드 포스팅 건너뛰기 (상품 정보 누락): ${product.productUrl}`);
                 continue; // Skip if info not found for this product
             }
 
@@ -201,7 +202,8 @@ export default function Home() {
               content += `스토어쿠폰: -${formatPrice(parsePrice(product.storeCouponPrice))}${product.storeCouponCode ? ` ( ${product.storeCouponCode} )` : ""}\n`;
             }
             if (product.coinDiscountRate) {
-              content += `코인할인: ${product.coinDiscountRate ? ` ( ${product.coinDiscountRate} )` : ""}\n`;
+              const rate = product.coinDiscountRate.replace('%','').trim();
+              if(rate) content += `코인할인 ( ${rate}% )\n`;
             }
             if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
               content += `카드할인: -${formatPrice(parsePrice(product.cardPrice))}${product.cardCompanyName ? ` ( ${product.cardCompanyName} )` : ""}\n`;
@@ -215,6 +217,7 @@ export default function Home() {
                 bandPayload.image_url = productInfo.product_main_image_url;
             }
 
+            console.log("호출하는 JSON (밴드 글쓰기):", JSON.stringify(bandPayload));
             // 3. Call the band posting API
             const bandResponse = await fetch("/api/post-to-band", {
                 method: "POST",

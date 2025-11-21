@@ -27,10 +27,10 @@ export async function POST(request: Request) {
 
     const responseData = response.data as any;
     
-    // The review API returns an array directly
+    // The review API returns an array of review objects directly
     if (responseData && Array.isArray(responseData)) {
-      // The result from this specific cloud function is already an array of objects.
-      // We just need to match it to the original URLs.
+      // The results might not be in the same order as the request.
+      // Match them back to the original urls to ensure order.
       const sortedReviewInfos = target_urls.map(originalUrl => {
         return responseData.find(review => review && review.source_url === originalUrl) || null;
       });
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
     console.error('[PROXY-REVIEWS] Error Message:', error.message);
     if (error.response) {
       console.error(`[PROXY-REVIEWS] Upstream error response data:`, JSON.stringify(error.response.data, null, 2));
+      return NextResponse.json(error.response.data, { status: error.response.status });
     }
     return NextResponse.json(
       { error: 'An internal server error occurred in the reviews proxy.' },
