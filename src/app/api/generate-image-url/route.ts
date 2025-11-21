@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
 
+export const maxDuration = 300; // 5분 타임아웃
+
 const CLOUD_RUN_URL = 'https://alihelper-imageurl-53912196882.asia-northeast3.run.app';
 
 export async function POST(request: Request) {
