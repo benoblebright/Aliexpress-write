@@ -103,11 +103,8 @@ export default function Home() {
     const parsePrice = (price: string | number | undefined | null): number => {
         if (price === undefined || price === null || price === '') return 0;
         if (typeof price === 'number') return price;
-        if (typeof price === 'string') {
-            const parsed = parseFloat(String(price).replace(/[^0-9.-]+/g, ''));
-            return isNaN(parsed) ? 0 : parsed;
-        }
-        return 0;
+        const parsed = parseFloat(String(price).replace(/[^0-9.-]+/g, ''));
+        return isNaN(parsed) ? 0 : parsed;
     };
 
     const formatPrice = (price: number): string => {
@@ -197,7 +194,9 @@ export default function Home() {
                 finalPrice -= cardPriceNum;
             }
             
-            content += `\n할인구매가: ${formatPrice(finalPrice)}\n`;
+            if(finalPrice !== productPriceNum) {
+                content += `\n할인구매가: ${formatPrice(finalPrice)}\n`;
+            }
             content += `\n상품 링크: ${productInfo.final_url}\n`;
 
             const bandPayload: { content: string; image_url?: string } = { content };
@@ -345,7 +344,7 @@ export default function Home() {
                       <FormField
                         key={`${item.id}-${fieldInfo.name}`}
                         control={form.control}
-                        name={`products.${index}.${fieldInfo.name as any}`}
+                        name={`products.${index}.${fieldInfo.name as 'productUrl'}`}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
@@ -376,12 +375,12 @@ export default function Home() {
                                   <FormField
                                   key={`${item.id}-${fieldInfo.name}`}
                                   control={form.control}
-                                  name={`products.${index}.${fieldInfo.name as any}`}
+                                  name={`products.${index}.${fieldInfo.name as 'discountCode'}`}
                                   render={({ field }) => (
                                       <FormItem>
                                       <FormLabel>
                                           {fieldInfo.label}
-                                      </Form.Label>
+                                      </FormLabel>
                                       <FormControl>
                                           <Input
                                           type={fieldInfo.type}
