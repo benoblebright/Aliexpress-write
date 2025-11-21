@@ -35,10 +35,7 @@ import {
 
 const productSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
-  productLandingUrl: z
-    .string()
-    .optional()
-    .or(z.literal("")),
+  affShortKey: z.string().min(1, { message: "제휴 단축 키를 입력해주세요." }),
   productPrice: z.string().min(1, { message: "상품 판매가를 입력해주세요." }),
   coinDiscountRate: z.string().optional(),
   discountCode: z.string().optional(),
@@ -55,20 +52,16 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-interface ProductInfo {
+interface AllInfo {
     product_main_image_url: string;
     product_title: string;
-    original_url: string;
-    sale_volume: string;
-}
-
-interface ReviewInfo {
     korean_summary: string;
     korean_local_count: number;
     total_num: number;
-    source_url: string;
+    final_url: string;
+    sale_volume: string;
+    original_url: string;
 }
-
 
 const parsePrice = (priceStr: string | undefined | null): { amount: number; currency: 'KRW' | 'USD' } => {
     if (!priceStr) return { amount: 0, currency: 'USD' };
@@ -98,7 +91,7 @@ export default function Home() {
       products: [
         {
           productUrl: "",
-          productLandingUrl: "",
+          affShortKey: "",
           productPrice: "",
           coinDiscountRate: "",
           discountCode: "",
@@ -122,52 +115,41 @@ export default function Home() {
 
     try {
         const productUrls = data.products.map(p => p.productUrl);
-        const imageBody = JSON.stringify({ target_urls: productUrls });
-        console.log("호출하는 JSON (이미지/제목):", imageBody);
-        const productInfoResponse = await fetch("/api/generate-image-url", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: imageBody,
+        const affShortKeys = data.products.map(p => p.affShortKey);
+
+        const requestBody = JSON.stringify({ 
+            target_urls: productUrls,
+            aff_short_key: affShortKeys
         });
         
-        const reviewBody = JSON.stringify({ target_urls: productUrls });
-        console.log("호출하는 JSON (리뷰):", reviewBody);
-        const reviewResponse = await fetch("/api/generate-reviews", {
+        console.log("호출하는 JSON:", requestBody);
+
+        const response = await fetch("/api/generate-all", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: reviewBody,
+            body: requestBody,
         });
-
-        if (!productInfoResponse.ok) {
-            const errorResult = await productInfoResponse.json();
-            throw new Error(errorResult.error || `상품 정보 API 오류: ${productInfoResponse.status}`);
-        }
-         if (!reviewResponse.ok) {
-            const errorResult = await reviewResponse.json();
-            throw new Error(errorResult.error || `리뷰 정보 API 오류: ${reviewResponse.status}`);
+        
+        if (!response.ok) {
+            const errorResult = await response.json();
+            throw new Error(errorResult.error || `API 오류: ${response.status}`);
         }
 
-        const productInfoResult = await productInfoResponse.json();
-        const reviewResult = await reviewResponse.json();
+        const result = await response.json();
+        const allInfos = result.allInfos as (AllInfo | null)[];
 
-        const productInfos = productInfoResult.productInfos as (ProductInfo | null)[];
-        const reviewInfos = reviewResult.reviewInfos as (ReviewInfo | null)[];
-
-        if (!productInfos || !Array.isArray(productInfos)) {
-            throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
-        }
-        if (!reviewInfos || !Array.isArray(reviewInfos)) {
-            throw new Error("리뷰 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
+        if (!allInfos || !Array.isArray(allInfos)) {
+            throw new Error("정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
         }
         
         let allHtml = "";
         let hasErrors = false;
         
         data.products.forEach((product, index) => {
-            const productInfo = productInfos.find(info => info && info.original_url === product.productUrl);
+            const productInfo = allInfos.find(info => info && info.original_url === product.productUrl);
 
-            if (!productInfo || !productInfo.product_main_image_url || !productInfo.product_title) {
-                console.error(`[FRONTEND] 상품 정보가 누락되었습니다. URL: ${product.productUrl}, 받은 정보:`, productInfo);
+            if (!productInfo) {
+                console.error(`[FRONTEND] 상품 정보가 누락되었습니다. URL: ${product.productUrl}`);
                  toast({
                     variant: "destructive",
                     title: "상품 정보 조회 실패",
@@ -176,29 +158,12 @@ export default function Home() {
                 hasErrors = true;
                 return; 
             }
-
+            
             if (index > 0) {
               allHtml += `<br><hr style="height: 1px; background-color: #999999; border: none;"><br>`;
             }
             
-            const reviewInfo = reviewInfos.find(info => info && info.source_url === product.productUrl);
-            
-            let finalUrl = product.productUrl;
-
-            if (product.productLandingUrl && product.productLandingUrl.trim() !== '') {
-               if (product.productLandingUrl.startsWith('https://s.click.aliexpress.com')) {
-                    finalUrl = product.productLandingUrl.replace('https://', 'http:');
-                } else {
-                    finalUrl = product.productLandingUrl;
-                }
-            } else {
-                const params = 'disableNav=YES&sourceType=620&_immersiveMode=true&wx_navbar_transparent=true&channel=coin&wx_statusbar_hidden=true&isdl=y&aff_platform=true';
-                if (finalUrl.includes('?')) {
-                    finalUrl += '&' + params;
-                } else {
-                    finalUrl += '?' + params;
-                }
-            }
+            const finalUrl = productInfo.final_url;
             
             const mainPrice = parsePrice(product.productPrice);
             
@@ -214,7 +179,6 @@ export default function Home() {
                 finalPriceAmount -= discountPrice.amount;
             });
 
-            // Calculate coin discount
             if (product.coinDiscountRate) {
                 const rateStr = product.coinDiscountRate.replace('%', '').trim();
                 const rate = parseFloat(rateStr);
@@ -242,8 +206,8 @@ export default function Home() {
 
 
             let reviewHtml = '';
-            if (reviewInfo && reviewInfo.korean_summary) {
-                const reviews = reviewInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
+            if (productInfo.korean_summary) {
+                const reviews = productInfo.korean_summary.split('|').map(r => r.trim()).filter(r => r);
                 
                 let reviewTitleParts = [];
                 let saleVolumeText = "";
@@ -251,11 +215,11 @@ export default function Home() {
                     saleVolumeText = `총판매 ${Number(productInfo.sale_volume).toLocaleString('ko-KR')}개`;
                     reviewTitleParts.push(saleVolumeText);
                 }
-                if (reviewInfo.total_num) {
-                    reviewTitleParts.push(`총리뷰 ${reviewInfo.total_num.toLocaleString('ko-KR')}개`);
+                if (productInfo.total_num) {
+                    reviewTitleParts.push(`총리뷰 ${productInfo.total_num.toLocaleString('ko-KR')}개`);
                 }
-                if (reviewInfo.korean_local_count) {
-                    reviewTitleParts.push(`국내리뷰 ${reviewInfo.korean_local_count.toLocaleString('ko-KR')}개`);
+                if (productInfo.korean_local_count) {
+                    reviewTitleParts.push(`국내리뷰 ${productInfo.korean_local_count.toLocaleString('ko-KR')}개`);
                 }
 
                 const reviewTitle = `리뷰 요약 ( ${reviewTitleParts.join(', ')} )`;
@@ -278,7 +242,7 @@ export default function Home() {
 <div style="font-size: 14px; color: #4b5563; padding: 16px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
     ${reviewContent}
 </div>`;
-            } else if (reviewInfo) {
+            } else {
                  reviewHtml = `
 <p>&nbsp;</p>
 <h3 style="margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #1f2937;">리뷰 요약</h3>
@@ -312,7 +276,7 @@ ${reviewHtml}
       if (!hasErrors) {
           const finalHtml = allHtml.trim();
           navigator.clipboard.writeText(finalHtml).then(() => {
-              alert("HTML이 클립보드에 복사되었습니다. 생성된 내용은 다음과 같습니다:\n\n" + finalHtml);
+              alert("HTML이 클립보드에 복사되었습니다.");
               toast({
                 title: "성공!",
                 description: "HTML 생성이 완료되었고 클립보드에 복사되었습니다.",
@@ -343,7 +307,7 @@ ${reviewHtml}
     const lastProduct = products[products.length - 1];
     append({
         productUrl: "",
-        productLandingUrl: lastProduct?.productLandingUrl || "",
+        affShortKey: lastProduct?.affShortKey || "",
         productPrice: "",
         coinDiscountRate: "",
         discountCode: "",
@@ -358,7 +322,7 @@ ${reviewHtml}
   const formFields = {
     required: [
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
-        { name: "productLandingUrl", label: "수익태그 (선택사항)", placeholder: "http:s.click.aliexpress.com/..." },
+        { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
         { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text", isRequired: true },
         { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10%" },
     ],
