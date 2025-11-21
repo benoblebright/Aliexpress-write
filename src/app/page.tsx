@@ -130,7 +130,7 @@ export default function Home() {
                 aff_short_key: affShortKeys
             }),
         });
-
+        
         const infoResult = await infoResponse.json();
 
         if (!infoResponse.ok) {
