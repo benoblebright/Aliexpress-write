@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         });
         return NextResponse.json({ allInfos: sortedInfos });
     } else {
-       console.error(`[PROXY-ALL] Error: Invalid response structure. Expected a 'results' array. Response Data:`, JSON.stringify(responseData));
+       console.error(`[PROXY-ALL] Error: Invalid response structure. Expected a 'results' array. Response Data:`, JSON.stringify(responseData, null, 2));
       return NextResponse.json({ error: 'Invalid response structure from the main Cloud Run service' }, { status: 500 });
     }
 
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     console.error(`[PROXY-ALL] An unexpected error occurred. Request Body:`, JSON.stringify(requestBody, null, 2));
     console.error('[PROXY-ALL] Error Message:', error.message);
     if (error.response) {
+      console.error(`[PROXY-ALL] Upstream error response status:`, error.response.status);
       console.error(`[PROXY-ALL] Upstream error response data:`, JSON.stringify(error.response.data, null, 2));
        return NextResponse.json(error.response.data, { status: error.response.status });
     }
