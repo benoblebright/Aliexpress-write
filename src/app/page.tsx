@@ -209,7 +209,7 @@ export default function Home() {
               content += `카드할인: -${formatPrice(parsePrice(product.cardPrice))}${product.cardCompanyName ? ` ( ${product.cardCompanyName} )` : ""}\n`;
             }
 
-            content += `\n최대 할인가: ${formatPrice(finalPrice)}\n\n`;
+            content += `\n할인구매가: ${formatPrice(finalPrice)}\n\n`;
             content += `상품 링크: ${productInfo.final_url}\n`;
 
             const bandPayload: { content: string; image_url?: string } = { content };
