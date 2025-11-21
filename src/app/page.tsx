@@ -39,6 +39,7 @@ const productSchema = z.object({
   affShortKey: z.string().min(1, { message: "제휴 단축 키를 입력해주세요." }),
   productPrice: z.string().optional(),
   coinDiscountRate: z.string().optional(),
+  productTag: z.string().optional(),
   discountCode: z.string().optional(),
   discountCodePrice: z.string().optional(),
   storeCouponCode: z.string().optional(),
@@ -84,6 +85,7 @@ export default function Home() {
           affShortKey: "",
           productPrice: "",
           coinDiscountRate: "",
+          productTag: "",
           discountCode: "",
           discountCodePrice: "",
           storeCouponCode: "",
@@ -194,10 +196,15 @@ export default function Home() {
                 finalPrice -= cardPriceNum;
             }
             
-            if(finalPrice !== productPriceNum) {
+            if(finalPrice < productPriceNum) {
                 content += `\n할인구매가: ${formatPrice(finalPrice)}\n`;
             }
             content += `\n상품 링크: ${productInfo.final_url}\n`;
+
+            if (product.productTag) {
+                const tags = product.productTag.split(' ').map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
+                content += `\n${tags}`;
+            }
 
             const bandPayload: { content: string; image_url?: string } = { content };
             if (productInfo.product_main_image_url) {
@@ -261,6 +268,7 @@ export default function Home() {
         affShortKey: lastProduct?.affShortKey || "",
         productPrice: "",
         coinDiscountRate: "",
+        productTag: "",
         discountCode: "",
         discountCodePrice: "",
         storeCouponCode: "",
@@ -276,6 +284,7 @@ export default function Home() {
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
         { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text", isRequired: false },
         { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10 또는 10%", type: "text", isRequired: false },
+        { name: "productTag", label: "상품태그", placeholder: "예: #캠핑 #가성비 (띄어쓰기로 구분)", type: "text", isRequired: false },
     ],
     collapsible: [
         { name: "discountCode", label: "할인코드", placeholder: "예: KR1234", type: "text" },
