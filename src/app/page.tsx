@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Plus, Trash2, ChevronDown, Copy, Check } from "lucide-react";
+import { Loader2, Rocket, Plus, Trash2, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +37,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 const productSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
   affShortKey: z.string().min(1, { message: "제휴 단축 키를 입력해주세요." }),
-  productPrice: z.string().min(1, { message: "상품 판매가를 입력해주세요." }),
+  productPrice: z.string().optional(),
   coinDiscountRate: z.string().optional(),
   discountCode: z.string().optional(),
   discountCodePrice: z.string().optional(),
@@ -56,12 +56,13 @@ type FormData = z.infer<typeof formSchema>;
 interface AllInfo {
     product_main_image_url: string;
     product_title: string;
-    korean_summary: string;
-    korean_local_count: number;
-    total_num: number;
     final_url: string;
-    sale_volume: string | number;
     original_url: string;
+    // The following are from the API but not used in the final post content
+    sale_volume?: string | number;
+    korean_summary?: string;
+    korean_local_count?: number;
+    total_num?: number;
 }
 
 type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
@@ -69,24 +70,6 @@ interface BandPostResult {
     status: BandPostStatus;
     message: string;
 }
-
-const parsePrice = (priceStr: string | undefined | null | number): { amount: number; currency: 'KRW' | 'USD' } => {
-    if (priceStr === null || priceStr === undefined) return { amount: 0, currency: 'USD' };
-    const cleanStr = String(priceStr).trim();
-    if (cleanStr.includes('원')) {
-        return { amount: parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0, currency: 'KRW' };
-    }
-    const amount = parseFloat(cleanStr.replace(/[^0-9.]/g, '')) || 0;
-    return { amount, currency: 'USD' };
-};
-
-
-const formatPrice = (price: { amount: number; currency: 'KRW' | 'USD' }): string => {
-    if (price.currency === 'KRW') {
-        return `${price.amount.toLocaleString('ko-KR')}원`;
-    }
-    return `$${price.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
@@ -130,7 +113,7 @@ export default function Home() {
         const infoResponse = await fetch("/api/generate-all", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
                 target_urls: productUrls,
                 aff_short_key: affShortKeys
             }),
@@ -143,13 +126,13 @@ export default function Home() {
             const errorDetails = infoResult.details ? `\n\n[상세 정보]\n${JSON.stringify(infoResult.details, null, 2)}` : '';
             throw new Error(`${errorMessage}${errorDetails}`);
         }
-        
+
         const allInfos = infoResult.allInfos as (AllInfo | null)[];
 
         if (!allInfos || !Array.isArray(allInfos)) {
             throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
         }
-        
+
         if(allInfos.length !== data.products.length){
             throw new Error("가져온 상품 정보의 개수가 요청한 개수와 다릅니다.");
         }
@@ -164,56 +147,13 @@ export default function Home() {
         for (const [index, product] of data.products.entries()) {
             const productInfo = allInfos[index];
 
-            if (!productInfo || !productInfo.product_title) {
-                console.error(`[FRONTEND] 밴드 포스팅 건너뛰기 (상품 정보 누락): ${product.productUrl}`);
-                errorMessages.push(`상품 ${index + 1} (${product.productUrl}) : 정보를 가져오지 못해 건너뛰었습니다.`);
-                continue; 
+            if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
+                errorMessages.push(`상품 ${index + 1} (${product.productUrl}) : 필수 정보(상품명 또는 최종 링크)를 가져오지 못해 건너뛰었습니다.`);
+                continue;
             }
 
-            // --- Construct content string ---
-            const mainPrice = parsePrice(product.productPrice);
-            
-            const allDiscountPrices = [
-                product.discountCodePrice,
-                product.storeCouponPrice,
-                product.cardPrice
-            ].map(price => parsePrice(price));
-
-            let finalPriceAmount = mainPrice.amount;
-
-            allDiscountPrices.forEach(discountPrice => {
-                finalPriceAmount -= discountPrice.amount;
-            });
-
-            if (product.coinDiscountRate) {
-                const rateStr = product.coinDiscountRate.replace('%', '').trim();
-                const rate = parseFloat(rateStr);
-                if (!isNaN(rate)) {
-                    const coinDiscountAmount = mainPrice.amount * (rate / 100);
-                    finalPriceAmount -= coinDiscountAmount;
-                }
-            }
-            
-            const finalPrice = { amount: finalPriceAmount > 0 ? finalPriceAmount : 0, currency: mainPrice.currency };
-
+            // --- Construct content string (Simplified) ---
             let content = `${productInfo.product_title}\n\n`;
-            content += `할인판매가: ${formatPrice(mainPrice)}\n`;
-
-            if (product.discountCodePrice && parsePrice(product.discountCodePrice).amount > 0) {
-              content += `할인코드: -${formatPrice(parsePrice(product.discountCodePrice))}${product.discountCode ? ` ( ${product.discountCode} )` : ""}\n`;
-            }
-            if (product.storeCouponPrice && parsePrice(product.storeCouponPrice).amount > 0) {
-              content += `스토어쿠폰: -${formatPrice(parsePrice(product.storeCouponPrice))}${product.storeCouponCode ? ` ( ${product.storeCouponCode} )` : ""}\n`;
-            }
-            if (product.coinDiscountRate) {
-              const rate = product.coinDiscountRate.replace('%','').trim();
-              if(rate) content += `코인할인 ( ${rate}% )\n`;
-            }
-            if (product.cardPrice && parsePrice(product.cardPrice).amount > 0) {
-              content += `카드할인: -${formatPrice(parsePrice(product.cardPrice))}${product.cardCompanyName ? ` ( ${product.cardCompanyName} )` : ""}\n`;
-            }
-
-            content += `\n할인구매가: ${formatPrice(finalPrice)}\n\n`;
             content += `상품 링크: ${productInfo.final_url}\n`;
 
             const bandPayload: { content: string; image_url?: string } = { content };
@@ -232,11 +172,10 @@ export default function Home() {
                 successCount++;
             } else {
                 const errorText = await bandResponse.text();
-                console.error(`[FRONTEND] 밴드 포스팅 API 오류: ${product.productUrl}`, errorText);
-                errorMessages.push(`상품 ${index + 1} 실패: ${errorText}`);
+                errorMessages.push(`상품 ${index + 1} (${product.productUrl}) 실패: ${errorText}`);
             }
         }
-        
+
         // 4. Final result
         if (successCount === totalCount) {
              setBandPostResult({ status: 'success', message: `총 ${totalCount}개 상품 모두 밴드 글쓰기 성공!` });
@@ -245,7 +184,7 @@ export default function Home() {
                 description: `총 ${totalCount}개의 상품이 밴드에 성공적으로 게시되었습니다.`,
               });
         } else {
-            const finalErrorMessage = `총 ${totalCount}개 상품 중 ${successCount}개만 성공 (실패: ${totalCount - successCount}개)\n\n[실패 내역]\n${errorMessages.join('\n')}`;
+            const finalErrorMessage = `총 ${totalCount}개 상품 중 ${successCount}개 성공 / ${totalCount - successCount}개 실패\n\n[오류 내역]\n${errorMessages.join('\n')}`;
             setBandPostResult({ status: 'error', message: finalErrorMessage });
              toast({
                 variant: "destructive",
@@ -256,7 +195,6 @@ export default function Home() {
 
 
     } catch (error: any) {
-      console.error("[FRONTEND] Error during band posting process:", error);
       setBandPostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
       toast({
         variant: "destructive",
@@ -287,18 +225,18 @@ export default function Home() {
 
   const formFields = {
     required: [
-        { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true, type: "text" as const },
-        { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true, type: "text" as const },
-        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text" as const, isRequired: true },
-        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10%", type: "text" as const },
+        { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
+        { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
     ],
     collapsible: [
-        { name: "discountCode", label: "할인코드", placeholder: "예: KR1234", type: "text" as const },
-        { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" as const },
-        { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000", type: "text" as const },
-        { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가", placeholder: "예: 2 또는 2000원", type: "text" as const },
-        { name: "cardCompanyName", label: "카드사명", placeholder: "예: 카카오페이", type: "text" as const },
-        { name: "cardPrice", label: "카드할인가", placeholder: "예: 3 또는 3000원", type: "text" as const },
+        { name: "productPrice", label: "상품판매가 (참고용)", placeholder: "예: 25 또는 30000원" },
+        { name: "coinDiscountRate", label: "코인할인율 (참고용)", placeholder: "예: 10%" },
+        { name: "discountCode", label: "할인코드 (참고용)", placeholder: "예: KR1234" },
+        { name: "discountCodePrice", label: "할인코드 할인가 (참고용)", placeholder: "예: 5 또는 5000원" },
+        { name: "storeCouponCode", label: "스토어쿠폰 코드 (참고용)", placeholder: "예: STORE1000" },
+        { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가 (참고용)", placeholder: "예: 2 또는 2000원" },
+        { name: "cardCompanyName", label: "카드사명 (참고용)", placeholder: "예: 카카오페이" },
+        { name: "cardPrice", label: "카드할인가 (참고용)", placeholder: "예: 3 또는 3000원" },
     ]
   };
   
@@ -332,7 +270,7 @@ export default function Home() {
           <CardHeader>
             <CardTitle>정보 입력</CardTitle>
             <CardDescription>
-              상품 정보와 할인 내역을 입력해주세요.
+              글을 쓸 상품의 URL과 제휴 키를 입력해주세요.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -359,7 +297,7 @@ export default function Home() {
                       <FormField
                         key={`${item.id}-${fieldInfo.name}`}
                         control={form.control}
-                        name={`products.${index}.${fieldInfo.name}`}
+                        name={`products.${index}.${fieldInfo.name as 'productUrl' | 'affShortKey'}`}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
@@ -369,7 +307,6 @@ export default function Home() {
                             <FormControl>
                               <Input
                                 placeholder={fieldInfo.placeholder}
-                                type={fieldInfo.type || "text"}
                                 {...field}
                                 value={field.value ?? ""}
                               />
@@ -383,7 +320,7 @@ export default function Home() {
                           <CollapsibleTrigger asChild>
                               <Button variant="outline" className="w-full">
                                   <ChevronDown className="h-4 w-4 mr-2" />
-                                  할인 정보 펼치기/접기
+                                  가격 정보 입력 (참고용)
                               </Button>
                           </CollapsibleTrigger>
                           <CollapsibleContent className="space-y-4 pt-4">
@@ -391,7 +328,7 @@ export default function Home() {
                                   <FormField
                                   key={`${item.id}-${fieldInfo.name}`}
                                   control={form.control}
-                                  name={`products.${index}.${fieldInfo.name}`}
+                                  name={`products.${index}.${fieldInfo.name as any}`}
                                   render={({ field }) => (
                                       <FormItem>
                                       <FormLabel>
@@ -400,7 +337,6 @@ export default function Home() {
                                       <FormControl>
                                           <Input
                                           placeholder={fieldInfo.placeholder}
-                                          type={fieldInfo.type || "text"}
                                           {...field}
                                           value={field.value ?? ""}
                                           />
