@@ -112,7 +112,7 @@ export default function Home() {
     },
   });
 
-  const { fields, append, remove, getValues } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "products",
   });
@@ -339,7 +339,7 @@ ${reviewHtml}
   };
   
   const handleAddProduct = () => {
-    const products = getValues("products");
+    const products = form.getValues("products");
     const lastProduct = products[products.length - 1];
     append({
         productUrl: "",
