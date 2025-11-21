@@ -146,6 +146,10 @@ export default function Home() {
         if (!allInfos || !Array.isArray(allInfos)) {
             throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
         }
+        
+        if(allInfos.length !== data.products.length){
+            throw new Error("가져온 상품 정보의 개수가 요청한 개수와 다릅니다.");
+        }
 
         setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
 
@@ -154,11 +158,11 @@ export default function Home() {
 
         // 2. Iterate and post to band for each product
         for (const [index, product] of data.products.entries()) {
-            const productInfo = allInfos.find(info => info && info.original_url === product.productUrl);
+            const productInfo = allInfos[index];
 
             if (!productInfo) {
                 console.error(`[FRONTEND] 밴드 포스팅 실패 (상품 정보 누락): ${product.productUrl}`);
-                continue; // Skip if info not found
+                continue; // Skip if info not found for this product
             }
 
             // --- Construct content string ---

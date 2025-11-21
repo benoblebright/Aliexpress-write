@@ -33,8 +33,12 @@ export async function POST(request: Request) {
     const responseData = response.data as any;
     
     if (responseData && Array.isArray(responseData.results)) {
-        // The results are already matched, just send them back.
-        return NextResponse.json({ allInfos: responseData.results });
+        // The results might not be in the same order as the request.
+        // Match them back to the original urls to ensure order.
+        const sortedInfos = target_urls.map(originalUrl => {
+            return responseData.results.find((info: any) => info && info.original_url === originalUrl) || null;
+        });
+        return NextResponse.json({ allInfos: sortedInfos });
     } else {
        console.error(`[PROXY-ALL] Error: Invalid response structure. Expected a 'results' array. Response Data:`, JSON.stringify(responseData));
       return NextResponse.json({ error: 'Invalid response structure from the main Cloud Run service' }, { status: 500 });
