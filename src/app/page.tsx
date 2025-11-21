@@ -58,7 +58,6 @@ interface AllInfo {
     product_title: string;
     final_url: string;
     original_url: string;
-    // The following are from the API but not used in the final post content
     sale_volume?: string | number;
     korean_summary?: string;
     korean_local_count?: number;
@@ -100,6 +99,19 @@ export default function Home() {
     control: form.control,
     name: "products",
   });
+  
+    const parsePrice = (price: string | number | undefined | null): number => {
+        if (typeof price === 'number') return price;
+        if (typeof price === 'string') {
+            const parsed = parseFloat(price.replace(/[^0-9.]/g, ''));
+            return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+    };
+
+    const formatPrice = (price: number): string => {
+        return new Intl.NumberFormat('ko-KR').format(price) + '원';
+    };
 
   const handlePostToBand = async (data: FormData) => {
     setIsLoading(true);
@@ -152,9 +164,20 @@ export default function Home() {
                 continue;
             }
 
-            // --- Construct content string (Simplified) ---
+            // --- Construct content string ---
             let content = `${productInfo.product_title}\n\n`;
-            content += `상품 링크: ${productInfo.final_url}\n`;
+
+            const productPriceNum = parsePrice(product.productPrice);
+            const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+
+            if (productPriceNum > 0) {
+              content += `할인판매가: ${formatPrice(productPriceNum)}\n`;
+            }
+            if (coinDiscountRateNum > 0) {
+              content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
+            }
+
+            content += `\n상품 링크: ${productInfo.final_url}\n`;
 
             const bandPayload: { content: string; image_url?: string } = { content };
             if (productInfo.product_main_image_url) {
@@ -229,14 +252,14 @@ export default function Home() {
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
     ],
     collapsible: [
-        { name: "productPrice", label: "상품판매가 (참고용)", placeholder: "예: 25 또는 30000원" },
-        { name: "coinDiscountRate", label: "코인할인율 (참고용)", placeholder: "예: 10%" },
-        { name: "discountCode", label: "할인코드 (참고용)", placeholder: "예: KR1234" },
-        { name: "discountCodePrice", label: "할인코드 할인가 (참고용)", placeholder: "예: 5 또는 5000원" },
-        { name: "storeCouponCode", label: "스토어쿠폰 코드 (참고용)", placeholder: "예: STORE1000" },
-        { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가 (참고용)", placeholder: "예: 2 또는 2000원" },
-        { name: "cardCompanyName", label: "카드사명 (참고용)", placeholder: "예: 카카오페이" },
-        { name: "cardPrice", label: "카드할인가 (참고용)", placeholder: "예: 3 또는 3000원" },
+        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text" },
+        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10 또는 10%", type: "text" },
+        { name: "discountCode", label: "할인코드", placeholder: "예: KR1234", type: "text" },
+        { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" },
+        { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000", type: "text" },
+        { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가", placeholder: "예: 2 또는 2000원", type: "text" },
+        { name: "cardCompanyName", label: "카드사명", placeholder: "예: 카카오페이", type: "text" },
+        { name: "cardPrice", label: "카드할인가", placeholder: "예: 3 또는 3000원", type: "text" },
     ]
   };
   
@@ -336,6 +359,7 @@ export default function Home() {
                                       </FormLabel>
                                       <FormControl>
                                           <Input
+                                          type={fieldInfo.type}
                                           placeholder={fieldInfo.placeholder}
                                           {...field}
                                           value={field.value ?? ""}
@@ -392,3 +416,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
