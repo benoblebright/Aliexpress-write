@@ -122,7 +122,6 @@ export default function Home() {
         const productUrls = data.products.map(p => p.productUrl);
         const affShortKeys = data.products.map(p => p.affShortKey);
 
-        // 1. Get all product infos first
         const infoResponse = await fetch("/api/generate-all", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -156,7 +155,6 @@ export default function Home() {
         const totalCount = data.products.length;
         const errorMessages: string[] = [];
 
-        // 2. Iterate and post to band for each product
         for (const [index, product] of data.products.entries()) {
             const productInfo = allInfos[index];
 
@@ -165,7 +163,6 @@ export default function Home() {
                 continue;
             }
 
-            // --- Construct content string ---
             let content = `${productInfo.product_title}\n\n`;
 
             const productPriceNum = parsePrice(product.productPrice);
@@ -179,6 +176,12 @@ export default function Home() {
             if (productPriceNum > 0) {
               content += `할인판매가: ${formatPrice(productPriceNum)}\n`;
             }
+            
+            if (coinDiscountRateNum > 0) {
+              content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
+              const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
+              finalPrice -= coinDiscountValue;
+            }
 
             if (discountCodePriceNum > 0 && product.discountCode) {
                 content += `할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )\n`;
@@ -187,12 +190,6 @@ export default function Home() {
              if (storeCouponPriceNum > 0 && product.storeCouponCode) {
                 content += `스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )\n`;
                 finalPrice -= storeCouponPriceNum;
-            }
-
-            if (coinDiscountRateNum > 0) {
-              content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
-              const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
-              finalPrice -= coinDiscountValue;
             }
 
             if (cardPriceNum > 0 && product.cardCompanyName) {
@@ -208,7 +205,6 @@ export default function Home() {
                 bandPayload.image_url = productInfo.product_main_image_url;
             }
 
-            // 3. Call the band posting API
             const bandResponse = await fetch("/api/post-to-band", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -229,7 +225,6 @@ export default function Home() {
             }
         }
 
-        // 4. Final result
         if (successCount === totalCount) {
              setBandPostResult({ status: 'success', message: `총 ${totalCount}개 상품 모두 밴드 글쓰기 성공!` });
              toast({
@@ -304,7 +299,7 @@ export default function Home() {
         default:
             return 'default';
     }
-  }
+  };
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
@@ -386,7 +381,7 @@ export default function Home() {
                                       <FormItem>
                                       <FormLabel>
                                           {fieldInfo.label}
-                                      </FormLabel>
+                                      </Form.Label>
                                       <FormControl>
                                           <Input
                                           type={fieldInfo.type}
