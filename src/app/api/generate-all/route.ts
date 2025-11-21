@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     console.error('[PROXY-ALL] An unexpected error occurred:', error.message);
     if (error.response) {
       console.error(`[PROXY-ALL] Upstream error response data:`, JSON.stringify(error.response.data, null, 2));
+       return NextResponse.json(error.response.data, { status: error.response.status });
     }
     return NextResponse.json(
       { error: 'An internal server error occurred in the proxy.' },
