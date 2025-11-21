@@ -7,8 +7,10 @@ export const maxDuration = 300; // 5분 타임아웃
 const CLOUD_RUN_URL = 'https://alihelper-allimage-53912196882.asia-northeast3.run.app';
 
 export async function POST(request: Request) {
+  let requestBody;
   try {
-    const { target_urls, aff_short_key } = await request.json();
+    requestBody = await request.json();
+    const { target_urls, aff_short_key } = requestBody;
 
     if (!Array.isArray(target_urls) || target_urls.length === 0) {
       return NextResponse.json({ error: 'target_urls is required and must be an array' }, { status: 400 });
@@ -45,7 +47,8 @@ export async function POST(request: Request) {
     }
 
   } catch (error: any) {
-    console.error('[PROXY-ALL] An unexpected error occurred:', error.message);
+    console.error(`[PROXY-ALL] An unexpected error occurred. Request Body:`, JSON.stringify(requestBody, null, 2));
+    console.error('[PROXY-ALL] Error Message:', error.message);
     if (error.response) {
       console.error(`[PROXY-ALL] Upstream error response data:`, JSON.stringify(error.response.data, null, 2));
        return NextResponse.json(error.response.data, { status: error.response.status });
