@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Copy, Rocket, Plus, Trash2, ChevronDown } from "lucide-react";
+import { Loader2, Rocket, Plus, Trash2, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -90,7 +89,6 @@ const formatPrice = (price: { amount: number; currency: 'KRW' | 'USD' }): string
 };
 
 export default function Home() {
-  const [generatedHtml, setGeneratedHtml] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -114,24 +112,13 @@ export default function Home() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, getValues } = useFieldArray({
     control: form.control,
     name: "products",
   });
 
-  const handleCopy = () => {
-    if (!generatedHtml) return;
-    navigator.clipboard.writeText(generatedHtml).then(() => {
-      toast({
-        title: "성공!",
-        description: "HTML이 클립보드에 복사되었습니다.",
-      });
-    });
-  };
-
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
-    setGeneratedHtml("");
 
     try {
         const productUrls = data.products.map(p => p.productUrl);
@@ -323,13 +310,22 @@ ${reviewHtml}
         });
 
       if (!hasErrors) {
-        toast({
-            title: "성공!",
-            description: "HTML 생성이 완료되었습니다.",
-        });
+          const finalHtml = allHtml.trim();
+          navigator.clipboard.writeText(finalHtml).then(() => {
+              alert("HTML이 클립보드에 복사되었습니다. 생성된 내용은 다음과 같습니다:\n\n" + finalHtml);
+              toast({
+                title: "성공!",
+                description: "HTML 생성이 완료되었고 클립보드에 복사되었습니다.",
+              });
+          });
+      } else {
+           toast({
+                variant: "destructive",
+                title: "오류 발생",
+                description: "일부 상품 정보 조회에 실패하여 HTML 생성이 중단되었습니다.",
+            });
       }
 
-      setGeneratedHtml(allHtml.trim());
     } catch (error: any) {
       console.error("[FRONTEND] Error during HTML generation process:", error);
       toast({
@@ -342,6 +338,23 @@ ${reviewHtml}
     }
   };
   
+  const handleAddProduct = () => {
+    const products = getValues("products");
+    const lastProduct = products[products.length - 1];
+    append({
+        productUrl: "",
+        productLandingUrl: lastProduct?.productLandingUrl || "",
+        productPrice: "",
+        coinDiscountRate: "",
+        discountCode: "",
+        discountCodePrice: "",
+        storeCouponCode: "",
+        storeCouponPrice: "",
+        cardCompanyName: "",
+        cardPrice: "",
+    });
+  };
+
   const formFields = {
     required: [
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
@@ -361,7 +374,7 @@ ${reviewHtml}
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-3xl">
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-extrabold text-primary flex items-center justify-center gap-3">
             <Rocket className="h-10 w-10" />
@@ -372,160 +385,120 @@ ${reviewHtml}
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 md:gap-8">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>1. 정보 입력</CardTitle>
-              <CardDescription>
-                상품 정보와 할인 내역을 입력해주세요.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-6"
-                >
-                  {fields.map((item, index) => (
-                    <div key={item.id} className="space-y-4 rounded-lg border p-4 relative">
-                        <CardTitle className="text-xl mb-4">상품 {index + 1}</CardTitle>
-                        {fields.length > 1 && (
-                            <Button
-                                type="button"
-                                variant="destructive"
-                                size="icon"
-                                className="absolute top-4 right-4 h-7 w-7"
-                                onClick={() => remove(index)}
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        )}
-                      {formFields.required.map((fieldInfo) => (
-                        <FormField
-                          key={`${item.id}-${fieldInfo.name}`}
-                          control={form.control}
-                          name={`products.${index}.${fieldInfo.name}`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                {fieldInfo.label}
-                                {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
-                              </FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder={fieldInfo.placeholder}
-                                  type={fieldInfo.type || "text"}
-                                  {...field}
-                                  value={field.value ?? ""}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      ))}
-                        <Collapsible>
-                            <CollapsibleTrigger asChild>
-                                <Button variant="outline" className="w-full">
-                                    <ChevronDown className="h-4 w-4 mr-2" />
-                                    할인 정보 펼치기/접기
-                                </Button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="space-y-4 pt-4">
-                                {formFields.collapsible.map((fieldInfo) => (
-                                    <FormField
-                                    key={`${item.id}-${fieldInfo.name}`}
-                                    control={form.control}
-                                    name={`products.${index}.${fieldInfo.name}`}
-                                    render={({ field }) => (
-                                        <FormItem>
-                                        <FormLabel>
-                                            {fieldInfo.label}
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                            placeholder={fieldInfo.placeholder}
-                                            type={fieldInfo.type || "text"}
-                                            {...field}
-                                            value={field.value ?? ""}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}
-                                    />
-                                ))}
-                            </CollapsibleContent>
-                        </Collapsible>
-                    </div>
-                  ))}
-                  
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => append({ 
-                        productUrl: "",
-                        productLandingUrl: "",
-                        productPrice: "",
-                        coinDiscountRate: "",
-                        discountCode: "",
-                        discountCodePrice: "",
-                        storeCouponCode: "",
-                        storeCouponPrice: "",
-                        cardCompanyName: "",
-                        cardPrice: "",
-                     })}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    상품 추가하기
-                  </Button>
-
-                  <Separator />
-
-                  <Button
-                    type="submit"
-                    className="w-full text-lg py-6"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                    {isLoading ? "생성 중..." : "HTML 생성하기"}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg mt-8 md:mt-0 flex flex-col">
-            <CardHeader>
-              <CardTitle>2. 결과 확인 및 복사</CardTitle>
-              <CardDescription>
-                생성된 HTML 코드입니다. 아래 버튼으로 복사하세요.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col flex-grow">
-              <Textarea
-                readOnly
-                value={generatedHtml}
-                placeholder="이곳에 생성된 HTML 코드가 표시됩니다."
-                className="flex-grow text-sm min-h-[300px] resize-none font-code"
-              />
-              <Button
-                onClick={handleCopy}
-                className="mt-4 w-full text-lg py-6"
-                disabled={!generatedHtml || isLoading}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>정보 입력</CardTitle>
+            <CardDescription>
+              상품 정보와 할인 내역을 입력해주세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
               >
-                <Copy className="mr-2 h-5 w-5" />
-                HTML 복사하기
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+                {fields.map((item, index) => (
+                  <div key={item.id} className="space-y-4 rounded-lg border p-4 relative">
+                      <CardTitle className="text-xl mb-4">상품 {index + 1}</CardTitle>
+                      {fields.length > 1 && (
+                          <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-4 right-4 h-7 w-7"
+                              onClick={() => remove(index)}
+                          >
+                              <Trash2 className="h-4 w-4" />
+                          </Button>
+                      )}
+                    {formFields.required.map((fieldInfo) => (
+                      <FormField
+                        key={`${item.id}-${fieldInfo.name}`}
+                        control={form.control}
+                        name={`products.${index}.${fieldInfo.name}`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {fieldInfo.label}
+                              {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={fieldInfo.placeholder}
+                                type={fieldInfo.type || "text"}
+                                {...field}
+                                value={field.value ?? ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                      <Collapsible>
+                          <CollapsibleTrigger asChild>
+                              <Button variant="outline" className="w-full">
+                                  <ChevronDown className="h-4 w-4 mr-2" />
+                                  할인 정보 펼치기/접기
+                              </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="space-y-4 pt-4">
+                              {formFields.collapsible.map((fieldInfo) => (
+                                  <FormField
+                                  key={`${item.id}-${fieldInfo.name}`}
+                                  control={form.control}
+                                  name={`products.${index}.${fieldInfo.name}`}
+                                  render={({ field }) => (
+                                      <FormItem>
+                                      <FormLabel>
+                                          {fieldInfo.label}
+                                      </FormLabel>
+                                      <FormControl>
+                                          <Input
+                                          placeholder={fieldInfo.placeholder}
+                                          type={fieldInfo.type || "text"}
+                                          {...field}
+                                          value={field.value ?? ""}
+                                          />
+                                      </FormControl>
+                                      <FormMessage />
+                                      </FormItem>
+                                  )}
+                                  />
+                              ))}
+                          </CollapsibleContent>
+                      </Collapsible>
+                  </div>
+                ))}
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleAddProduct}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  상품 추가하기
+                </Button>
+
+                <Separator />
+
+                <Button
+                  type="submit"
+                  className="w-full text-lg py-6"
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                  {isLoading ? "생성 중..." : "밴드 글쓰기"}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );
 }
-
-    
 
     
