@@ -32,14 +32,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-    Carousel,
-    CarouselContent,
-    CarouselItem,
-    CarouselNext,
-    CarouselPrevious,
-} from "@/components/ui/carousel";
-import { Skeleton } from "@/components/ui/skeleton";
 
 
 const productSchema = z.object({
@@ -54,8 +46,6 @@ const productSchema = z.object({
   storeCouponPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
   cardPrice: z.string().optional(),
-  // For sheet matching
-  rowNumber: z.number().optional(),
 });
 
 const formSchema = z.object({
@@ -75,16 +65,6 @@ interface AllInfo {
     total_num?: number;
 }
 
-interface SheetRow {
-    rowNumber: number;
-    상품명: string;
-    URL: string;
-    Runtime: string;
-    사이트: string;
-    가격: string;
-    checkup: string;
-}
-
 type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
 interface BandPostResult {
     status: BandPostStatus;
@@ -93,38 +73,8 @@ interface BandPostResult {
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
-  const [isSheetLoading, setIsSheetLoading] = useState(true);
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
-  const [sheetData, setSheetData] = useState<SheetRow[]>([]);
-
-  const fetchSheetData = useCallback(async () => {
-    try {
-        setIsSheetLoading(true);
-        const response = await fetch('/api/sheets');
-        if (!response.ok) {
-            const errorResult = await response.json();
-            throw new Error(errorResult.error || '스프레드시트 데이터를 가져오는데 실패했습니다.');
-        }
-        const result = await response.json();
-        setSheetData(result.data);
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: '시트 데이터 로딩 오류',
-            description: error.message,
-        });
-        setSheetData([]); // Clear data on error
-    } finally {
-        setIsSheetLoading(false);
-    }
-  }, [toast]);
-
-
-  useEffect(() => {
-    fetchSheetData();
-  }, [fetchSheetData]);
-
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -141,7 +91,7 @@ export default function Home() {
     },
   });
 
-  const { fields, append, remove, setValue } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "products",
   });
@@ -263,13 +213,6 @@ export default function Home() {
 
             if (bandResponse.ok) {
                 successCount++;
-                 if (product.rowNumber) {
-                    await fetch('/api/sheets', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ rowNumber: product.rowNumber, column: 'checkup', value: '2' }),
-                    });
-                 }
             } else {
                 try {
                     const bandErrorResult = await bandResponse.json();
@@ -288,7 +231,6 @@ export default function Home() {
                 title: "성공!",
                 description: `총 ${totalCount}개의 상품이 밴드에 성공적으로 게시되었습니다.`,
               });
-             fetchSheetData(); // Refresh sheet data
         } else {
             const finalErrorMessage = `총 ${totalCount}개 상품 중 ${successCount}개 성공 / ${totalCount - successCount}개 실패\n\n[오류 내역]\n${errorMessages.join('\n')}`;
             setBandPostResult({ status: 'error', message: finalErrorMessage });
@@ -297,7 +239,6 @@ export default function Home() {
                 title: "일부 실패",
                 description: `총 ${totalCount}개 중 ${totalCount - successCount}개의 상품을 밴드에 게시하지 못했습니다.`,
             });
-             fetchSheetData(); // Refresh sheet data
         }
     } catch (error: any) {
       setBandPostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
@@ -328,45 +269,6 @@ export default function Home() {
         cardPrice: "",
     });
   };
-
-  const handleSelectSheetRow = (row: SheetRow) => {
-    setValue('products.0.productUrl', row.URL);
-    setValue('products.0.productPrice', row.가격);
-    setValue('products.0.rowNumber', row.rowNumber); 
-    toast({
-        title: "상품 정보 적용",
-        description: `'${row.상품명}'의 정보가 상품 1에 적용되었습니다.`
-    })
-  };
-
-  const handleDeleteSheetRow = async (row: SheetRow) => {
-    const originalSheetData = [...sheetData];
-    setSheetData(prev => prev.filter(item => item.rowNumber !== row.rowNumber));
-
-    try {
-        const response = await fetch('/api/sheets', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rowNumber: row.rowNumber, column: 'checkup', value: '1' }),
-        });
-        const result = await response.json();
-        if(!response.ok) {
-            throw new Error(result.error || "시트 업데이트에 실패했습니다.")
-        }
-        toast({
-            title: "상품 삭제됨",
-            description: `'${row.상품명}'이(가) 목록에서 삭제 처리되었습니다.`
-        });
-    } catch (error: any) {
-        toast({
-            variant: "destructive",
-            title: "시트 업데이트 오류",
-            description: error.message,
-        });
-        setSheetData(originalSheetData);
-    }
-  };
-
 
   const formFields = {
     required: [
@@ -411,60 +313,6 @@ export default function Home() {
             상품 정보를 입력하고 밴드에 바로 글을 게시하세요.
           </p>
         </header>
-
-        <Card className="shadow-lg mb-8">
-            <CardHeader>
-                <CardTitle>작업 대기 목록</CardTitle>
-                <CardDescription>
-                    구글 시트에서 가져온 작업 대기중인 상품 목록입니다. (최신순 정렬)
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {isSheetLoading ? (
-                    <div className="flex justify-center items-center p-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                ) : sheetData.length > 0 ? (
-                    <Carousel className="w-full" opts={{ align: "start", loop: false }}>
-                        <CarouselContent>
-                            {sheetData.map((item) => (
-                                <CarouselItem key={item.rowNumber} className="md:basis-1/2 lg:basis-1/3">
-                                    <div className="p-1">
-                                        <Card className="h-full flex flex-col">
-                                            <CardHeader>
-                                                <CardTitle className="text-base line-clamp-2">{item.상품명}</CardTitle>
-                                                <CardDescription>{item.가격}</CardDescription>
-                                            </CardHeader>
-                                            <CardContent className="flex-grow text-xs space-y-1">
-                                               <p><strong>사이트:</strong> {item.사이트}</p>
-                                               <p><strong>URL:</strong> <a href={item.URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block">{item.URL}</a></p>
-                                               <p><strong>Runtime:</strong> {new Date(item.Runtime).toLocaleString()}</p>
-                                            </CardContent>
-                                            <div className="flex border-t">
-                                                <Button variant="ghost" className="w-1/2 rounded-none rounded-bl-lg" onClick={() => handleSelectSheetRow(item)}>
-                                                    <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                                                    선택
-                                                </Button>
-                                                <Separator orientation="vertical" className="h-auto" />
-                                                <Button variant="ghost" className="w-1/2 rounded-none rounded-br-lg" onClick={() => handleDeleteSheetRow(item)}>
-                                                    <XCircle className="h-4 w-4 mr-2 text-red-500"/>
-                                                    삭제
-                                                </Button>
-                                            </div>
-                                        </Card>
-                                    </div>
-                                </CarouselItem>
-                            ))}
-                        </CarouselContent>
-                        <CarouselPrevious />
-                        <CarouselNext />
-                    </Carousel>
-                ) : (
-                    <p className="text-center text-muted-foreground py-4">작업 대기중인 상품이 없습니다.</p>
-                )}
-            </CardContent>
-        </Card>
-
 
         <Card className="shadow-lg">
           <CardHeader>
