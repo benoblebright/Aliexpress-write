@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus, Pilcrow, MessageSquareText } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus, Pilcrow, MessageSquareText, Database } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -107,6 +107,12 @@ interface BandPostResult {
     message: string;
 }
 
+interface ApiLogEntry {
+  name: string;
+  request: any;
+  response: any;
+}
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -122,6 +128,7 @@ export default function Home() {
 
   const [allInfo, setAllInfo] = useState<AllInfo | null>(null);
   const [reviewsInfo, setReviewsInfo] = useState<ReviewInfo | null>(null);
+  const [apiLog, setApiLog] = useState<ApiLogEntry[]>([]);
 
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
@@ -200,9 +207,9 @@ export default function Home() {
       setPreviewContent("미리보기를 생성 중입니다...");
       setAllInfo(null);
       setReviewsInfo(null);
+      setApiLog([]);
       setIsHtmlMode(false);
       setSelectedReviews({});
-
 
       const allInfoRequestBody = {
           target_urls: [productUrl],
@@ -210,6 +217,7 @@ export default function Home() {
       };
 
       try {
+          // Step 1: Fetch basic product info
           const infoResponse = await fetch("/api/generate-all", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -217,6 +225,7 @@ export default function Home() {
           });
           
           const infoResult = await infoResponse.json();
+          setApiLog(prev => [...prev, { name: '상품정보 API (/api/generate-all)', request: allInfoRequestBody, response: infoResult }]);
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
               const errorMsg = infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.';
@@ -224,8 +233,11 @@ export default function Home() {
           }
 
           let productInfo = infoResult.allInfos[0] as AllInfo;
-          setAllInfo(productInfo);
+          
+          let finalProductInfo = { ...productInfo };
+          let tempReviewsInfo: ReviewInfo | null = null;
 
+          // Step 2: Fetch reviews if original_url exists
           if (productInfo.original_url) {
               const reviewsRequestBody = { target_urls: [productInfo.original_url] };
               try {
@@ -235,8 +247,10 @@ export default function Home() {
                       body: JSON.stringify(reviewsRequestBody),
                   });
                   const reviewsResult = await reviewsResponse.json();
+                  setApiLog(prev => [...prev, { name: '후기정보 API (/api/generate-reviews)', request: reviewsRequestBody, response: reviewsResult }]);
+
                   if (reviewsResponse.ok) {
-                      setReviewsInfo(reviewsResult);
+                      tempReviewsInfo = reviewsResult;
                   } else {
                      toast({ variant: "destructive", title: "후기 정보 조회 실패", description: reviewsResult.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
                   }
@@ -245,14 +259,16 @@ export default function Home() {
               }
           }
 
+          setAllInfo(finalProductInfo);
+          setReviewsInfo(tempReviewsInfo);
 
-          if (!productInfo.product_title || !productInfo.final_url) {
+          if (!finalProductInfo.product_title || !finalProductInfo.final_url) {
               setPreviewContent("<p>조회된 상품 정보가 올바르지 않습니다.</p>");
               setIsHtmlMode(true);
               return;
           }
           
-          let content = `<p>${productInfo.product_title}</p><br />`;
+          let content = `<p>${finalProductInfo.product_title}</p><br />`;
 
           const productPriceNum = parsePrice(product.productPrice);
           const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
@@ -288,7 +304,7 @@ export default function Home() {
               content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice))}</p>`;
           }
           
-          content += `<br /><p>할인상품 : <a href="${productInfo.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
+          content += `<br /><p>할인상품 : <a href="${finalProductInfo.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
 
           if (product.productTag) {
               const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
@@ -378,6 +394,7 @@ export default function Home() {
                     setAllInfo(null);
                     setPreviewContent("");
                     setReviewsInfo(null);
+                    setApiLog([]);
 
 
                  } catch (sheetError) {
@@ -416,6 +433,7 @@ export default function Home() {
         setAllInfo(null);
         setPreviewContent("");
         setReviewsInfo(null);
+        setApiLog([]);
     }
 
     try {
@@ -802,6 +820,48 @@ export default function Home() {
                       )}
                     </div>
 
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <Button type="button" variant="outline" className="w-full">
+                          <Database className="mr-2 h-4 w-4" />
+                          API 로그 보기
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-4 pt-4">
+                        <div className="rounded-lg border p-4 space-y-2 bg-muted/50">
+                          <h4 className="font-semibold">API 호출 기록</h4>
+                          {apiLog.length > 0 ? (
+                            apiLog.map((log, index) => (
+                              <Collapsible key={index} className="space-y-2">
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="w-full justify-start">
+                                    <ChevronDown className="h-4 w-4 mr-2" />
+                                    {log.name}
+                                  </Button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="space-y-2 pl-4">
+                                  <div>
+                                    <h5 className="font-semibold">요청 (Request)</h5>
+                                    <pre className="mt-2 w-full rounded-md bg-background p-4 text-xs overflow-x-auto">
+                                      {JSON.stringify(log.request, null, 2)}
+                                    </pre>
+                                  </div>
+                                  <div>
+                                    <h5 className="font-semibold">응답 (Response)</h5>
+                                    <pre className="mt-2 w-full rounded-md bg-background p-4 text-xs overflow-x-auto">
+                                      {JSON.stringify(log.response, null, 2)}
+                                    </pre>
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            ))
+                          ) : (
+                            <p className="text-sm text-muted-foreground">API 호출 기록이 없습니다.</p>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
                     {reviewsInfo?.reviews && reviewsInfo.reviews.length > 0 && (
                         <div className="space-y-4 rounded-lg border p-4">
                             <CardTitle className="text-xl">리뷰 선택</CardTitle>
@@ -870,3 +930,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
