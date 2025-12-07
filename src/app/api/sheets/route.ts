@@ -2,9 +2,6 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 
-// Load environment variables from .env.local
-require('dotenv').config();
-
 // Type definition for a sheet row
 interface SheetRow {
     rowNumber: number;
