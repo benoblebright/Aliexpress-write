@@ -413,9 +413,29 @@ export default function Home() {
 
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
-      setSelectedRowNumber(null);
+        setSelectedRowNumber(null);
+        form.reset({ productUrl: "", affShortKey: "", productPrice: "", coinDiscountRate: "", productTag: "", discountCode: "", discountCodePrice: "", storeCouponCode: "", storeCouponPrice: "", cardCompanyName: "", cardPrice: "" });
+        setAllInfo(null);
+        setPreviewContent("");
     } else if (selectedRowNumber === null) {
-      setSelectedRowNumber(item.rowNumber);
+        setSelectedRowNumber(item.rowNumber);
+        form.reset({
+            productUrl: item.URL,
+            productPrice: item.가격,
+            affShortKey: "",
+            coinDiscountRate: "",
+            productTag: "",
+            discountCode: "",
+            discountCodePrice: "",
+            storeCouponCode: "",
+            storeCouponPrice: "",
+            cardCompanyName: "",
+            cardPrice: ""
+        });
+        toast({
+            title: "항목 선택됨",
+            description: "상품 URL과 가격이 자동으로 입력되었습니다. 제휴 단축키를 입력해주세요.",
+        });
     }
   };
   
@@ -783,3 +803,4 @@ export default function Home() {
   );
 }
 
+    
