@@ -396,25 +396,13 @@ export default function Home() {
     if (selectedRowNumber === item.rowNumber) {
       // Deselect if the same item is clicked again
       setSelectedRowNumber(null);
-      form.reset({
-        productUrl: "",
-        affShortKey: "",
-        productPrice: "",
-        coinDiscountRate: "",
-        productTag: "",
-        discountCode: "",
-        discountCodePrice: "",
-        storeCouponCode: "",
-        storeCouponPrice: "",
-        cardCompanyName: "",
-        cardPrice: "",
-      });
     } else if (selectedRowNumber === null) {
       // Select if no item is currently selected
       setSelectedRowNumber(item.rowNumber);
       form.reset({
         productUrl: item.URL,
         productPrice: item.가격?.replace(/[^0-9]/g, ''),
+        affShortKey: form.getValues('affShortKey'), // Keep existing aff short key
       });
       toast({
         title: "정보 채우기 완료",
