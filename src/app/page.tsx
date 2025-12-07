@@ -407,30 +407,8 @@ export default function Home() {
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
       setSelectedRowNumber(null);
-      form.reset({
-          productUrl: "",
-          affShortKey: form.getValues("affShortKey"), // Keep affShortKey
-          productPrice: "",
-          coinDiscountRate: "",
-          productTag: "",
-          discountCode: "",
-          discountCodePrice: "",
-          storeCouponCode: "",
-          storeCouponPrice: "",
-          cardCompanyName: "",
-          cardPrice: "",
-      });
     } else {
       setSelectedRowNumber(item.rowNumber);
-      form.reset({
-        ...form.getValues(), // Keep other values
-        productUrl: item.URL || "",
-        productPrice: item.가격 || "",
-      });
-      toast({
-        title: "항목 선택됨",
-        description: `상품 '${item.상품명 || "이름 없음"}' 정보가 아래 폼에 채워졌습니다.`,
-      });
     }
   };
 
