@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useForm } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy } from "lucide-react";
@@ -434,7 +434,7 @@ export default function Home() {
                     </CardDescription>
                 </div>
                 <Button variant="outline" size="icon" onClick={fetchSheetData} disabled={isSheetLoading}>
-                    <RefreshCw className={`h-4 w-4 ${isSheetLoading ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 animate-spin ${isSheetLoading ? 'animate-spin' : ''}`} />
                     <span className="sr-only">새로고침</span>
                 </Button>
             </CardHeader>
