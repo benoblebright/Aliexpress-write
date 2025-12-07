@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Plus, Trash2, ChevronDown } from "lucide-react";
+import { Loader2, Rocket, Plus, Trash2, ChevronDown, CheckCircle, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 const productSchema = z.object({
@@ -46,6 +54,8 @@ const productSchema = z.object({
   storeCouponPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
   cardPrice: z.string().optional(),
+  // For sheet matching
+  rowNumber: z.number().optional(),
 });
 
 const formSchema = z.object({
@@ -65,6 +75,16 @@ interface AllInfo {
     total_num?: number;
 }
 
+interface SheetRow {
+    rowNumber: number;
+    상품명: string;
+    URL: string;
+    Runtime: string;
+    사이트: string;
+    가격: string;
+    checkup: string;
+}
+
 type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
 interface BandPostResult {
     status: BandPostStatus;
@@ -73,8 +93,34 @@ interface BandPostResult {
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isSheetLoading, setIsSheetLoading] = useState(true);
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
+  const [sheetData, setSheetData] = useState<SheetRow[]>([]);
+
+  useEffect(() => {
+    async function fetchSheetData() {
+        try {
+            setIsSheetLoading(true);
+            const response = await fetch('/api/sheets');
+            if (!response.ok) {
+                throw new Error('스프레드시트 데이터를 가져오는데 실패했습니다.');
+            }
+            const result = await response.json();
+            setSheetData(result.data);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: '시트 데이터 로딩 오류',
+                description: error.message,
+            });
+        } finally {
+            setIsSheetLoading(false);
+        }
+    }
+    fetchSheetData();
+  }, [toast]);
+
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -83,21 +129,12 @@ export default function Home() {
         {
           productUrl: "",
           affShortKey: "",
-          productPrice: "",
-          coinDiscountRate: "",
-          productTag: "",
-          discountCode: "",
-          discountCodePrice: "",
-          storeCouponCode: "",
-          storeCouponPrice: "",
-          cardCompanyName: "",
-          cardPrice: "",
         },
       ],
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, setValue } = useFieldArray({
     control: form.control,
     name: "products",
   });
@@ -181,7 +218,6 @@ export default function Home() {
               const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
               finalPrice -= coinDiscountValue;
             }
-
             if (discountCodePriceNum > 0 && product.discountCode) {
                 content += `할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )\n`;
                 finalPrice -= discountCodePriceNum;
@@ -190,12 +226,10 @@ export default function Home() {
                 content += `스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )\n`;
                 finalPrice -= storeCouponPriceNum;
             }
-
             if (cardPriceNum > 0 && product.cardCompanyName) {
                 content += `카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )\n`;
                 finalPrice -= cardPriceNum;
             }
-            
             if(finalPrice < productPriceNum) {
                 content += `\n할인구매가: ${formatPrice(finalPrice)}\n`;
             }
@@ -219,6 +253,15 @@ export default function Home() {
 
             if (bandResponse.ok) {
                 successCount++;
+                 if (product.rowNumber) {
+                     // Update sheet
+                    await fetch('/api/sheets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rowNumber: product.rowNumber, column: 'checkup', value: '2' }),
+                    });
+                     // Also update other fields if needed, for simplicity we only update checkup
+                 }
             } else {
                 try {
                     const bandErrorResult = await bandResponse.json();
@@ -246,8 +289,6 @@ export default function Home() {
                 description: `총 ${totalCount}개 중 ${totalCount - successCount}개의 상품을 밴드에 게시하지 못했습니다.`,
             });
         }
-
-
     } catch (error: any) {
       setBandPostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
       toast({
@@ -278,13 +319,54 @@ export default function Home() {
     });
   };
 
+  const handleSelectSheetRow = (row: SheetRow) => {
+    // We will populate the first product form.
+    // If you want to add a new form instead, the logic can be changed.
+    setValue('products.0.productUrl', row.URL);
+    setValue('products.0.productPrice', row.가격);
+    setValue('products.0.rowNumber', row.rowNumber); // Keep track of the row
+    toast({
+        title: "상품 정보 적용",
+        description: `'${row.상품명}'의 정보가 상품 1에 적용되었습니다.`
+    })
+  };
+
+  const handleDeleteSheetRow = async (row: SheetRow) => {
+    setSheetData(prev => prev.filter(item => item.rowNumber !== row.rowNumber));
+
+    try {
+        const response = await fetch('/api/sheets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rowNumber: row.rowNumber, column: 'checkup', value: '1' }),
+        });
+        const result = await response.json();
+        if(!response.ok) {
+            throw new Error(result.error || "시트 업데이트에 실패했습니다.")
+        }
+        toast({
+            title: "상품 삭제됨",
+            description: `'${row.상품명}'이(가) 목록에서 삭제 처리되었습니다.`
+        });
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "시트 업데이트 오류",
+            description: error.message,
+        });
+        // Re-add the item to the list if the API call fails
+        setSheetData(prev => [...prev, row].sort((a,b) => a.rowNumber - b.rowNumber));
+    }
+  };
+
+
   const formFields = {
     required: [
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
-        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", type: "text", isRequired: false },
-        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10 또는 10%", type: "text", isRequired: false },
-        { name: "productTag", label: "상품태그", placeholder: "예: #캠핑 #가성비 (띄어쓰기로 구분)", type: "text", isRequired: false },
+        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", isRequired: false },
+        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10 또는 10%", isRequired: false },
+        { name: "productTag", label: "상품태그", placeholder: "예: #캠핑 #가성비 (띄어쓰기로 구분)", isRequired: false },
     ],
     collapsible: [
         { name: "discountCode", label: "할인코드", placeholder: "예: KR1234", type: "text" },
@@ -321,6 +403,60 @@ export default function Home() {
             상품 정보를 입력하고 밴드에 바로 글을 게시하세요.
           </p>
         </header>
+
+        <Card className="shadow-lg mb-8">
+            <CardHeader>
+                <CardTitle>작업 대기 목록</CardTitle>
+                <CardDescription>
+                    구글 시트에서 가져온 작업 대기중인 상품 목록입니다.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isSheetLoading ? (
+                    <div className="flex justify-center items-center p-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                ) : sheetData.length > 0 ? (
+                    <Carousel className="w-full" opts={{ align: "start", loop: false }}>
+                        <CarouselContent>
+                            {sheetData.map((item) => (
+                                <CarouselItem key={item.rowNumber} className="md:basis-1/2 lg:basis-1/3">
+                                    <div className="p-1">
+                                        <Card className="h-full flex flex-col">
+                                            <CardHeader>
+                                                <CardTitle className="text-base line-clamp-2">{item.상품명}</CardTitle>
+                                                <CardDescription>{item.가격}</CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="flex-grow text-xs space-y-1">
+                                               <p><strong>사이트:</strong> {item.사이트}</p>
+                                               <p><strong>URL:</strong> <a href={item.URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block">{item.URL}</a></p>
+                                               <p><strong>Runtime:</strong> {item.Runtime}</p>
+                                            </CardContent>
+                                            <div className="flex border-t">
+                                                <Button variant="ghost" className="w-1/2 rounded-none rounded-bl-lg" onClick={() => handleSelectSheetRow(item)}>
+                                                    <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                                                    선택
+                                                </Button>
+                                                <Separator orientation="vertical" className="h-auto" />
+                                                <Button variant="ghost" className="w-1/2 rounded-none rounded-br-lg" onClick={() => handleDeleteSheetRow(item)}>
+                                                    <XCircle className="h-4 w-4 mr-2 text-red-500"/>
+                                                    삭제
+                                                </Button>
+                                            </div>
+                                        </Card>
+                                    </div>
+                                </CarouselItem>
+                            ))}
+                        </CarouselContent>
+                        <CarouselPrevious />
+                        <CarouselNext />
+                    </Carousel>
+                ) : (
+                    <p className="text-center text-muted-foreground py-4">작업 대기중인 상품이 없습니다.</p>
+                )}
+            </CardContent>
+        </Card>
+
 
         <Card className="shadow-lg">
           <CardHeader>
@@ -449,3 +585,4 @@ export default function Home() {
     </main>
   );
 }
+
