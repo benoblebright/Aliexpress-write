@@ -76,6 +76,7 @@ interface SheetData {
   사이트?: string;
   가격?: string;
   URL?: string;
+  Runtime?: string;
   [key: string]: any;
 }
 
@@ -106,7 +107,7 @@ export default function Home() {
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -405,7 +406,7 @@ export default function Home() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      toast({ title: "복사 완료", description: "URL이 클립보드에 복사되었습니다." });
+      toast({ title: "복사 완료", description: "클립보드에 복사되었습니다." });
     }, (err) => {
       toast({ variant: "destructive", title: "복사 실패", description: "클립보드 복사에 실패했습니다." });
     });
@@ -430,10 +431,12 @@ export default function Home() {
         .replace(/\n/g, '<br />');
 
     // "할인상품 : http..." 패턴을 찾아서 a 태그로 변경
-    const urlRegex = /(할인상품\s*:\s*)(https?:\/\/[^\s]+)/g;
+    const urlRegex = /(할인상품\s*:\s*)(https?:\/\/[^\s<]+)/g;
     html = html.replace(urlRegex, (match, prefix, url) => {
-        return `<p>${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p>`;
+      const cleanUrl = url.replace(/&amp;/g, '&');
+      return `<p>${prefix.replace(/<br \/>/g, '')}<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p>`;
     });
+
 
     setRawHtml(html);
     setHtmlContent(html);
