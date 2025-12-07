@@ -112,7 +112,7 @@ export default function Home() {
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -197,7 +197,7 @@ const handleGeneratePreview = async () => {
     }
 
     setIsGeneratingPreview(true);
-    setPreviewContent("미리보기를 생성 중입니다...");
+    setPreviewContent("");
     setAllInfo(null);
     setReviewsInfo(null);
     setApiLog([]);
@@ -240,9 +240,11 @@ const handleGeneratePreview = async () => {
                 currentLog.push({ name: '후기정보 API (/api/generate-reviews)', request: reviewsRequestBody, response: reviewsResult });
                 if (!reviewsResponse.ok) {
                    toast({ variant: "destructive", title: "후기 정보 조회 실패", description: (reviewsResult as any)?.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
+                   reviewsResult = null; // Ensure result is null on failure
                 }
             } catch (reviewError: any) {
                 toast({ variant: "destructive", title: "후기 정보 조회 오류", description: reviewError.message });
+                reviewsResult = null; // Ensure result is null on error
             }
         }
         
@@ -250,8 +252,10 @@ const handleGeneratePreview = async () => {
         if (!productInfo.product_title || !productInfo.final_url) {
             setPreviewContent("<p>조회된 상품 정보가 올바르지 않습니다.</p>");
             setIsHtmlMode(true);
-            setIsGeneratingPreview(false);
+            setAllInfo(productInfo);
+            setReviewsInfo(reviewsResult);
             setApiLog(currentLog);
+            setIsGeneratingPreview(false);
             return;
         }
         
@@ -506,7 +510,7 @@ const handleGeneratePreview = async () => {
           const baseContent = insertionPoint !== -1 ? previewContent.substring(0, insertionPoint) : previewContent;
           const remainingContent = insertionPoint !== -1 ? previewContent.substring(insertionPoint) : '';
   
-          setPreviewContent(`${baseContent}${reviewsToAdd}${remainingContent}`);
+          setPreviewContent(`${baseContent}<br />${reviewsToAdd}${remainingContent}`);
           toast({
               title: "리뷰 추가 완료",
               description: "선택한 리뷰가 미리보기 내용에 추가되었습니다.",
