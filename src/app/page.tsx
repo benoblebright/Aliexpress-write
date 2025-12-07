@@ -97,9 +97,15 @@ interface BandPostResult {
     message: string;
 }
 
-interface ApiLog {
+interface ApiLogEntry {
+  name: string;
   request: object;
   response: object;
+}
+
+interface ApiLog {
+  allInfo: ApiLogEntry | null;
+  reviews: ApiLogEntry | null;
 }
 
 
@@ -117,7 +123,7 @@ export default function Home() {
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
   const [allInfo, setAllInfo] = useState<AllInfo | null>(null);
-  const [apiLog, setApiLog] = useState<ApiLog | null>(null);
+  const [apiLog, setApiLog] = useState<ApiLog>({ allInfo: null, reviews: null });
 
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
@@ -192,10 +198,10 @@ export default function Home() {
       setIsGeneratingPreview(true);
       setPreviewContent("미리보기를 생성 중입니다...");
       setAllInfo(null);
-      setApiLog(null);
+      setApiLog({ allInfo: null, reviews: null });
       setIsHtmlMode(false);
 
-      const requestBody = {
+      const allInfoRequestBody = {
           target_urls: [productUrl],
           aff_short_key: [affShortKey]
       };
@@ -204,25 +210,52 @@ export default function Home() {
           const infoResponse = await fetch("/api/generate-all", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(requestBody),
+              body: JSON.stringify(allInfoRequestBody),
           });
           
           const infoResult = await infoResponse.json();
-          setApiLog({ request: requestBody, response: infoResult });
+          setApiLog(prev => ({ ...prev, allInfo: { name: "/api/generate-all", request: allInfoRequestBody, response: infoResult }}));
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
               const errorMsg = infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.';
-              toast({ variant: "destructive", title: "정보 조회 실패", description: errorMsg });
-              setPreviewContent(`<p>오류: ${errorMsg}. URL과 제휴키를 확인해주세요.</p>`);
-              setIsHtmlMode(true);
-              setAllInfo(null);
-              return;
+              throw new Error(errorMsg);
           }
 
-          const productInfo = infoResult.allInfos[0] as AllInfo;
+          let productInfo = infoResult.allInfos[0] as AllInfo;
+          
+          // Now, call the reviews API if original_url exists
+          if (productInfo.original_url) {
+              const reviewsRequestBody = { product_url: productInfo.original_url };
+              try {
+                  const reviewsResponse = await fetch("/api/generate-reviews", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(reviewsRequestBody),
+                  });
+                  const reviewsResult = await reviewsResponse.json();
+                   setApiLog(prev => ({ ...prev, reviews: { name: "/api/generate-reviews", request: reviewsRequestBody, response: reviewsResult }}));
+
+                  if (reviewsResponse.ok) {
+                      // Merge review data into productInfo
+                      productInfo = {
+                          ...productInfo,
+                          korean_summary: reviewsResult.korean_summary,
+                          korean_local_count: reviewsResult.korean_local_count,
+                          total_num: reviewsResult.total_num,
+                          reviewImageUrls: reviewsResult.reviewImageUrls,
+                      };
+                  } else {
+                     toast({ variant: "destructive", title: "후기 정보 조회 실패", description: reviewsResult.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
+                  }
+              } catch (reviewError: any) {
+                  toast({ variant: "destructive", title: "후기 정보 조회 오류", description: reviewError.message });
+                  setApiLog(prev => ({ ...prev, reviews: { name: "/api/generate-reviews", request: reviewsRequestBody, response: { error: reviewError.message } }}));
+              }
+          }
+
           setAllInfo(productInfo);
 
-          if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
+          if (!productInfo.product_title || !productInfo.final_url) {
               setPreviewContent("<p>조회된 상품 정보가 올바르지 않습니다.</p>");
               setIsHtmlMode(true);
               return;
@@ -278,7 +311,6 @@ export default function Home() {
       } catch (e: any) {
           toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
           setPreviewContent(`<p>미리보기 생성 중 오류 발생: ${e.message}</p>`);
-          setApiLog({ request: requestBody, response: { error: e.message } });
           setIsHtmlMode(true);
       } finally {
         setIsGeneratingPreview(false);
@@ -288,31 +320,26 @@ export default function Home() {
 
   const handlePostToBand = async (data: FormData) => {
     setIsLoading(true);
-    setBandPostResult({ status: 'loading', message: '상품 정보를 가져오는 중...' });
+    setBandPostResult({ status: 'loading', message: '게시글을 준비하는 중...' });
 
     const originalItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
 
     try {
         let productInfo = allInfo;
+        // Re-fetch info if it's not present or doesn't match the form's URL
         if (!productInfo || productInfo.original_url !== data.productUrl) {
-            const infoResponse = await fetch("/api/generate-all", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    target_urls: [data.productUrl],
-                    aff_short_key: [data.affShortKey]
-                }),
-            });
-            const infoResult = await infoResponse.json();
-            if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
-                 throw new Error("밴드 게시를 위해 상품 정보를 다시 가져오는 데 실패했습니다.");
-            }
-            productInfo = infoResult.allInfos[0];
-            setAllInfo(productInfo);
+            setBandPostResult({ status: 'loading', message: '상품 정보를 다시 가져오는 중...' });
+            await handleGeneratePreview(); // This will regenerate preview and fetch all data.
+            // After handleGeneratePreview, allInfo is updated. We need to get the updated value.
+            // A better way would be for handleGeneratePreview to return the info.
+            // For now, we'll rely on a small timeout for the state to update.
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
-            throw new Error("상품 정보가 올바르지 않아 밴드에 게시할 수 없습니다.");
+        const finalProductInfo = allInfo;
+
+        if (!finalProductInfo || !finalProductInfo.product_title || !finalProductInfo.final_url) {
+            throw new Error("상품 정보가 올바르지 않아 밴드에 게시할 수 없습니다. 미리보기를 먼저 생성해주세요.");
         }
 
         setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
@@ -320,8 +347,8 @@ export default function Home() {
         const postContent = previewContent;
 
         const bandPayload: { content: string; image_url?: string } = { content: postContent };
-        if (productInfo.product_main_image_url) {
-            bandPayload.image_url = productInfo.product_main_image_url;
+        if (finalProductInfo.product_main_image_url) {
+            bandPayload.image_url = finalProductInfo.product_main_image_url;
         }
 
         const bandResponse = await fetch("/api/post-to-band", {
@@ -362,7 +389,7 @@ export default function Home() {
                     form.reset(); 
                     setAllInfo(null);
                     setPreviewContent("");
-                    setApiLog(null);
+                    setApiLog({ allInfo: null, reviews: null });
 
 
                  } catch (sheetError) {
@@ -397,10 +424,10 @@ export default function Home() {
     setSheetData(prevData => prevData.filter(item => item.rowNumber !== rowNumber));
     if (selectedRowNumber === rowNumber) {
         setSelectedRowNumber(null);
-        form.reset({ productUrl: "", affShortKey: "", productPrice: "", coinDiscountRate: "", productTag: "", discountCode: "", discountCodePrice: "", storeCouponCode: "", storeCouponPrice: "", cardCompanyName: "", cardPrice: "" });
+        form.reset();
         setAllInfo(null);
         setPreviewContent("");
-        setApiLog(null);
+        setApiLog({ allInfo: null, reviews: null });
     }
 
     try {
@@ -664,117 +691,131 @@ export default function Home() {
                 </div>
                 
                 {previewContent && allInfo && (
-                  <>
-                  <Separator />
-                  <div className="space-y-4 rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
-                       <CardTitle className="text-xl">미리보기 및 수정</CardTitle>
-                       <div className="flex gap-2">
-                          <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-                              <DialogTrigger asChild>
-                                  <Button type="button" variant="outline" size="sm">
-                                    <MessageSquareText className="mr-2 h-4 w-4" />
-                                    후기 확인하기
-                                  </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-3xl">
-                                  <DialogHeader>
-                                      <DialogTitle>상품 후기 요약 및 이미지</DialogTitle>
-                                      <DialogDescription>
-                                          AI가 요약한 한국인 후기와 리뷰에 포함된 이미지입니다. 이미지를 클릭하여 본문에 추가할 수 있습니다.
-                                      </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
-                                      {allInfo.korean_summary && (
-                                          <Card>
-                                              <CardHeader><CardTitle>AI 후기 요약</CardTitle></CardHeader>
-                                              <CardContent>
-                                                  <p className="text-sm text-muted-foreground whitespace-pre-line">
-                                                      {allInfo.korean_summary}
-                                                  </p>
-                                              </CardContent>
-                                          </Card>
-                                      )}
-                                      {allInfo.reviewImageUrls && allInfo.reviewImageUrls.length > 0 && (
-                                          <Card>
-                                              <CardHeader><CardTitle>상세 이미지</CardTitle></CardHeader>
-                                              <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                                  {allInfo.reviewImageUrls.map((url, index) => (
-                                                      <div key={index} className="relative group cursor-pointer" onClick={() => { addImageToPreview(url); setIsReviewDialogOpen(false); }}>
-                                                          <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
-                                                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                              <div className="text-white flex items-center">
-                                                                <ImagePlus className="mr-2 h-5 w-5" /> 본문에 추가
-                                                              </div>
-                                                          </div>
-                                                      </div>
-                                                  ))}
-                                              </CardContent>
-                                          </Card>
-                                      )}
-                                      {!allInfo.korean_summary && (!allInfo.reviewImageUrls || allInfo.reviewImageUrls.length === 0) && (
-                                        <p className="text-center text-muted-foreground py-8">표시할 후기 정보가 없습니다.</p>
-                                      )}
-                                  </div>
-                                  <DialogFooter>
-                                      <DialogClose asChild>
-                                          <Button type="button" variant="secondary">닫기</Button>
-                                      </DialogClose>
-                                  </DialogFooter>
-                              </DialogContent>
-                          </Dialog>
-                          <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
-                              {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
-                              {isHtmlMode ? "미리보기" : "HTML 소스보기"}
-                          </Button>
-                       </div>
+                  <div className="space-y-4">
+                    <Separator />
+                    <div className="rounded-lg border p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                         <CardTitle className="text-xl">미리보기 및 수정</CardTitle>
+                         <div className="flex gap-2">
+                            <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button type="button" variant="outline" size="sm">
+                                      <MessageSquareText className="mr-2 h-4 w-4" />
+                                      후기 확인하기
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-3xl">
+                                    <DialogHeader>
+                                        <DialogTitle>상품 후기 요약 및 이미지</DialogTitle>
+                                        <DialogDescription>
+                                            AI가 요약한 한국인 후기와 리뷰에 포함된 이미지입니다. 이미지를 클릭하여 본문에 추가할 수 있습니다.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
+                                        {allInfo.korean_summary && (
+                                            <Card>
+                                                <CardHeader><CardTitle>AI 후기 요약</CardTitle></CardHeader>
+                                                <CardContent>
+                                                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                                                        {allInfo.korean_summary}
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                        )}
+                                        {allInfo.reviewImageUrls && allInfo.reviewImageUrls.length > 0 && (
+                                            <Card>
+                                                <CardHeader><CardTitle>상세 이미지</CardTitle></CardHeader>
+                                                <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                                    {allInfo.reviewImageUrls.map((url, index) => (
+                                                        <div key={index} className="relative group cursor-pointer" onClick={() => { addImageToPreview(url); setIsReviewDialogOpen(false); }}>
+                                                            <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
+                                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <div className="text-white flex items-center">
+                                                                  <ImagePlus className="mr-2 h-5 w-5" /> 본문에 추가
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </CardContent>
+                                            </Card>
+                                        )}
+                                        {!allInfo.korean_summary && (!allInfo.reviewImageUrls || allInfo.reviewImageUrls.length === 0) && (
+                                          <p className="text-center text-muted-foreground py-8">표시할 후기 정보가 없습니다.</p>
+                                        )}
+                                    </div>
+                                    <DialogFooter>
+                                        <DialogClose asChild>
+                                            <Button type="button" variant="secondary">닫기</Button>
+                                        </DialogClose>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                            <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
+                                {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
+                                {isHtmlMode ? "미리보기" : "HTML 소스보기"}
+                            </Button>
+                         </div>
+                      </div>
+
+                      {isHtmlMode ? (
+                         <Textarea
+                            id="preview-html"
+                            placeholder="HTML 소스..."
+                            value={previewContent}
+                            onChange={(e) => setPreviewContent(e.target.value)}
+                            className="min-h-[250px] text-sm font-mono bg-muted/30"
+                          />
+                      ) : (
+                         <div
+                            id="preview-display"
+                            className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: previewContent }}
+                         />
+                      )}
                     </div>
 
-                    {isHtmlMode ? (
-                       <Textarea
-                          id="preview-html"
-                          placeholder="HTML 소스..."
-                          value={previewContent}
-                          onChange={(e) => setPreviewContent(e.target.value)}
-                          className="min-h-[250px] text-sm font-mono bg-muted/30"
-                        />
-                    ) : (
-                       <div
-                          id="preview-display"
-                          className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{ __html: previewContent }}
-                       />
+                    {(apiLog.allInfo || apiLog.reviews) && (
+                        <div className="space-y-4 rounded-lg border p-4">
+                            <Collapsible>
+                                <CollapsibleTrigger asChild>
+                                    <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
+                                        <FileJson className="mr-2 h-4 w-4" />
+                                        API 결과값 보기
+                                        <ChevronDown className="h-4 w-4 ml-auto" />
+                                    </Button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="space-y-4 pt-4">
+                                    {apiLog.allInfo && (
+                                        <div>
+                                          <h4 className="font-semibold mb-2">상품정보 API ({apiLog.allInfo.name})</h4>
+                                          <h5 className="font-medium text-sm text-muted-foreground mt-2">요청 (Request)</h5>
+                                          <pre className="text-xs bg-muted p-2 rounded-md max-h-40 overflow-auto">
+                                              {JSON.stringify(apiLog.allInfo.request, null, 2)}
+                                          </pre>
+                                          <h5 className="font-medium text-sm text-muted-foreground mt-2">응답 (Response)</h5>
+                                          <pre className="text-xs bg-muted p-2 rounded-md max-h-60 overflow-auto">
+                                              {JSON.stringify(apiLog.allInfo.response, null, 2)}
+                                          </pre>
+                                        </div>
+                                    )}
+                                    {apiLog.reviews && (
+                                        <div>
+                                          <h4 className="font-semibold mb-2 mt-4">후기정보 API ({apiLog.reviews.name})</h4>
+                                          <h5 className="font-medium text-sm text-muted-foreground mt-2">요청 (Request)</h5>
+                                          <pre className="text-xs bg-muted p-2 rounded-md max-h-40 overflow-auto">
+                                              {JSON.stringify(apiLog.reviews.request, null, 2)}
+                                          </pre>
+                                          <h5 className="font-medium text-sm text-muted-foreground mt-2">응답 (Response)</h5>
+                                          <pre className="text-xs bg-muted p-2 rounded-md max-h-60 overflow-auto">
+                                              {JSON.stringify(apiLog.reviews.response, null, 2)}
+                                          </pre>
+                                        </div>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+                        </div>
                     )}
                   </div>
-                  </>
-                )}
-
-                {apiLog && (
-                    <div className="space-y-4 rounded-lg border p-4">
-                        <Collapsible>
-                            <CollapsibleTrigger asChild>
-                                <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
-                                    <FileJson className="mr-2 h-4 w-4" />
-                                    API 결과값 보기
-                                    <ChevronDown className="h-4 w-4 ml-auto" />
-                                </Button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="space-y-4 pt-4">
-                                <div>
-                                  <h4 className="font-semibold mb-2">요청 (Request)</h4>
-                                  <pre className="text-xs bg-muted p-4 rounded-md max-h-60 overflow-auto">
-                                      {JSON.stringify(apiLog.request, null, 2)}
-                                  </pre>
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold mb-2">응답 (Response)</h4>
-                                  <pre className="text-xs bg-muted p-4 rounded-md max-h-60 overflow-auto">
-                                      {JSON.stringify(apiLog.response, null, 2)}
-                                  </pre>
-                                </div>
-                            </CollapsibleContent>
-                        </Collapsible>
-                    </div>
                 )}
 
                 <Button
@@ -806,5 +847,3 @@ export default function Home() {
     </main>
   );
 }
-
-    

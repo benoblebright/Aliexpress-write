@@ -2,8 +2,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleAuth } from 'google-auth-library';
 
-export const maxDuration = 300; // 5분 타임아웃
-
 const CLOUD_RUN_URL = 'https://alihelper-allimage-53912196882.asia-northeast3.run.app';
 
 interface BackendDetail {
@@ -12,11 +10,7 @@ interface BackendDetail {
     source: string;
     product_main_image_url: string | null;
     target_sale_price: number | string | null;
-    // The backend might also return korean_summary and other fields.
-    korean_summary?: string; 
-    korean_local_count?: number;
-    total_num?: number;
-    reviewImageUrls?: string[];
+    original_url?: string;
 }
 
 interface BackendResponse {
@@ -31,10 +25,6 @@ interface FrontendInfo {
     product_title: string | null;
     product_main_image_url: string | null;
     sale_volume: string | number | null;
-    korean_summary?: string;
-    korean_local_count?: number;
-    total_num?: number;
-    reviewImageUrls?: string[];
 }
 
 
@@ -66,7 +56,6 @@ export async function POST(request: Request) {
 
     const responseData = response.data as BackendResponse;
     
-    // --- Data Restructuring Logic ---
     if (responseData && Array.isArray(responseData.product_urls) && Array.isArray(responseData.final_urls) && Array.isArray(responseData.details)) {
         
         if (responseData.product_urls.length !== responseData.details.length || responseData.product_urls.length !== responseData.final_urls.length) {
@@ -78,22 +67,19 @@ export async function POST(request: Request) {
         const combinedInfos: FrontendInfo[] = responseData.product_urls.map((originalUrl, index) => {
             const detail = responseData.details[index];
             const finalUrl = responseData.final_urls[index];
+            
+            // original_url is now taken from the details object if it exists, otherwise it falls back to the product_urls from the request.
+            const originalProductUrl = detail.original_url || originalUrl;
+
             return {
-                original_url: originalUrl,
+                original_url: originalProductUrl,
                 final_url: finalUrl,
                 product_title: detail.product_title,
                 product_main_image_url: detail.product_main_image_url,
                 sale_volume: detail.sale_volume,
-                // Add other fields from detail if they exist
-                korean_summary: (detail as any).korean_summary,
-                korean_local_count: (detail as any).korean_local_count,
-                total_num: (detail as any).total_num,
-                reviewImageUrls: (detail as any).reviewImageUrls,
             };
         });
 
-        // The original request order is maintained by the mapping above.
-        // We now have an array of objects that the frontend expects.
         return NextResponse.json({ allInfos: combinedInfos });
 
     } else {
