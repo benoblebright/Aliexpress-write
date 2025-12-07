@@ -405,25 +405,7 @@ export default function Home() {
   };
 
   const handleSelectSheetRow = (item: SheetData) => {
-    form.reset({
-      ...form.getValues(), // retain other values like affShortKey
-      productUrl: item.URL,
-      productPrice: item.가격,
-      // Reset other fields if needed
-      coinDiscountRate: "",
-      productTag: "",
-      discountCode: "",
-      discountCodePrice: "",
-      storeCouponCode: "",
-      storeCouponPrice: "",
-      cardCompanyName: "",
-      cardPrice: "",
-    });
     setSelectedRowNumber(item.rowNumber);
-    toast({
-        title: "정보 채우기 완료",
-        description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.`,
-    });
   };
 
   const copyToClipboard = (text: string) => {
@@ -796,3 +778,4 @@ export default function Home() {
     </main>
   );
 }
+
