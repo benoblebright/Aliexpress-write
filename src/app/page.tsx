@@ -41,7 +41,6 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +51,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 const formSchema = z.object({
@@ -63,7 +61,7 @@ const formSchema = z.object({
   productTag: z.string().optional(),
   discountCode: z.string().optional(),
   discountCodePrice: z.string().optional(),
-  storeCouponCode: z.string().optional(),
+  storeCouponCode: zstring().optional(),
   storeCouponPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
   cardPrice: z.string().optional(),
@@ -170,48 +168,6 @@ export default function Home() {
   const formatPrice = (price: number): string => {
       return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
-
-  const convertTextToHtml = (text: string): string => {
-    if (!text) return "";
-
-    const lines = text.split('\n');
-    let html = '';
-    let inParagraph = false;
-
-    lines.forEach(line => {
-        if (line.trim() === '') {
-            if (inParagraph) {
-                html += '</p>';
-                inParagraph = false;
-            }
-            html += '<br />';
-        } else if (line.startsWith('할인상품 : ')) {
-            if (inParagraph) {
-                html += '</p>';
-                inParagraph = false;
-            }
-            const url = line.substring('할인상품 : '.length).trim();
-            html += `<p>할인상품 : <a href="${url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p>`;
-        } else {
-            if (!inParagraph) {
-                html += '<p>';
-                inParagraph = true;
-            }
-            html += line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            html += '<br />';
-        }
-    });
-
-    if (inParagraph) {
-        html = html.slice(0, -5); // Remove last <br />
-        html += '</p>';
-    }
-
-    // A final cleanup to handle multiple <br> tags from empty lines
-    html = html.replace(/(<br \/>\s*){2,}/g, '<br /><br />');
-    
-    return html;
-  };
   
   const handleGeneratePreview = async () => {
       const { productUrl, affShortKey, ...product } = form.getValues();
@@ -245,7 +201,6 @@ export default function Home() {
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
               setPreviewContent("<p>상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.</p>");
-              setIsHtmlMode(true);
               return;
           }
           const productInfo = infoResult.allInfos[0] as AllInfo;
@@ -253,13 +208,10 @@ export default function Home() {
 
           if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
               setPreviewContent("<p>상품 정보를 가져오지 못했습니다.</p>");
-              setIsHtmlMode(true);
               return;
           }
           
-          let contentLines: string[] = [];
-          contentLines.push(productInfo.product_title);
-          contentLines.push('');
+          let content = `<p>${productInfo.product_title}</p><br />`;
 
           const productPriceNum = parsePrice(product.productPrice);
           const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
@@ -270,52 +222,44 @@ export default function Home() {
           let finalPrice = productPriceNum;
           
           if (productPriceNum > 0) {
-            contentLines.push(`할인판매가: ${formatPrice(productPriceNum)}`);
+            content += `<p>할인판매가: ${formatPrice(productPriceNum)}</p>`;
           }
           
           if (coinDiscountRateNum > 0) {
-            contentLines.push(`코인할인 ( ${coinDiscountRateNum}% )`);
+            content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
             const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
             finalPrice -= Math.round(coinDiscountValue / 10) * 10;
           }
           if (discountCodePriceNum > 0 && product.discountCode) {
-              contentLines.push(`할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )`);
+              content += `<p>할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )</p>`;
               finalPrice -= discountCodePriceNum;
           }
            if (storeCouponPriceNum > 0 && product.storeCouponCode) {
-              contentLines.push(`스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )`);
+              content += `<p>스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )</p>`;
               finalPrice -= storeCouponPriceNum;
           }
           if (cardPriceNum > 0 && product.cardCompanyName) {
-              contentLines.push(`카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )`);
+              content += `<p>카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )</p>`;
               finalPrice -= cardPriceNum;
           }
           
           if(finalPrice < productPriceNum && productPriceNum > 0) {
-              contentLines.push('');
-              contentLines.push(`할인구매가: ${formatPrice(Math.max(0, finalPrice))}`);
+              content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice))}</p>`;
           }
-          contentLines.push('');
           
-          // This special line will be converted to a proper link
-          contentLines.push(`할인상품 : ${productInfo.final_url}`);
-          contentLines.push('');
+          content += `<br /><p>할인상품 : <a href="${productInfo.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
 
           if (product.productTag) {
               const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
               if (tags) {
-                  contentLines.push(tags);
+                  content += `<p>${tags}</p>`;
               }
           }
           
-          const rawText = contentLines.join('\n');
-          const htmlContent = convertTextToHtml(rawText);
-
-          setPreviewContent(htmlContent);
+          setPreviewContent(content);
 
       } catch (e) {
           setPreviewContent("<p>미리보기 생성 중 오류 발생.</p>");
-          setIsHtmlMode(true);
       } finally {
         setIsGeneratingPreview(false);
       }
@@ -448,17 +392,8 @@ export default function Home() {
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
       setSelectedRowNumber(null);
-      form.reset();
     } else {
       setSelectedRowNumber(item.rowNumber);
-      form.reset({
-        productUrl: item.URL,
-        productPrice: item.가격,
-      });
-       toast({
-          title: "선택 완료",
-          description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.`,
-      });
     }
   };
 
