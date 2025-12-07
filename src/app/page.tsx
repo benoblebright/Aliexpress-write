@@ -97,6 +97,12 @@ interface BandPostResult {
     message: string;
 }
 
+interface ApiLog {
+  request: object;
+  response: object;
+}
+
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -111,6 +117,7 @@ export default function Home() {
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
   const [allInfo, setAllInfo] = useState<AllInfo | null>(null);
+  const [apiLog, setApiLog] = useState<ApiLog | null>(null);
 
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
@@ -185,19 +192,23 @@ export default function Home() {
       setIsGeneratingPreview(true);
       setPreviewContent("미리보기를 생성 중입니다...");
       setAllInfo(null);
+      setApiLog(null);
       setIsHtmlMode(false);
+
+      const requestBody = {
+          target_urls: [productUrl],
+          aff_short_key: [affShortKey]
+      };
 
       try {
           const infoResponse = await fetch("/api/generate-all", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                  target_urls: [productUrl],
-                  aff_short_key: [affShortKey]
-              }),
+              body: JSON.stringify(requestBody),
           });
           
           const infoResult = await infoResponse.json();
+          setApiLog({ request: requestBody, response: infoResult });
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
               const errorMsg = infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.';
@@ -267,6 +278,7 @@ export default function Home() {
       } catch (e: any) {
           toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
           setPreviewContent(`<p>미리보기 생성 중 오류 발생: ${e.message}</p>`);
+          setApiLog({ request: requestBody, response: { error: e.message } });
           setIsHtmlMode(true);
       } finally {
         setIsGeneratingPreview(false);
@@ -350,6 +362,7 @@ export default function Home() {
                     form.reset(); 
                     setAllInfo(null);
                     setPreviewContent("");
+                    setApiLog(null);
 
 
                  } catch (sheetError) {
@@ -387,6 +400,7 @@ export default function Home() {
         form.reset({ productUrl: "", affShortKey: "", productPrice: "", coinDiscountRate: "", productTag: "", discountCode: "", discountCodePrice: "", storeCouponCode: "", storeCouponPrice: "", cardCompanyName: "", cardPrice: "" });
         setAllInfo(null);
         setPreviewContent("");
+        setApiLog(null);
     }
 
     try {
@@ -413,13 +427,10 @@ export default function Home() {
 
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
-      // If the same item is clicked, deselect it.
       setSelectedRowNumber(null);
     } else if (selectedRowNumber === null) {
-      // If nothing is selected, select the new item.
       setSelectedRowNumber(item.rowNumber);
     }
-    // If another item is already selected, do nothing to prevent confusion.
   };
   
   const copyToClipboard = (text: string) => {
@@ -735,26 +746,36 @@ export default function Home() {
                        />
                     )}
                   </div>
-
-                  <div className="space-y-4 rounded-lg border p-4">
-                      <Collapsible>
-                          <CollapsibleTrigger asChild>
-                              <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
-                                  <FileJson className="mr-2 h-4 w-4" />
-                                  API 결과값 보기
-                                  <ChevronDown className="h-4 w-4 ml-auto" />
-                              </Button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent className="pt-4">
-                              <pre className="text-xs bg-muted p-4 rounded-md max-h-60 overflow-auto">
-                                {JSON.stringify(allInfo, null, 2)}
-                              </pre>
-                          </CollapsibleContent>
-                      </Collapsible>
-                   </div>
                   </>
                 )}
 
+                {apiLog && (
+                    <div className="space-y-4 rounded-lg border p-4">
+                        <Collapsible>
+                            <CollapsibleTrigger asChild>
+                                <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
+                                    <FileJson className="mr-2 h-4 w-4" />
+                                    API 결과값 보기
+                                    <ChevronDown className="h-4 w-4 ml-auto" />
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-4 pt-4">
+                                <div>
+                                  <h4 className="font-semibold mb-2">요청 (Request)</h4>
+                                  <pre className="text-xs bg-muted p-4 rounded-md max-h-60 overflow-auto">
+                                      {JSON.stringify(apiLog.request, null, 2)}
+                                  </pre>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold mb-2">응답 (Response)</h4>
+                                  <pre className="text-xs bg-muted p-4 rounded-md max-h-60 overflow-auto">
+                                      {JSON.stringify(apiLog.response, null, 2)}
+                                  </pre>
+                                </div>
+                            </CollapsibleContent>
+                        </Collapsible>
+                    </div>
+                )}
 
                 <Button
                   type="submit"
