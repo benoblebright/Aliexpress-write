@@ -32,7 +32,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const productSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
@@ -53,6 +61,16 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+interface SheetData {
+  rowNumber: number;
+  상품명?: string;
+  사이트?: string;
+  가격?: string;
+  URL?: string;
+  [key: string]: any;
+}
+
 
 interface AllInfo {
     product_main_image_url: string;
@@ -75,8 +93,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
-  const [sheetApiResponse, setSheetApiResponse] = useState<any>(null);
-  const [isFetchingSheet, setIsFetchingSheet] = useState(false);
+  
+  const [isSheetLoading, setIsSheetLoading] = useState(true);
+  const [sheetData, setSheetData] = useState<SheetData[]>([]);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -98,20 +119,51 @@ export default function Home() {
     name: "products",
   });
   
-    const parsePrice = (price: string | number | undefined | null): number => {
-        if (price === undefined || price === null || price === '') return 0;
-        if (typeof price === 'number') return price;
-        const parsed = parseFloat(String(price).replace(/[^0-9.-]+/g, ''));
-        return isNaN(parsed) ? 0 : parsed;
-    };
+  const fetchSheetData = useCallback(async () => {
+    setIsSheetLoading(true);
+    setSheetError(null);
+    try {
+      const response = await fetch('/api/sheets');
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch sheet data');
+      }
+      setSheetData(result.data || []);
+    } catch (error: any) {
+      setSheetError(error.message);
+      toast({
+        variant: "destructive",
+        title: "시트 데이터 로딩 오류",
+        description: error.message,
+      });
+    } finally {
+      setIsSheetLoading(false);
+    }
+  }, [toast]);
 
-    const formatPrice = (price: number): string => {
-        return new Intl.NumberFormat('ko-KR').format(price) + '원';
-    };
+  useEffect(() => {
+    fetchSheetData();
+  }, [fetchSheetData]);
+
+
+  const parsePrice = (price: string | number | undefined | null): number => {
+      if (price === undefined || price === null || price === '') return 0;
+      if (typeof price === 'number') return price;
+      const parsed = parseFloat(String(price).replace(/[^0-9.-]+/g, ''));
+      return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const formatPrice = (price: number): string => {
+      return new Intl.NumberFormat('ko-KR').format(price) + '원';
+  };
 
   const handlePostToBand = async (data: FormData) => {
     setIsLoading(true);
     setBandPostResult({ status: 'loading', message: '상품 정보를 가져오는 중...' });
+
+    // Find the original item from sheetData to get its rowNumber
+    const firstProductUrl = data.products[0]?.productUrl;
+    const originalItem = sheetData.find(item => item.URL === firstProductUrl);
 
     try {
         const productUrls = data.products.map(p => p.productUrl);
@@ -233,6 +285,33 @@ export default function Home() {
                 title: "성공!",
                 description: `총 ${totalCount}개의 상품이 밴드에 성공적으로 게시되었습니다.`,
               });
+              // Update sheet if the original item was found
+              if (originalItem) {
+                 try {
+                    const newValues = {
+                      ...data.products[0], // Assuming we only update for the first product
+                      checkup: '1',
+                      "글쓰기 시간": new Date().toISOString(),
+                    };
+                    
+                    await fetch('/api/sheets', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ rowNumber: originalItem.rowNumber, newValues }),
+                    });
+                     // Optimistically remove from UI
+                    setSheetData(prev => prev.filter(d => d.rowNumber !== originalItem.rowNumber));
+
+                 } catch (sheetError) {
+                     console.error("Failed to update sheet after posting:", sheetError);
+                     toast({
+                         variant: "destructive",
+                         title: "시트 업데이트 실패",
+                         description: "밴드 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
+                     })
+                 }
+              }
+
         } else {
             const finalErrorMessage = `총 ${totalCount}개 상품 중 ${successCount}개 성공 / ${totalCount - successCount}개 실패\n\n[오류 내역]\n${errorMessages.join('\n')}`;
             setBandPostResult({ status: 'error', message: finalErrorMessage });
@@ -272,18 +351,52 @@ export default function Home() {
     });
   };
 
-  const checkSheetApi = async () => {
-    setIsFetchingSheet(true);
-    setSheetApiResponse(null);
+  const handleDeleteSheetRow = async (rowNumber: number) => {
+    const originalData = [...sheetData];
+    // Optimistically remove from UI
+    setSheetData(prevData => prevData.filter(item => item.rowNumber !== rowNumber));
+
     try {
-      const response = await fetch('/api/sheets');
-      const data = await response.json();
-      setSheetApiResponse(data);
+        const response = await fetch('/api/sheets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rowNumber, newValues: { checkup: '1' } }),
+        });
+
+        if (!response.ok) {
+            const errorResult = await response.json();
+            throw new Error(errorResult.error || 'Failed to delete row');
+        }
+        toast({ title: "성공", description: `항목(Row: ${rowNumber})이 삭제처리 되었습니다.` });
     } catch (error: any) {
-      setSheetApiResponse({ error: "Fetch failed", details: error.message });
-    } finally {
-      setIsFetchingSheet(false);
+        toast({
+            variant: "destructive",
+            title: "삭제 실패",
+            description: `항목(Row: ${rowNumber}) 삭제 중 오류 발생: ${error.message}`,
+        });
+        // Revert UI on failure
+        setSheetData(originalData);
     }
+  };
+
+  const handleSelectSheetRow = (item: SheetData) => {
+    form.reset({
+      products: [{
+        productUrl: item.URL || "",
+        productPrice: item.가격 || "",
+        // Reset other fields or map them if they exist in sheetData
+        affShortKey: "", 
+        coinDiscountRate: "",
+        productTag: "",
+        discountCode: "",
+        discountCodePrice: "",
+        storeCouponCode: "",
+        storeCouponPrice: "",
+        cardCompanyName: "",
+        cardPrice: "",
+      }]
+    });
+    toast({ title: "선택됨", description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.` });
   };
 
 
@@ -331,25 +444,60 @@ export default function Home() {
           </p>
         </header>
 
-        <Card className="shadow-lg mb-8">
+         <Card className="shadow-lg mb-8">
             <CardHeader>
-                <CardTitle>API 테스트</CardTitle>
+                <CardTitle>작업 대기 목록</CardTitle>
                 <CardDescription>
-                아래 버튼을 눌러 구글 스프레드시트 API가 반환하는 JSON을 확인하세요.
+                구글 시트에서 가져온 작업 목록입니다. 좌우로 스와이프하여 다른 항목을 볼 수 있습니다.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Button onClick={checkSheetApi} disabled={isFetchingSheet}>
-                    {isFetchingSheet ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    시트 데이터 확인
-                </Button>
-                {sheetApiResponse && (
-                <div className="mt-4 rounded-lg bg-muted p-4">
-                    <pre className="text-sm whitespace-pre-wrap break-all">
-                    {JSON.stringify(sheetApiResponse, null, 2)}
-                    </pre>
-                </div>
-                )}
+              {isSheetLoading ? (
+                 <div className="flex items-center justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                 </div>
+              ) : sheetError ? (
+                <Alert variant="destructive">
+                  <XCircle className="h-4 w-4" />
+                  <AlertTitle>오류</AlertTitle>
+                  <AlertDescription>{sheetError}</AlertDescription>
+                </Alert>
+              ) : sheetData.length === 0 ? (
+                 <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertTitle>완료</AlertTitle>
+                    <AlertDescription>대기중인 작업 목록이 없습니다.</AlertDescription>
+                 </Alert>
+              ) : (
+                <Carousel setApi={setCarouselApi} className="w-full">
+                  <CarouselContent>
+                    {sheetData.map((item) => (
+                      <CarouselItem key={item.rowNumber}>
+                        <div className="p-1">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="truncate text-lg">{item.상품명 || "상품명 없음"}</CardTitle>
+                              <CardDescription>{item.사이트 || "사이트 정보 없음"}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <p className="text-2xl font-bold text-primary">{item.가격 ? `${formatPrice(parsePrice(item.가격))}` : "가격 정보 없음"}</p>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                     <Button asChild variant="outline" className="w-full">
+                                        <a href={item.URL} target="_blank" rel="noopener noreferrer">URL 가서 확인하기</a>
+                                    </Button>
+                                    <Button onClick={() => handleSelectSheetRow(item)} className="w-full">선택</Button>
+                                    <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">삭제</Button>
+                                </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious className="hidden sm:flex" />
+                  <CarouselNext className="hidden sm:flex" />
+                </Carousel>
+              )}
             </CardContent>
         </Card>
 
@@ -481,5 +629,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
