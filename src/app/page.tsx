@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus, Pilcrow } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -91,11 +91,6 @@ interface AllInfo {
     reviewImageUrls?: string[];
 }
 
-interface ReviewInfo {
-    source_url: string;
-    review_summary: string;
-}
-
 type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
 interface BandPostResult {
     status: BandPostStatus;
@@ -115,11 +110,9 @@ export default function Home() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
-  const [isHtmlPreviewOpen, setIsHtmlPreviewOpen] = useState(false);
-  const [htmlContent, setHtmlContent] = useState("");
-  const [rawHtml, setRawHtml] = useState("");
-
   const [allInfo, setAllInfo] = useState<AllInfo | null>(null);
+
+  const [isHtmlMode, setIsHtmlMode] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -191,30 +184,22 @@ export default function Home() {
       setIsGeneratingPreview(true);
       setPreviewContent("미리보기를 생성 중입니다...");
       setAllInfo(null);
+      setIsHtmlMode(false);
 
       try {
-          // Fetch product info and reviews in parallel
-          const [infoResponse, reviewsResponse] = await Promise.all([
-               fetch("/api/generate-all", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                      target_urls: [productUrl],
-                      aff_short_key: [affShortKey]
-                  }),
+          const infoResponse = await fetch("/api/generate-all", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                  target_urls: [productUrl],
+                  aff_short_key: [affShortKey]
               }),
-              fetch("/api/generate-reviews", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ target_urls: [productUrl] }),
-              })
-          ]);
+          });
           
           const infoResult = await infoResponse.json();
-          const reviewsResult = await reviewsResponse.json();
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
-               setPreviewContent("상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.");
+              setPreviewContent("상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.");
               return;
           }
           const productInfo = infoResult.allInfos[0] as AllInfo;
@@ -269,11 +254,8 @@ export default function Home() {
               }
           }
 
-          if (reviewsResponse.ok && reviewsResult.reviewInfos && reviewsResult.reviewInfos.length > 0) {
-            const reviewInfo = reviewsResult.reviewInfos[0] as ReviewInfo;
-            if (reviewInfo && reviewInfo.review_summary) {
-              content += `\n\n- 상품리뷰 요약 -\n${reviewInfo.review_summary}`;
-            }
+          if (productInfo.korean_summary) {
+            content += `\n\n- 상품리뷰 요약 -\n${productInfo.korean_summary}`;
           }
 
           setPreviewContent(content);
@@ -290,36 +272,38 @@ export default function Home() {
     setIsLoading(true);
     setBandPostResult({ status: 'loading', message: '상품 정보를 가져오는 중...' });
 
-    const firstProductUrl = data.productUrl;
-    const originalItem = sheetData.find(item => item.URL === firstProductUrl);
+    const originalItem = sheetData.find(item => item.URL === data.productUrl);
 
     try {
-        const infoResponse = await fetch("/api/generate-all", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                target_urls: [data.productUrl],
-                aff_short_key: [data.affShortKey]
-            }),
-        });
-        
-        const infoResult = await infoResponse.json();
-
-        if (!infoResponse.ok) {
-            const errorMessage = infoResult.error || `상품 정보 API 오류: ${infoResponse.status}`;
-            const errorDetails = infoResult.details ? `\n\n[상세 정보]\n${JSON.stringify(infoResult.details, null, 2)}` : '';
-            throw new Error(`${errorMessage}${errorDetails}`);
+        // Reuse allInfo if it's for the same URL, otherwise fetch again.
+        // This is a simple check. A more robust solution might be needed if form URL can change after preview.
+        let productInfo = allInfo;
+        if (!productInfo || productInfo.original_url !== data.productUrl) {
+            const infoResponse = await fetch("/api/generate-all", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    target_urls: [data.productUrl],
+                    aff_short_key: [data.affShortKey]
+                }),
+            });
+            const infoResult = await infoResponse.json();
+            if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
+                 throw new Error("밴드 게시를 위해 상품 정보를 다시 가져오는 데 실패했습니다.");
+            }
+            productInfo = infoResult.allInfos[0];
         }
 
-        const productInfo = infoResult.allInfos?.[0] as AllInfo;
-
         if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
-            throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
+            throw new Error("상품 정보가 올바르지 않아 밴드에 게시할 수 없습니다.");
         }
 
         setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
 
-        const bandPayload: { content: string; image_url?: string } = { content: previewContent };
+        // If in HTML mode, use the content as is. Otherwise, convert.
+        const postContent = isHtmlMode ? previewContent : convertTextToHtml(previewContent);
+
+        const bandPayload: { content: string; image_url?: string } = { content: postContent };
         if (productInfo.product_main_image_url) {
             bandPayload.image_url = productInfo.product_main_image_url;
         }
@@ -350,6 +334,7 @@ export default function Home() {
                       body: JSON.stringify({ rowNumber: originalItem.rowNumber, newValues }),
                     });
                     setSheetData(prev => prev.filter(d => d.rowNumber !== originalItem.rowNumber));
+                    setSelectedRowNumber(null);
 
                  } catch (sheetError) {
                      console.error("Failed to update sheet after posting:", sheetError);
@@ -381,6 +366,7 @@ export default function Home() {
   const handleDeleteSheetRow = async (rowNumber: number) => {
     const originalData = [...sheetData];
     setSheetData(prevData => prevData.filter(item => item.rowNumber !== rowNumber));
+    setSelectedRowNumber(null);
 
     try {
         const response = await fetch('/api/sheets', {
@@ -420,17 +406,10 @@ export default function Home() {
     });
   };
 
-  const handleHtmlPreview = () => {
-    if (!previewContent) {
-        toast({
-            variant: "destructive",
-            title: "내용 없음",
-            description: "먼저 미리보기 내용을 생성해주세요.",
-        });
-        return;
-    }
+  const convertTextToHtml = (text: string): string => {
+    if (!text) return "";
 
-    let html = previewContent
+    let html = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -440,18 +419,30 @@ export default function Home() {
 
     const urlRegex = /(할인상품\s*:\s*)(https?:\/\/[^\s<]+)/g;
     html = html.replace(urlRegex, (match, prefix, url) => {
-      const cleanUrl = url.replace(/&amp;/g, '&');
-      return `<p>${prefix.replace(/<br \/>/g, '')}<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p>`;
+        const cleanUrl = url.replace(/&amp;/g, '&');
+        return `<p>${prefix.replace(/<br \/>/g, '')}<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p>`;
     });
 
+    return html;
+  };
 
-    setRawHtml(html);
-    setHtmlContent(html);
-    setIsHtmlPreviewOpen(true);
-};
+  const handleHtmlModeToggle = () => {
+    if (!isHtmlMode) {
+        // Text -> HTML
+        const html = convertTextToHtml(previewContent);
+        setPreviewContent(html);
+    }
+    // Note: Converting HTML back to plain text is complex and lossy.
+    // We will just allow editing in HTML mode. To go back, user can re-generate preview.
+    setIsHtmlMode(!isHtmlMode);
+  };
 
   const addImageToPreview = (imageUrl: string) => {
-    setPreviewContent(prev => `${prev}\n${imageUrl}`);
+    let contentToAdd = imageUrl;
+    if (isHtmlMode) {
+      contentToAdd = `<img src="${imageUrl}" /><br />`;
+    }
+    setPreviewContent(prev => `${prev}\n${contentToAdd}`);
     toast({
         title: "이미지 추가 완료",
         description: "선택한 이미지가 미리보기 내용에 추가되었습니다.",
@@ -677,9 +668,9 @@ export default function Home() {
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <Label htmlFor="preview">미리보기 및 수정</Label>
-                        <Button type="button" variant="outline" size="sm" onClick={handleHtmlPreview} disabled={!previewContent}>
-                            <Code className="mr-2 h-4 w-4" />
-                            HTML 변환
+                        <Button type="button" variant="outline" size="sm" onClick={handleHtmlModeToggle} disabled={!previewContent}>
+                          {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
+                          {isHtmlMode ? "텍스트로 보기" : "HTML 소스보기"}
                         </Button>
                     </div>
                     <Textarea
@@ -687,7 +678,7 @@ export default function Home() {
                         placeholder="입력 폼을 채우고 '미리보기 생성' 버튼을 누르세요."
                         value={previewContent}
                         onChange={(e) => setPreviewContent(e.target.value)}
-                        className="min-h-[200px] text-sm"
+                        className={`min-h-[250px] text-sm ${isHtmlMode ? 'font-mono bg-gray-100 dark:bg-gray-800' : ''}`}
                     />
                 </div>
 
@@ -739,46 +730,6 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
-      
-      <Dialog open={isHtmlPreviewOpen} onOpenChange={setIsHtmlPreviewOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>HTML 미리보기</DialogTitle>
-            <DialogDescription>
-              생성된 콘텐츠의 HTML 버전입니다. 복사하여 활용할 수 있습니다.
-            </DialogDescription>
-          </DialogHeader>
-          <Tabs defaultValue="preview" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="preview">미리보기</TabsTrigger>
-              <TabsTrigger value="source">HTML 소스</TabsTrigger>
-            </TabsList>
-            <TabsContent value="preview">
-              <div
-                className="mt-4 p-4 border rounded-md min-h-[200px] text-sm"
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
-              />
-            </TabsContent>
-            <TabsContent value="source">
-                <div className="relative">
-                    <Textarea
-                        readOnly
-                        value={rawHtml}
-                        className="mt-4 min-h-[200px] bg-gray-100 dark:bg-gray-800 font-mono text-xs"
-                    />
-                     <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-6 right-2"
-                        onClick={() => copyToClipboard(rawHtml)}
-                    >
-                        <ClipboardCopy className="h-4 w-4" />
-                    </Button>
-                </div>
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
     </main>
   );
 }
