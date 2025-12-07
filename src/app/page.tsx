@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -90,6 +90,7 @@ export default function Home() {
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -150,92 +151,95 @@ export default function Home() {
       return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
   
-  const formData = form.watch();
+  const handleGeneratePreview = async () => {
+      const { productUrl, affShortKey, ...product } = form.getValues();
+      const isFormValid = await form.trigger(["productUrl", "affShortKey"]);
+      
+      if (!isFormValid) {
+          toast({
+              variant: "destructive",
+              title: "입력 오류",
+              description: "상품 URL과 제휴 단축 키를 올바르게 입력해주세요.",
+          });
+          return;
+      }
 
-  useEffect(() => {
-    const generatePreview = async () => {
-        const { productUrl, affShortKey, ...product } = formData;
-        if (!productUrl || !affShortKey) {
-            setPreviewContent("");
-            return;
-        };
+      setIsGeneratingPreview(true);
+      setPreviewContent("미리보기를 생성 중입니다...");
 
-        try {
-            const infoResponse = await fetch("/api/generate-all", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    target_urls: [productUrl],
-                    aff_short_key: [affShortKey]
-                }),
-            });
-            const infoResult = await infoResponse.json();
-            
-            if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
-                 setPreviewContent("상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.");
-                return;
-            }
-            const productInfo = infoResult.allInfos[0] as AllInfo;
+      try {
+          const infoResponse = await fetch("/api/generate-all", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                  target_urls: [productUrl],
+                  aff_short_key: [affShortKey]
+              }),
+          });
+          const infoResult = await infoResponse.json();
+          
+          if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
+               setPreviewContent("상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.");
+              return;
+          }
+          const productInfo = infoResult.allInfos[0] as AllInfo;
 
-            if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
-                setPreviewContent("상품 정보를 가져오지 못했습니다.");
-                return;
-            }
+          if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
+              setPreviewContent("상품 정보를 가져오지 못했습니다.");
+              return;
+          }
 
-            let content = `${productInfo.product_title}\n\n`;
+          let content = `${productInfo.product_title}\n\n`;
 
-            const productPriceNum = parsePrice(product.productPrice);
-            const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
-            const discountCodePriceNum = parsePrice(product.discountCodePrice);
-            const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
-            const cardPriceNum = parsePrice(product.cardPrice);
+          const productPriceNum = parsePrice(product.productPrice);
+          const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+          const discountCodePriceNum = parsePrice(product.discountCodePrice);
+          const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
+          const cardPriceNum = parsePrice(product.cardPrice);
 
-            let finalPrice = productPriceNum;
-            
-            if (productPriceNum > 0) {
-              content += `할인판매가: ${formatPrice(productPriceNum)}\n`;
-            }
-            
-            if (coinDiscountRateNum > 0) {
-              content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
-              const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
-              finalPrice -= coinDiscountValue;
-            }
-            if (discountCodePriceNum > 0 && product.discountCode) {
-                content += `할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )\n`;
-                finalPrice -= discountCodePriceNum;
-            }
-             if (storeCouponPriceNum > 0 && product.storeCouponCode) {
-                content += `스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )\n`;
-                finalPrice -= storeCouponPriceNum;
-            }
-            if (cardPriceNum > 0 && product.cardCompanyName) {
-                content += `카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )\n`;
-                finalPrice -= cardPriceNum;
-            }
-            
-            if(finalPrice < productPriceNum && productPriceNum > 0) {
-                content += `\n할인구매가: ${formatPrice(Math.max(0, finalPrice))}\n`;
-            }
-            content += `\n상품 링크: ${productInfo.final_url}\n`;
+          let finalPrice = productPriceNum;
+          
+          if (productPriceNum > 0) {
+            content += `할인판매가: ${formatPrice(productPriceNum)}\n`;
+          }
+          
+          if (coinDiscountRateNum > 0) {
+            content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
+            const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
+            finalPrice -= coinDiscountValue;
+          }
+          if (discountCodePriceNum > 0 && product.discountCode) {
+              content += `할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )\n`;
+              finalPrice -= discountCodePriceNum;
+          }
+           if (storeCouponPriceNum > 0 && product.storeCouponCode) {
+              content += `스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )\n`;
+              finalPrice -= storeCouponPriceNum;
+          }
+          if (cardPriceNum > 0 && product.cardCompanyName) {
+              content += `카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )\n`;
+              finalPrice -= cardPriceNum;
+          }
+          
+          if(finalPrice < productPriceNum && productPriceNum > 0) {
+              content += `\n할인구매가: ${formatPrice(Math.max(0, finalPrice))}\n`;
+          }
+          content += `\n상품 링크: ${productInfo.final_url}\n`;
 
-            if (product.productTag) {
-                const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
-                if (tags) {
-                    content += `\n${tags}`;
-                }
-            }
-            setPreviewContent(content);
+          if (product.productTag) {
+              const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
+              if (tags) {
+                  content += `\n${tags}`;
+              }
+          }
+          setPreviewContent(content);
 
-        } catch (e) {
-            setPreviewContent("미리보기 생성 중 오류 발생.");
-        }
-    };
-    
-    const debounceTimeout = setTimeout(generatePreview, 500);
-    return () => clearTimeout(debounceTimeout);
-
-  }, [formData]);
+      } catch (e) {
+          setPreviewContent("미리보기 생성 중 오류 발생.");
+      } finally {
+        setIsGeneratingPreview(false);
+      }
+  };
 
 
   const handlePostToBand = async (data: FormData) => {
@@ -567,6 +571,15 @@ export default function Home() {
                               ))}
                           </CollapsibleContent>
                       </Collapsible>
+                      <Button
+                        type="button"
+                        onClick={handleGeneratePreview}
+                        className="w-full mt-4"
+                        disabled={isGeneratingPreview}
+                      >
+                        {isGeneratingPreview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
+                        미리보기 생성
+                      </Button>
                 </div>
                 
                 <Separator />
@@ -575,7 +588,7 @@ export default function Home() {
                     <Label htmlFor="preview">미리보기 및 수정</Label>
                     <Textarea
                         id="preview"
-                        placeholder="입력 폼을 채우면 여기에 내용이 자동으로 생성됩니다."
+                        placeholder="입력 폼을 채우고 '미리보기 생성' 버튼을 누르세요."
                         value={previewContent}
                         onChange={(e) => setPreviewContent(e.target.value)}
                         className="min-h-[200px] text-sm"
@@ -611,3 +624,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
