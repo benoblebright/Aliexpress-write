@@ -79,6 +79,11 @@ interface AllInfo {
     total_num?: number;
 }
 
+interface ReviewInfo {
+    source_url: string;
+    review_summary: string;
+}
+
 type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
 interface BandPostResult {
     status: BandPostStatus;
@@ -168,15 +173,25 @@ export default function Home() {
       setPreviewContent("미리보기를 생성 중입니다...");
 
       try {
-          const infoResponse = await fetch("/api/generate-all", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                  target_urls: [productUrl],
-                  aff_short_key: [affShortKey]
+          // Fetch product info and reviews in parallel
+          const [infoResponse, reviewsResponse] = await Promise.all([
+               fetch("/api/generate-all", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                      target_urls: [productUrl],
+                      aff_short_key: [affShortKey]
+                  }),
               }),
-          });
+              fetch("/api/generate-reviews", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ target_urls: [productUrl] }),
+              })
+          ]);
+          
           const infoResult = await infoResponse.json();
+          const reviewsResult = await reviewsResponse.json();
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
                setPreviewContent("상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.");
@@ -206,7 +221,7 @@ export default function Home() {
           if (coinDiscountRateNum > 0) {
             content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
             const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
-            finalPrice -= coinDiscountValue;
+            finalPrice -= Math.round(coinDiscountValue / 10) * 10;
           }
           if (discountCodePriceNum > 0 && product.discountCode) {
               content += `할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )\n`;
@@ -224,7 +239,7 @@ export default function Home() {
           if(finalPrice < productPriceNum && productPriceNum > 0) {
               content += `\n할인구매가: ${formatPrice(Math.max(0, finalPrice))}\n`;
           }
-          content += `\n상품 링크: ${productInfo.final_url}\n`;
+          content += `\n특가 상품바로가기: ${productInfo.final_url}\n`;
 
           if (product.productTag) {
               const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
@@ -232,6 +247,14 @@ export default function Home() {
                   content += `\n${tags}`;
               }
           }
+
+          if (reviewsResponse.ok && reviewsResult.reviewInfos && reviewsResult.reviewInfos.length > 0) {
+            const reviewInfo = reviewsResult.reviewInfos[0] as ReviewInfo;
+            if (reviewInfo && reviewInfo.review_summary) {
+              content += `\n\n- 상품리뷰 요약 -\n${reviewInfo.review_summary}`;
+            }
+          }
+
           setPreviewContent(content);
 
       } catch (e) {
@@ -624,5 +647,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
