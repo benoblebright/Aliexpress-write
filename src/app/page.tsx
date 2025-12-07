@@ -185,7 +185,7 @@ export default function Home() {
       setIsGeneratingPreview(true);
       setPreviewContent("미리보기를 생성 중입니다...");
       setAllInfo(null);
-      setIsHtmlMode(false); // 미리보기 생성 시 항상 렌더링된 뷰로 시작
+      setIsHtmlMode(false);
 
       try {
           const infoResponse = await fetch("/api/generate-all", {
@@ -282,7 +282,6 @@ export default function Home() {
 
     try {
         let productInfo = allInfo;
-        // 미리보기 생성 시 사용된 정보와 현재 폼 정보가 다를 경우 다시 API 호출
         if (!productInfo || productInfo.original_url !== data.productUrl) {
             const infoResponse = await fetch("/api/generate-all", {
                 method: "POST",
@@ -297,7 +296,7 @@ export default function Home() {
                  throw new Error("밴드 게시를 위해 상품 정보를 다시 가져오는 데 실패했습니다.");
             }
             productInfo = infoResult.allInfos[0];
-            setAllInfo(productInfo); // 상태 업데이트
+            setAllInfo(productInfo);
         }
 
         if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
@@ -306,7 +305,7 @@ export default function Home() {
 
         setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
         
-        const postContent = previewContent; // 이미 HTML 형식으로 준비됨
+        const postContent = previewContent;
 
         const bandPayload: { content: string; image_url?: string } = { content: postContent };
         if (productInfo.product_main_image_url) {
@@ -332,7 +331,6 @@ export default function Home() {
                       "글쓰기 시간": new Date().toISOString(),
                     };
                     
-                    // form 데이터의 필드들을 newValues에 추가
                     Object.keys(form.getValues()).forEach(key => {
                         const typedKey = key as keyof FormData;
                         const value = form.getValues(typedKey);
@@ -415,13 +413,10 @@ export default function Home() {
 
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
-      // 이미 선택된 항목을 다시 클릭하면 선택 해제
-      setSelectedRowNumber(null);
+        setSelectedRowNumber(null);
     } else if (selectedRowNumber === null) {
-      // 아무것도 선택되지 않았을 때 새로운 항목 선택
-      setSelectedRowNumber(item.rowNumber);
+        setSelectedRowNumber(item.rowNumber);
     }
-    // 다른 항목이 이미 선택되어 있다면 아무 동작도 하지 않음
   };
   
   const copyToClipboard = (text: string) => {
@@ -792,3 +787,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
