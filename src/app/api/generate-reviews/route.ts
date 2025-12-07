@@ -8,10 +8,10 @@ export async function POST(request: Request) {
   let requestBody;
   try {
     requestBody = await request.json();
-    const { product_url } = requestBody;
+    const { target_urls } = requestBody;
 
-    if (!product_url) {
-      return NextResponse.json({ error: 'product_url is required' }, { status: 400 });
+    if (!target_urls || !Array.isArray(target_urls) || target_urls.length === 0) {
+      return NextResponse.json({ error: 'target_urls is required and must be a non-empty array' }, { status: 400 });
     }
 
     const auth = new GoogleAuth();
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const response = await client.request({
       url: CLOUD_RUN_URL,
       method: 'POST',
-      data: { product_url },
+      data: { target_urls },
     });
 
     return NextResponse.json(response.data, { status: response.status });

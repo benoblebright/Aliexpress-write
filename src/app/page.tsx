@@ -225,7 +225,7 @@ export default function Home() {
           
           // Now, call the reviews API if original_url exists
           if (productInfo.original_url) {
-              const reviewsRequestBody = { product_url: productInfo.original_url };
+              const reviewsRequestBody = { target_urls: [productInfo.original_url] };
               try {
                   const reviewsResponse = await fetch("/api/generate-reviews", {
                       method: "POST",
@@ -237,13 +237,6 @@ export default function Home() {
 
                   if (reviewsResponse.ok) {
                       // DO NOT MERGE REVIEW DATA as per user request. User wants to inspect the data first.
-                      // productInfo = {
-                      //     ...productInfo,
-                      //     korean_summary: reviewsResult.korean_summary,
-                      //     korean_local_count: reviewsResult.korean_local_count,
-                      //     total_num: reviewsResult.total_num,
-                      //     reviewImageUrls: reviewsResult.reviewImageUrls,
-                      // };
                   } else {
                      toast({ variant: "destructive", title: "후기 정보 조회 실패", description: reviewsResult.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
                   }
@@ -461,7 +454,14 @@ export default function Home() {
       setApiLog({ allInfo: null, reviews: null });
     } else if (selectedRowNumber === null) {
       setSelectedRowNumber(item.rowNumber);
-      // No longer auto-filling the form.
+      form.reset({
+        productUrl: item.URL,
+        productPrice: item.가격,
+      });
+      toast({
+        title: "항목 선택됨",
+        description: "상품 URL과 가격이 자동으로 입력되었습니다. 제휴 단축키를 입력해주세요.",
+      });
     }
   };
   
