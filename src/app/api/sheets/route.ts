@@ -9,10 +9,7 @@ async function getSheetsClient() {
         throw new Error('GOOGLE_CREDENTIALS environment variable is not set.');
     }
     
-    // credentials can be a string or an object, handle both.
-    const credentials = typeof credentialsString === 'string' 
-        ? JSON.parse(credentialsString) 
-        : credentialsString;
+    const credentials = JSON.parse(credentialsString);
     
     const auth = new google.auth.GoogleAuth({
         credentials,
@@ -25,11 +22,11 @@ async function getSheetsClient() {
 const SPREADSHEET_ID = process.env.SHEET_ID;
 const RANGE = '시트1!A:G'; // Assuming data is in columns A to G
 
-// GET: Fetch all rows for debugging
+// GET: Fetch all rows
 export async function GET() {
     try {
         if (!SPREADSHEET_ID) {
-            throw new Error('SHEET_ID environment variable is not set.');
+            return NextResponse.json({ error: 'SHEET_ID environment variable is not set.' }, { status: 500 });
         }
         const sheets = await getSheetsClient();
         const response = await sheets.spreadsheets.values.get({
@@ -43,12 +40,23 @@ export async function GET() {
             return NextResponse.json({ data: [] });
         }
         
-        // Just return the raw data for now to debug
-        return NextResponse.json({ data: rows });
+        const header = rows[0];
+        const data = rows.slice(1).map((row, index) => {
+            const rowData: { [key: string]: string | number } = {
+                rowNumber: index + 2 // Sheet row numbers start from 1, and we have a header
+            };
+            header.forEach((key, i) => {
+                rowData[key] = row[i];
+            });
+            return rowData;
+        })
+        .filter(row => row.checkup === '0')
+        .sort((a, b) => new Date(b.Runtime as string).getTime() - new Date(a.Runtime as string).getTime());
+
+        return NextResponse.json({ data });
 
     } catch (error: any) {
         console.error('Error fetching from Google Sheets:', error);
-        // Ensure a valid JSON response is always sent, even on error
         return NextResponse.json({ error: error.message || 'Failed to fetch data from Google Sheets' }, { status: 500 });
     }
 }
@@ -57,7 +65,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
          if (!SPREADSHEET_ID) {
-            throw new Error('SHEET_ID environment variable is not set.');
+            return NextResponse.json({ error: 'SHEET_ID environment variable is not set.' }, { status: 500 });
         }
         const { rowNumber, column, value } = await request.json();
 
