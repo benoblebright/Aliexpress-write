@@ -100,7 +100,6 @@ interface ReviewInfo {
   korean_local_count?: number;
 }
 
-
 type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
 interface BandPostResult {
     status: BandPostStatus;
@@ -111,6 +110,11 @@ interface ApiLogEntry {
   name: string;
   request: any;
   response: any;
+}
+
+interface ReviewSelection {
+    included: boolean;
+    summarized: boolean;
 }
 
 export default function Home() {
@@ -133,8 +137,8 @@ export default function Home() {
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
 
-  const [selectedReviews, setSelectedReviews] = useState<Record<number, boolean>>({});
-  const [summarizeReviews, setSummarizeReviews] = useState(false);
+  const [parsedReviews, setParsedReviews] = useState<string[]>([]);
+  const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>([]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -209,7 +213,8 @@ export default function Home() {
       setReviewsInfo(null);
       setApiLog([]);
       setIsHtmlMode(false);
-      setSelectedReviews({});
+      setParsedReviews([]);
+      setReviewSelections([]);
 
       const allInfoRequestBody = {
           target_urls: [productUrl],
@@ -218,6 +223,7 @@ export default function Home() {
 
       try {
           // Step 1: Fetch basic product info
+          let currentLog: ApiLogEntry[] = [];
           const infoResponse = await fetch("/api/generate-all", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -225,7 +231,7 @@ export default function Home() {
           });
           
           const infoResult = await infoResponse.json();
-          setApiLog(prev => [...prev, { name: '상품정보 API (/api/generate-all)', request: allInfoRequestBody, response: infoResult }]);
+          currentLog.push({ name: '상품정보 API (/api/generate-all)', request: allInfoRequestBody, response: infoResult });
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
               const errorMsg = infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.';
@@ -233,7 +239,6 @@ export default function Home() {
           }
 
           let productInfo = infoResult.allInfos[0] as AllInfo;
-          
           let tempReviewsInfo: ReviewInfo | null = null;
 
           // Step 2: Fetch reviews if original_url exists
@@ -246,10 +251,15 @@ export default function Home() {
                       body: JSON.stringify(reviewsRequestBody),
                   });
                   const reviewsResult = await reviewsResponse.json();
-                  setApiLog(prev => [...prev, { name: '후기정보 API (/api/generate-reviews)', request: reviewsRequestBody, response: reviewsResult }]);
+                  currentLog.push({ name: '후기정보 API (/api/generate-reviews)', request: reviewsRequestBody, response: reviewsResult });
 
                   if (reviewsResponse.ok) {
                       tempReviewsInfo = reviewsResult;
+                      if (reviewsResult.korean_summary) {
+                        const parsed = reviewsResult.korean_summary.split('|').map((r: string) => r.trim()).filter(Boolean);
+                        setParsedReviews(parsed);
+                        setReviewSelections(parsed.map(() => ({ included: false, summarized: false })));
+                      }
                   } else {
                      toast({ variant: "destructive", title: "후기 정보 조회 실패", description: reviewsResult.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
                   }
@@ -257,7 +267,7 @@ export default function Home() {
                   toast({ variant: "destructive", title: "후기 정보 조회 오류", description: reviewError.message });
               }
           }
-
+          setApiLog(currentLog);
           setAllInfo(productInfo);
           setReviewsInfo(tempReviewsInfo);
 
@@ -398,7 +408,8 @@ export default function Home() {
                     setPreviewContent("");
                     setReviewsInfo(null);
                     setApiLog([]);
-
+                    setParsedReviews([]);
+                    setReviewSelections([]);
 
                  } catch (sheetError) {
                      console.error("Failed to update sheet after posting:", sheetError);
@@ -437,6 +448,8 @@ export default function Home() {
         setPreviewContent("");
         setReviewsInfo(null);
         setApiLog([]);
+        setParsedReviews([]);
+        setReviewSelections([]);
     }
 
     try {
@@ -487,35 +500,47 @@ export default function Home() {
     });
   };
 
-  const addSelectedReviewsToPreview = () => {
-    if (!reviewsInfo?.reviews) return;
-
-    const reviewsToAdd = reviewsInfo.reviews
-        .map((review, index) => ({ review, index }))
-        .filter(({ index }) => selectedReviews[index])
-        .map(({ review }) => {
-            let content = review.content.replace(/<[^>]*>?/gm, ''); // Remove HTML tags
-            if (summarizeReviews && content.length > 50) {
-                content = `${content.substring(0, 50)}... <a href="${allInfo?.final_url}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>`;
-            }
-            return `<div style="margin-bottom: 15px;"><p style="margin: 0 0 10px 0; font-size: 14px;">- ${content}</p></div>`;
-        })
-        .join('');
-
-    if (reviewsToAdd) {
-        setPreviewContent(prev => `${prev}<br />${reviewsToAdd}`);
-        toast({
-            title: "리뷰 추가 완료",
-            description: "선택한 리뷰가 미리보기 내용에 추가되었습니다.",
-        });
-    } else {
-        toast({
-            variant: "destructive",
-            title: "선택된 리뷰 없음",
-            description: "본문에 추가할 리뷰를 먼저 선택해주세요.",
-        });
-    }
+  const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
+      const newSelections = [...reviewSelections];
+      newSelections[index][type] = !newSelections[index][type];
+      setReviewSelections(newSelections);
   };
+  
+  const updatePreviewWithReviews = () => {
+      if (!allInfo) return;
+  
+      const reviewsToAdd = parsedReviews
+          .map((review, index) => ({ review, selection: reviewSelections[index] }))
+          .filter(({ selection }) => selection.included)
+          .map(({ review, selection }) => {
+              let content = review.replace(/<[^>]*>?/gm, ''); // Basic HTML tag removal
+              if (selection.summarized && content.length > 50) {
+                  content = `${content.substring(0, 50)}... <a href="${allInfo.final_url}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>`;
+              }
+              return `<div style="margin-bottom: 15px;"><p style="margin: 0 0 10px 0; font-size: 14px;">- ${content}</p></div>`;
+          })
+          .join('');
+  
+      if (reviewsToAdd) {
+          // Find the last occurrence of the affiliate link to insert reviews before tags
+          const insertionPoint = previewContent.lastIndexOf(`<br /><p>할인상품 : <a href="${allInfo.final_url}"`);
+          const baseContent = insertionPoint !== -1 ? previewContent.substring(0, insertionPoint) : previewContent;
+          const remainingContent = insertionPoint !== -1 ? previewContent.substring(insertionPoint) : '';
+  
+          setPreviewContent(`${baseContent}${reviewsToAdd}${remainingContent}`);
+          toast({
+              title: "리뷰 추가 완료",
+              description: "선택한 리뷰가 미리보기 내용에 추가되었습니다.",
+          });
+      } else {
+          toast({
+              variant: "destructive",
+              title: "선택된 리뷰 없음",
+              description: "본문에 추가할 리뷰를 먼저 선택해주세요.",
+          });
+      }
+  };
+
 
   const formFields = {
     required: [
@@ -546,10 +571,6 @@ export default function Home() {
         default:
             return 'default';
     }
-  };
-
-  const handleReviewSelectionChange = (index: number) => {
-    setSelectedReviews(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
   return (
@@ -742,48 +763,35 @@ export default function Home() {
                          <div className="flex gap-2">
                             <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button type="button" variant="outline" size="sm" disabled={!reviewsInfo}>
-                                      <MessageSquareText className="mr-2 h-4 w-4" />
-                                      AI 후기 확인
+                                    <Button type="button" variant="outline" size="sm" disabled={!reviewsInfo?.reviewImageUrls || reviewsInfo.reviewImageUrls.length === 0}>
+                                      <ImagePlus className="mr-2 h-4 w-4" />
+                                      상세 이미지 보기
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-w-3xl">
                                     <DialogHeader>
-                                        <DialogTitle>상품 후기 요약 및 이미지</DialogTitle>
+                                        <DialogTitle>상품 상세 이미지</DialogTitle>
                                         <DialogDescription>
-                                            AI가 요약한 한국인 후기와 리뷰에 포함된 이미지입니다. 이미지를 클릭하여 본문에 추가할 수 있습니다.
+                                            리뷰에 포함된 이미지입니다. 이미지를 클릭하여 본문에 추가할 수 있습니다.
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
-                                        {reviewsInfo?.korean_summary && (
-                                            <Card>
-                                                <CardHeader><CardTitle>AI 후기 요약</CardTitle></CardHeader>
-                                                <CardContent>
-                                                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                                                        {reviewsInfo.korean_summary}
-                                                    </p>
-                                                </CardContent>
-                                            </Card>
-                                        )}
                                         {reviewsInfo?.reviewImageUrls && reviewsInfo.reviewImageUrls.length > 0 && (
-                                            <Card>
-                                                <CardHeader><CardTitle>상세 이미지</CardTitle></CardHeader>
-                                                <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                                    {reviewsInfo.reviewImageUrls.map((url: string, index: number) => (
-                                                        <div key={index} className="relative group cursor-pointer" onClick={() => { addImageToPreview(url); setIsReviewDialogOpen(false); }}>
-                                                            <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
-                                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <div className="text-white flex items-center">
-                                                                  <ImagePlus className="mr-2 h-5 w-5" /> 본문에 추가
-                                                                </div>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                                {reviewsInfo.reviewImageUrls.map((url: string, index: number) => (
+                                                    <div key={index} className="relative group cursor-pointer" onClick={() => { addImageToPreview(url); setIsReviewDialogOpen(false); }}>
+                                                        <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
+                                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <div className="text-white flex items-center">
+                                                              <ImagePlus className="mr-2 h-5 w-5" /> 본문에 추가
                                                             </div>
                                                         </div>
-                                                    ))}
-                                                </CardContent>
-                                            </Card>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
-                                        {!reviewsInfo?.korean_summary && (!reviewsInfo?.reviewImageUrls || reviewsInfo.reviewImageUrls.length === 0) && (
-                                          <p className="text-center text-muted-foreground py-8">표시할 후기 정보가 없습니다.</p>
+                                        {(!reviewsInfo?.reviewImageUrls || reviewsInfo.reviewImageUrls.length === 0) && (
+                                          <p className="text-center text-muted-foreground py-8">표시할 상세 이미지가 없습니다.</p>
                                         )}
                                     </div>
                                     <DialogFooter>
@@ -859,40 +867,47 @@ export default function Home() {
                       </CollapsibleContent>
                     </Collapsible>
 
-                    {reviewsInfo?.reviews && reviewsInfo.reviews.length > 0 && (
+                     {parsedReviews.length > 0 && (
                         <div className="space-y-4 rounded-lg border p-4">
-                            <CardTitle className="text-xl">리뷰 선택</CardTitle>
-                             <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
-                                {reviewsInfo.reviews.map((review, index) => (
-                                <div key={index} className="flex items-start gap-4">
-                                    <Checkbox
-                                        id={`review-${index}`}
-                                        checked={!!selectedReviews[index]}
-                                        onCheckedChange={() => handleReviewSelectionChange(index)}
-                                    />
-                                    <label htmlFor={`review-${index}`} className="text-sm text-muted-foreground cursor-pointer">
-                                        <span className="font-semibold text-foreground">({review.rating}점) {review.author}</span><br />
-                                        {review.content}
-                                    </label>
-                                </div>
+                            <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
+                            <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
+                                {parsedReviews.map((review, index) => (
+                                    <div key={index} className="flex items-start gap-4 p-2 rounded-md border">
+                                        <div className="flex-grow">
+                                           <label htmlFor={`review-${index}`} className="text-sm text-muted-foreground cursor-pointer">
+                                                {review}
+                                            </label>
+                                        </div>
+                                        <div className="flex flex-col gap-2 items-end">
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`include-${index}`}
+                                                    checked={reviewSelections[index]?.included}
+                                                    onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
+                                                />
+                                                <label htmlFor={`include-${index}`} className="text-xs font-medium leading-none">
+                                                    본문에 포함
+                                                </label>
+                                            </div>
+                                             <div className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`summarize-${index}`}
+                                                    checked={reviewSelections[index]?.summarized}
+                                                    onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
+                                                />
+                                                <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none">
+                                                    요약하기
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
                                 ))}
-                             </div>
-                             <Separator />
-                             <div className="flex items-center justify-between">
-                                 <div className="flex items-center space-x-2">
-                                     <Checkbox
-                                        id="summarize-reviews"
-                                        checked={summarizeReviews}
-                                        onCheckedChange={(checked) => setSummarizeReviews(!!checked)}
-                                     />
-                                     <label htmlFor="summarize-reviews" className="text-sm font-medium leading-none">
-                                        50자 이상 리뷰 요약하기
-                                     </label>
-                                 </div>
-                                 <Button type="button" size="sm" onClick={addSelectedReviewsToPreview}>
-                                     본문에 리뷰 추가
-                                 </Button>
-                             </div>
+                            </div>
+                            <Separator />
+                            <Button type="button" className="w-full" onClick={updatePreviewWithReviews}>
+                                <MessageSquareText className="mr-2 h-4 w-4" />
+                                후기 포함하여 미리보기 업데이트
+                            </Button>
                         </div>
                     )}
                   </div>
@@ -927,3 +942,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
