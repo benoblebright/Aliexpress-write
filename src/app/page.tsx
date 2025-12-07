@@ -106,7 +106,7 @@ export default function Home() {
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -255,7 +255,7 @@ export default function Home() {
           if(finalPrice < productPriceNum && productPriceNum > 0) {
               content += `\n할인구매가: ${formatPrice(Math.max(0, finalPrice))}\n`;
           }
-          content += `\n특가 상품바로가기: ${productInfo.final_url}\n`;
+          content += `\n할인상품 : ${productInfo.final_url}\n`;
 
           if (product.productTag) {
               const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
@@ -421,7 +421,6 @@ export default function Home() {
         return;
     }
 
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
     let html = previewContent
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -430,11 +429,10 @@ export default function Home() {
         .replace(/'/g, '&#039;')
         .replace(/\n/g, '<br />');
 
-    html = html.replace(urlRegex, (url) => {
-        if (url.includes('aliexpress.com')) {
-             return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-        }
-        return url;
+    // "할인상품 : http..." 패턴을 찾아서 a 태그로 변경
+    const urlRegex = /(할인상품\s*:\s*)(https?:\/\/[^\s]+)/g;
+    html = html.replace(urlRegex, (match, prefix, url) => {
+        return `<p>${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p>`;
     });
 
     setRawHtml(html);
