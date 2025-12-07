@@ -2,10 +2,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus, Pilcrow } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus, Pilcrow, MessageSquareText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -47,8 +47,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
   DialogClose,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -113,6 +115,7 @@ export default function Home() {
   const [allInfo, setAllInfo] = useState<AllInfo | null>(null);
 
   const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -167,6 +170,48 @@ export default function Home() {
   const formatPrice = (price: number): string => {
       return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
+
+  const convertTextToHtml = (text: string): string => {
+    if (!text) return "";
+
+    const lines = text.split('\n');
+    let html = '';
+    let inParagraph = false;
+
+    lines.forEach(line => {
+        if (line.trim() === '') {
+            if (inParagraph) {
+                html += '</p>';
+                inParagraph = false;
+            }
+            html += '<br />';
+        } else if (line.startsWith('할인상품 : ')) {
+            if (inParagraph) {
+                html += '</p>';
+                inParagraph = false;
+            }
+            const url = line.substring('할인상품 : '.length).trim();
+            html += `<p>할인상품 : <a href="${url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p>`;
+        } else {
+            if (!inParagraph) {
+                html += '<p>';
+                inParagraph = true;
+            }
+            html += line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            html += '<br />';
+        }
+    });
+
+    if (inParagraph) {
+        html = html.slice(0, -5); // Remove last <br />
+        html += '</p>';
+    }
+
+    // A final cleanup to handle multiple <br> tags from empty lines
+    html = html.replace(/(<br \/>\s*){2,}/g, '<br /><br />');
+    
+    return html;
+  };
   
   const handleGeneratePreview = async () => {
       const { productUrl, affShortKey, ...product } = form.getValues();
@@ -184,7 +229,7 @@ export default function Home() {
       setIsGeneratingPreview(true);
       setPreviewContent("미리보기를 생성 중입니다...");
       setAllInfo(null);
-      setIsHtmlMode(false);
+      setIsHtmlMode(true); // Default to HTML preview now
 
       try {
           const infoResponse = await fetch("/api/generate-all", {
@@ -199,18 +244,22 @@ export default function Home() {
           const infoResult = await infoResponse.json();
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
-              setPreviewContent("상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.");
+              setPreviewContent("<p>상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.</p>");
+              setIsHtmlMode(true);
               return;
           }
           const productInfo = infoResult.allInfos[0] as AllInfo;
           setAllInfo(productInfo);
 
           if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
-              setPreviewContent("상품 정보를 가져오지 못했습니다.");
+              setPreviewContent("<p>상품 정보를 가져오지 못했습니다.</p>");
+              setIsHtmlMode(true);
               return;
           }
-
-          let content = `${productInfo.product_title}\n\n`;
+          
+          let contentLines: string[] = [];
+          contentLines.push(productInfo.product_title);
+          contentLines.push('');
 
           const productPriceNum = parsePrice(product.productPrice);
           const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
@@ -221,47 +270,52 @@ export default function Home() {
           let finalPrice = productPriceNum;
           
           if (productPriceNum > 0) {
-            content += `할인판매가: ${formatPrice(productPriceNum)}\n`;
+            contentLines.push(`할인판매가: ${formatPrice(productPriceNum)}`);
           }
           
           if (coinDiscountRateNum > 0) {
-            content += `코인할인 ( ${coinDiscountRateNum}% )\n`;
+            contentLines.push(`코인할인 ( ${coinDiscountRateNum}% )`);
             const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
             finalPrice -= Math.round(coinDiscountValue / 10) * 10;
           }
           if (discountCodePriceNum > 0 && product.discountCode) {
-              content += `할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )\n`;
+              contentLines.push(`할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )`);
               finalPrice -= discountCodePriceNum;
           }
            if (storeCouponPriceNum > 0 && product.storeCouponCode) {
-              content += `스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )\n`;
+              contentLines.push(`스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )`);
               finalPrice -= storeCouponPriceNum;
           }
           if (cardPriceNum > 0 && product.cardCompanyName) {
-              content += `카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )\n`;
+              contentLines.push(`카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )`);
               finalPrice -= cardPriceNum;
           }
           
           if(finalPrice < productPriceNum && productPriceNum > 0) {
-              content += `\n할인구매가: ${formatPrice(Math.max(0, finalPrice))}\n`;
+              contentLines.push('');
+              contentLines.push(`할인구매가: ${formatPrice(Math.max(0, finalPrice))}`);
           }
-          content += `\n할인상품 : ${productInfo.final_url}\n`;
+          contentLines.push('');
+          
+          // This special line will be converted to a proper link
+          contentLines.push(`할인상품 : ${productInfo.final_url}`);
+          contentLines.push('');
 
           if (product.productTag) {
               const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
               if (tags) {
-                  content += `\n${tags}`;
+                  contentLines.push(tags);
               }
           }
+          
+          const rawText = contentLines.join('\n');
+          const htmlContent = convertTextToHtml(rawText);
 
-          if (productInfo.korean_summary) {
-            content += `\n\n- 상품리뷰 요약 -\n${productInfo.korean_summary}`;
-          }
-
-          setPreviewContent(content);
+          setPreviewContent(htmlContent);
 
       } catch (e) {
-          setPreviewContent("미리보기 생성 중 오류 발생.");
+          setPreviewContent("<p>미리보기 생성 중 오류 발생.</p>");
+          setIsHtmlMode(true);
       } finally {
         setIsGeneratingPreview(false);
       }
@@ -275,8 +329,6 @@ export default function Home() {
     const originalItem = sheetData.find(item => item.URL === data.productUrl);
 
     try {
-        // Reuse allInfo if it's for the same URL, otherwise fetch again.
-        // This is a simple check. A more robust solution might be needed if form URL can change after preview.
         let productInfo = allInfo;
         if (!productInfo || productInfo.original_url !== data.productUrl) {
             const infoResponse = await fetch("/api/generate-all", {
@@ -299,9 +351,8 @@ export default function Home() {
         }
 
         setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
-
-        // If in HTML mode, use the content as is. Otherwise, convert.
-        const postContent = isHtmlMode ? previewContent : convertTextToHtml(previewContent);
+        
+        const postContent = previewContent; // Already in HTML
 
         const bandPayload: { content: string; image_url?: string } = { content: postContent };
         if (productInfo.product_main_image_url) {
@@ -333,8 +384,11 @@ export default function Home() {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ rowNumber: originalItem.rowNumber, newValues }),
                     });
+                    
+                    // Optimistically remove from UI
                     setSheetData(prev => prev.filter(d => d.rowNumber !== originalItem.rowNumber));
                     setSelectedRowNumber(null);
+                    form.reset(); // Reset form after successful post
 
                  } catch (sheetError) {
                      console.error("Failed to update sheet after posting:", sheetError);
@@ -367,6 +421,7 @@ export default function Home() {
     const originalData = [...sheetData];
     setSheetData(prevData => prevData.filter(item => item.rowNumber !== rowNumber));
     setSelectedRowNumber(null);
+    form.reset();
 
     try {
         const response = await fetch('/api/sheets', {
@@ -393,8 +448,14 @@ export default function Home() {
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
       setSelectedRowNumber(null);
+      form.reset();
     } else {
       setSelectedRowNumber(item.rowNumber);
+      form.reset({
+        ...form.getValues(),
+        productUrl: item.URL,
+        productPrice: item.가격,
+      });
     }
   };
 
@@ -406,49 +467,14 @@ export default function Home() {
     });
   };
 
-  const convertTextToHtml = (text: string): string => {
-    if (!text) return "";
-
-    let html = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;')
-        .replace(/\n/g, '<br />');
-
-    const urlRegex = /(할인상품\s*:\s*)(https?:\/\/[^\s<]+)/g;
-    html = html.replace(urlRegex, (match, prefix, url) => {
-        const cleanUrl = url.replace(/&amp;/g, '&');
-        return `<p>${prefix.replace(/<br \/>/g, '')}<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p>`;
-    });
-
-    return html;
-  };
-
-  const handleHtmlModeToggle = () => {
-    if (!isHtmlMode) {
-        // Text -> HTML
-        const html = convertTextToHtml(previewContent);
-        setPreviewContent(html);
-    }
-    // Note: Converting HTML back to plain text is complex and lossy.
-    // We will just allow editing in HTML mode. To go back, user can re-generate preview.
-    setIsHtmlMode(!isHtmlMode);
-  };
-
   const addImageToPreview = (imageUrl: string) => {
-    let contentToAdd = imageUrl;
-    if (isHtmlMode) {
-      contentToAdd = `<img src="${imageUrl}" /><br />`;
-    }
-    setPreviewContent(prev => `${prev}\n${contentToAdd}`);
+    const imageTag = `<img src="${imageUrl}" alt="상세 이미지" style="max-width:100%; height:auto;" /><br />`;
+    setPreviewContent(prev => `${prev}${imageTag}`);
     toast({
         title: "이미지 추가 완료",
         description: "선택한 이미지가 미리보기 내용에 추가되었습니다.",
     });
   };
-
 
   const formFields = {
     required: [
@@ -664,45 +690,93 @@ export default function Home() {
                 </div>
                 
                 <Separator />
-
-                <div className="space-y-2">
+                
+                {allInfo && (
+                  <div className="space-y-4 rounded-lg border p-4">
                     <div className="flex items-center justify-between">
-                        <Label htmlFor="preview">미리보기 및 수정</Label>
-                        <Button type="button" variant="outline" size="sm" onClick={handleHtmlModeToggle} disabled={!previewContent}>
+                       <CardTitle className="text-xl">미리보기 및 수정</CardTitle>
+                       <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
                           {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
-                          {isHtmlMode ? "텍스트로 보기" : "HTML 소스보기"}
+                          {isHtmlMode ? "미리보기" : "HTML 소스보기"}
                         </Button>
                     </div>
-                    <Textarea
-                        id="preview"
-                        placeholder="입력 폼을 채우고 '미리보기 생성' 버튼을 누르세요."
-                        value={previewContent}
-                        onChange={(e) => setPreviewContent(e.target.value)}
-                        className={`min-h-[250px] text-sm ${isHtmlMode ? 'font-mono bg-gray-100 dark:bg-gray-800' : ''}`}
-                    />
-                </div>
 
-                {allInfo && allInfo.reviewImageUrls && allInfo.reviewImageUrls.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>상세 이미지 선택</CardTitle>
-                            <CardDescription>추가하고 싶은 이미지를 선택하여 미리보기에 반영하세요.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                            {allInfo.reviewImageUrls.map((url, index) => (
-                                <div key={index} className="relative group">
-                                    <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button size="sm" onClick={() => addImageToPreview(url)}>
-                                            <ImagePlus className="mr-2 h-4 w-4" />
-                                            이미지 추가
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
+                    {isHtmlMode ? (
+                       <Textarea
+                          id="preview-html"
+                          placeholder="HTML 소스..."
+                          value={previewContent}
+                          onChange={(e) => setPreviewContent(e.target.value)}
+                          className="min-h-[250px] text-sm font-mono bg-gray-100 dark:bg-gray-800"
+                        />
+                    ) : (
+                       <div
+                          id="preview-display"
+                          className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                          dangerouslySetInnerHTML={{ __html: previewContent }}
+                       />
+                    )}
+                    
+                    <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+                        <DialogTrigger asChild>
+                             <Button type="button" variant="outline" className="w-full">
+                               <MessageSquareText className="mr-2 h-4 w-4" />
+                               후기 확인하기
+                             </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-3xl">
+                            <DialogHeader>
+                                <DialogTitle>상품 후기 요약 및 이미지</DialogTitle>
+                                <DialogDescription>
+                                    AI가 요약한 한국인 후기와 리뷰에 포함된 이미지입니다.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
+                                {allInfo.korean_summary && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>AI 후기 요약</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-sm text-muted-foreground whitespace-pre-line">
+                                                {allInfo.korean_summary}
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                                {allInfo.reviewImageUrls && allInfo.reviewImageUrls.length > 0 && (
+                                     <Card>
+                                        <CardHeader>
+                                            <CardTitle>상세 이미지</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                            {allInfo.reviewImageUrls.map((url, index) => (
+                                                <div key={index} className="relative group">
+                                                    <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Button size="sm" onClick={() => { addImageToPreview(url); setIsReviewDialogOpen(false); }}>
+                                                            <ImagePlus className="mr-2 h-4 w-4" />
+                                                            추가
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button type="button" variant="secondary">
+                                        닫기
+                                    </Button>
+                                </DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                  </div>
                 )}
+
 
                 <Button
                   type="submit"
@@ -733,3 +807,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
