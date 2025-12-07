@@ -467,7 +467,7 @@ export default function Home() {
                               <CardDescription>{item.사이트 || "사이트 정보 없음"}</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <p className="text-2xl font-bold text-primary">{item.가격 ? `${formatPrice(parsePrice(item.가격))}` : "가격 정보 없음"}</p>
+                                <p className="text-2xl font-bold text-primary">{item.가격 || "가격 정보 없음"}</p>
                                 <div className="flex flex-col sm:flex-row gap-2">
                                      <Button asChild variant="outline" className="w-full">
                                         <a href={item.URL} target="_blank" rel="noopener noreferrer">URL 가서 확인하기</a>
