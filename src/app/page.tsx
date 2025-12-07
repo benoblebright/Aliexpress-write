@@ -102,7 +102,7 @@ export default function Home() {
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -188,6 +188,7 @@ export default function Home() {
       setIsHtmlMode(false);
 
       try {
+          // /api/generate-all은 상품 URL(target_urls)을 기반으로 모든 관련 정보(후기 포함)를 가져옵니다.
           const infoResponse = await fetch("/api/generate-all", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -384,7 +385,7 @@ export default function Home() {
     setSheetData(prevData => prevData.filter(item => item.rowNumber !== rowNumber));
     if (selectedRowNumber === rowNumber) {
         setSelectedRowNumber(null);
-        form.reset();
+        form.reset({ productUrl: "", affShortKey: "", productPrice: "", coinDiscountRate: "", productTag: "", discountCode: "", discountCodePrice: "", storeCouponCode: "", storeCouponPrice: "", cardCompanyName: "", cardPrice: "" });
         setAllInfo(null);
         setPreviewContent("");
     }
@@ -413,10 +414,19 @@ export default function Home() {
 
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
-        setSelectedRowNumber(null);
+      // 이미 선택된 항목을 다시 클릭하면 선택 해제
+      setSelectedRowNumber(null);
+      form.reset({ productUrl: "", affShortKey: "", productPrice: "", coinDiscountRate: "", productTag: "", discountCode: "", discountCodePrice: "", storeCouponCode: "", storeCouponPrice: "", cardCompanyName: "", cardPrice: "" });
     } else if (selectedRowNumber === null) {
-        setSelectedRowNumber(item.rowNumber);
+      // 아무것도 선택되지 않았을 때만 새로운 항목 선택
+      setSelectedRowNumber(item.rowNumber);
+      // URL 자동 채움 로직 제거
+      form.reset({
+        ...form.getValues(), // 다른 필드 값은 유지
+        productUrl: item.URL ?? "", // URL만 채움
+      });
     }
+    // 다른 항목이 이미 선택되어 있다면 아무 동작도 하지 않음
   };
   
   const copyToClipboard = (text: string) => {
@@ -652,28 +662,6 @@ export default function Home() {
                 {allInfo && (
                   <>
                   <Separator />
-                   <div className="space-y-4 rounded-lg border p-4">
-                      <Collapsible>
-                          <CollapsibleTrigger asChild>
-                              <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
-                                  <FileJson className="mr-2 h-4 w-4" />
-                                  API 결과값 보기
-                                  <ChevronDown className="h-4 w-4 ml-auto" />
-                              </Button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent className="pt-4">
-                              <pre className="text-xs bg-muted p-4 rounded-md max-h-60 overflow-auto">
-                                {JSON.stringify(allInfo, null, 2)}
-                              </pre>
-                          </CollapsibleContent>
-                      </Collapsible>
-                   </div>
-                  </>
-                )}
-
-                {allInfo && (
-                  <>
-                  <Separator />
                   <div className="space-y-4 rounded-lg border p-4">
                     <div className="flex items-center justify-between">
                        <CardTitle className="text-xl">미리보기 및 수정</CardTitle>
@@ -754,6 +742,23 @@ export default function Home() {
                        />
                     )}
                   </div>
+                  
+                   <div className="space-y-4 rounded-lg border p-4">
+                      <Collapsible>
+                          <CollapsibleTrigger asChild>
+                              <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
+                                  <FileJson className="mr-2 h-4 w-4" />
+                                  API 결과값 보기
+                                  <ChevronDown className="h-4 w-4 ml-auto" />
+                              </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="pt-4">
+                              <pre className="text-xs bg-muted p-4 rounded-md max-h-60 overflow-auto">
+                                {JSON.stringify(allInfo, null, 2)}
+                              </pre>
+                          </CollapsibleContent>
+                      </Collapsible>
+                   </div>
                   </>
                 )}
 
