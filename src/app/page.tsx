@@ -228,7 +228,7 @@ export default function Home() {
           }
 
           let productInfo = infoResult.allInfos[0] as AllInfo;
-          let tempReviewsInfo: ReviewInfo | null = null;
+          let reviewsResult: ReviewInfo | null = null;
 
           // Step 2: Fetch reviews if original_url exists
           if (productInfo.original_url) {
@@ -239,26 +239,26 @@ export default function Home() {
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(reviewsRequestBody),
                   });
-                  const reviewsResult = await reviewsResponse.json();
+                  reviewsResult = await reviewsResponse.json();
                   currentLog.push({ name: '후기정보 API (/api/generate-reviews)', request: reviewsRequestBody, response: reviewsResult });
 
-                  if (reviewsResponse.ok) {
-                      tempReviewsInfo = reviewsResult;
+                  if (reviewsResponse.ok && reviewsResult) {
+                      setReviewsInfo(reviewsResult);
                       if (reviewsResult.korean_summary) {
                         const parsed = reviewsResult.korean_summary.split('|').map((r: string) => r.trim()).filter(Boolean);
                         setParsedReviews(parsed);
                         setReviewSelections(parsed.map(() => ({ included: false, summarized: false })));
                       }
                   } else {
-                     toast({ variant: "destructive", title: "후기 정보 조회 실패", description: reviewsResult.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
+                     toast({ variant: "destructive", title: "후기 정보 조회 실패", description: (reviewsResult as any)?.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
                   }
               } catch (reviewError: any) {
                   toast({ variant: "destructive", title: "후기 정보 조회 오류", description: reviewError.message });
               }
           }
+          
           setApiLog(currentLog);
           setAllInfo(productInfo);
-          setReviewsInfo(tempReviewsInfo);
 
           if (!productInfo.product_title || !productInfo.final_url) {
               setPreviewContent("<p>조회된 상품 정보가 올바르지 않습니다.</p>");
@@ -303,9 +303,9 @@ export default function Home() {
           }
           
           content += `<br /><p>할인상품 : <a href="${productInfo.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
-
-          if (productInfo.sale_volume || tempReviewsInfo?.total_num || tempReviewsInfo?.korean_local_count) {
-            content += `<p>리뷰 요약: 총판매 ${productInfo.sale_volume || 0}개, 총리뷰 ${tempReviewsInfo?.total_num || 0}개, 국내리뷰 ${tempReviewsInfo?.korean_local_count || 0}개</p><br />`;
+          
+          if (productInfo.sale_volume || reviewsResult?.total_num || reviewsResult?.korean_local_count) {
+            content += `<p>리뷰 요약: 총판매 ${productInfo.sale_volume || 0}개, 총리뷰 ${reviewsResult?.total_num || 0}개, 국내리뷰 ${reviewsResult?.korean_local_count || 0}개</p><br />`;
           }
 
           if (product.productTag) {
@@ -734,7 +734,7 @@ export default function Home() {
                       </Button>
                 </div>
                 
-                {previewContent && allInfo && (
+                {previewContent && (
                   <div className="space-y-4">
                     <Separator />
                     <div className="rounded-lg border p-4 space-y-4">
@@ -882,4 +882,3 @@ export default function Home() {
     </main>
   );
 }
-
