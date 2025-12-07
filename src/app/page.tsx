@@ -102,7 +102,7 @@ export default function Home() {
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -188,7 +188,6 @@ export default function Home() {
       setIsHtmlMode(false);
 
       try {
-          // /api/generate-all은 상품 URL(target_urls)을 기반으로 모든 관련 정보(후기 포함)를 가져옵니다.
           const infoResponse = await fetch("/api/generate-all", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -414,19 +413,10 @@ export default function Home() {
 
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
-      // 이미 선택된 항목을 다시 클릭하면 선택 해제
       setSelectedRowNumber(null);
-      form.reset({ productUrl: "", affShortKey: "", productPrice: "", coinDiscountRate: "", productTag: "", discountCode: "", discountCodePrice: "", storeCouponCode: "", storeCouponPrice: "", cardCompanyName: "", cardPrice: "" });
     } else if (selectedRowNumber === null) {
-      // 아무것도 선택되지 않았을 때만 새로운 항목 선택
       setSelectedRowNumber(item.rowNumber);
-      // URL 자동 채움 로직 제거
-      form.reset({
-        ...form.getValues(), // 다른 필드 값은 유지
-        productUrl: item.URL ?? "", // URL만 채움
-      });
     }
-    // 다른 항목이 이미 선택되어 있다면 아무 동작도 하지 않음
   };
   
   const copyToClipboard = (text: string) => {
@@ -793,4 +783,3 @@ export default function Home() {
   );
 }
 
-    
