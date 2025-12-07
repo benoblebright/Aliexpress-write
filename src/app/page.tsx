@@ -184,6 +184,7 @@ export default function Home() {
   };
   
 const handleGeneratePreview = async () => {
+    console.log("[LOG] 1. 미리보기 생성을 시작합니다.");
     const { productUrl, affShortKey, ...product } = form.getValues();
     const isFormValid = await form.trigger(["productUrl", "affShortKey"]);
     
@@ -205,10 +206,13 @@ const handleGeneratePreview = async () => {
     setParsedReviews([]);
     setReviewSelections([]);
 
-    try {
-        const currentLog: ApiLogEntry[] = [];
+    const currentLog: ApiLogEntry[] = [];
+    let productInfo: AllInfo | null = null;
+    let reviewsResult: ReviewInfo | null = null;
 
+    try {
         // Step 1: Fetch basic product info
+        console.log("[LOG] 2. 상품정보 API 호출을 시작합니다.");
         const infoRequestBody = {
             target_urls: [productUrl],
             aff_short_key: [affShortKey]
@@ -219,16 +223,18 @@ const handleGeneratePreview = async () => {
             body: JSON.stringify(infoRequestBody),
         });
         const infoResult = await infoResponse.json();
+        console.log("[LOG] 3. 상품정보 API 응답:", infoResult);
         currentLog.push({ name: '상품정보 API (/api/generate-all)', request: infoRequestBody, response: infoResult });
         
         if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
             throw new Error(infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.');
         }
-        const productInfo = infoResult.allInfos[0] as AllInfo;
+        productInfo = infoResult.allInfos[0] as AllInfo;
+        console.log("[LOG] 4. productInfo 변수 할당:", productInfo);
 
         // Step 2: Fetch reviews if original_url exists
-        let reviewsResult: ReviewInfo | null = null;
-        if (productInfo.original_url) {
+        if (productInfo?.original_url) {
+            console.log(`[LOG] 5. 후기정보 API 호출을 시작합니다. URL: ${productInfo.original_url}`);
             const reviewsRequestBody = { target_urls: [productInfo.original_url] };
             try {
                 const reviewsResponse = await fetch("/api/generate-reviews", {
@@ -237,6 +243,7 @@ const handleGeneratePreview = async () => {
                     body: JSON.stringify(reviewsRequestBody),
                 });
                 reviewsResult = await reviewsResponse.json();
+                 console.log("[LOG] 6. 후기정보 API 응답:", reviewsResult);
                 currentLog.push({ name: '후기정보 API (/api/generate-reviews)', request: reviewsRequestBody, response: reviewsResult });
                 if (!reviewsResponse.ok) {
                    toast({ variant: "destructive", title: "후기 정보 조회 실패", description: (reviewsResult as any)?.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
@@ -246,10 +253,17 @@ const handleGeneratePreview = async () => {
                 toast({ variant: "destructive", title: "후기 정보 조회 오류", description: reviewError.message });
                 reviewsResult = null; // Ensure result is null on error
             }
+        } else {
+            console.log("[LOG] 5. original_url이 없어 후기정보 API를 호출하지 않습니다.");
         }
         
         // Step 3: All API calls are done. Now, generate content.
-        if (!productInfo.product_title || !productInfo.final_url) {
+        console.log("[LOG] 7. HTML 콘텐츠 생성을 시작합니다.");
+        console.log("[LOG] 7a. 사용할 productInfo:", productInfo);
+        console.log("[LOG] 7b. 사용할 reviewsResult:", reviewsResult);
+
+        if (!productInfo?.product_title || !productInfo?.final_url) {
+            console.error("[LOG] 7c. 오류: 상품 제목 또는 최종 URL이 없어 콘텐츠 생성을 중단합니다.");
             setPreviewContent("<p>조회된 상품 정보가 올바르지 않습니다.</p>");
             setIsHtmlMode(true);
             setAllInfo(productInfo);
@@ -307,8 +321,13 @@ const handleGeneratePreview = async () => {
                 content += `<p>${tags}</p>`;
             }
         }
+        console.log("[LOG] 8. 생성된 HTML 콘텐츠:", content);
         
         // Step 4: Finally, update all states at once.
+        console.log("[LOG] 9. 최종 상태 업데이트를 시작합니다.");
+        console.log("[LOG] 9a. setAllInfo에 전달할 값:", productInfo);
+        console.log("[LOG] 9b. setReviewsInfo에 전달할 값:", reviewsResult);
+        console.log("[LOG] 9c. setPreviewContent에 전달할 값:", content);
         setAllInfo(productInfo);
         setReviewsInfo(reviewsResult);
         setApiLog(currentLog);
@@ -316,15 +335,20 @@ const handleGeneratePreview = async () => {
 
         if (reviewsResult?.korean_summary) {
           const parsed = reviewsResult.korean_summary.split('|').map((r: string) => r.trim()).filter(Boolean);
+          console.log("[LOG] 9d. setParsedReviews에 전달할 값:", parsed);
           setParsedReviews(parsed);
           setReviewSelections(parsed.map(() => ({ included: false, summarized: false })));
+        } else {
+          console.log("[LOG] 9d. korean_summary가 없어 리뷰를 파싱하지 않습니다.");
         }
 
     } catch (e: any) {
+        console.error("[LOG] 10. 미리보기 생성 중 오류 발생:", e);
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
         setPreviewContent(`<p>미리보기 생성 중 오류 발생: ${e.message}</p>`);
         setIsHtmlMode(true);
     } finally {
+      console.log("[LOG] 11. 미리보기 생성을 종료합니다.");
       setIsGeneratingPreview(false);
     }
 };
