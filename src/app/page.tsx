@@ -222,8 +222,7 @@ const handleGeneratePreview = async () => {
         currentLog.push({ name: '상품정보 API (/api/generate-all)', request: infoRequestBody, response: infoResult });
         
         if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
-            const errorMsg = infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.';
-            throw new Error(errorMsg);
+            throw new Error(infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.');
         }
         const productInfo = infoResult.allInfos[0] as AllInfo;
 
