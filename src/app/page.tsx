@@ -112,7 +112,7 @@ export default function Home() {
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -314,7 +314,7 @@ const handleGeneratePreview = async () => {
         setApiLog(currentLog);
         setPreviewContent(content);
 
-        if (reviewsResult && reviewsResult.korean_summary) {
+        if (reviewsResult?.korean_summary) {
           const parsed = reviewsResult.korean_summary.split('|').map((r: string) => r.trim()).filter(Boolean);
           setParsedReviews(parsed);
           setReviewSelections(parsed.map(() => ({ included: false, summarized: false })));
@@ -885,5 +885,3 @@ const handleGeneratePreview = async () => {
     </main>
   );
 }
-
-    
