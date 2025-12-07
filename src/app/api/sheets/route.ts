@@ -18,7 +18,9 @@ async function getSheetsClient() {
     if (!process.env.GOOGLE_CREDENTIALS) {
         throw new Error('GOOGLE_CREDENTIALS environment variable is not set.');
     }
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    const credentialsString = process.env.GOOGLE_CREDENTIALS;
+    const credentials = typeof credentialsString === 'string' ? JSON.parse(credentialsString) : credentialsString;
+    
     const auth = new google.auth.GoogleAuth({
         credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -58,17 +60,21 @@ export async function GET() {
         const allData: SheetRow[] = rows
             .slice(1) // Skip header row
             .map((row, index) => {
-                // First, map every row to an object with its correct row number
                 const rowData: any = { rowNumber: index + 2 }; // +2 because of 1-based index and header
                 header.forEach((key, i) => {
-                    rowData[key] = row[i] || ''; // Use empty string for empty cells
+                    rowData[key] = row[i] || '';
                 });
                 return rowData as SheetRow;
-            })
-            .filter((row): row is SheetRow => row !== null); // Filter out any potential nulls from mapping, just in case
-
-        // Now, filter the mapped data
+            });
+            
         const filteredData = allData.filter(row => row.checkup === '0');
+
+        // Sort by Runtime in descending order
+        filteredData.sort((a, b) => {
+            const dateA = new Date(a.Runtime).getTime();
+            const dateB = new Date(b.Runtime).getTime();
+            return dateB - dateA;
+        });
 
 
         return NextResponse.json({ data: filteredData });

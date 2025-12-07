@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -98,29 +98,32 @@ export default function Home() {
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
   const [sheetData, setSheetData] = useState<SheetRow[]>([]);
 
-  useEffect(() => {
-    async function fetchSheetData() {
-        try {
-            setIsSheetLoading(true);
-            const response = await fetch('/api/sheets');
-            if (!response.ok) {
-                const errorResult = await response.json();
-                throw new Error(errorResult.error || '스프레드시트 데이터를 가져오는데 실패했습니다.');
-            }
-            const result = await response.json();
-            setSheetData(result.data);
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: '시트 데이터 로딩 오류',
-                description: error.message,
-            });
-        } finally {
-            setIsSheetLoading(false);
+  const fetchSheetData = useCallback(async () => {
+    try {
+        setIsSheetLoading(true);
+        const response = await fetch('/api/sheets');
+        if (!response.ok) {
+            const errorResult = await response.json();
+            throw new Error(errorResult.error || '스프레드시트 데이터를 가져오는데 실패했습니다.');
         }
+        const result = await response.json();
+        setSheetData(result.data);
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: '시트 데이터 로딩 오류',
+            description: error.message,
+        });
+        setSheetData([]); // Clear data on error
+    } finally {
+        setIsSheetLoading(false);
     }
-    fetchSheetData();
   }, [toast]);
+
+
+  useEffect(() => {
+    fetchSheetData();
+  }, [fetchSheetData]);
 
 
   const form = useForm<FormData>({
@@ -235,8 +238,8 @@ export default function Home() {
                 finalPrice -= cardPriceNum;
             }
             
-            if(finalPrice < productPriceNum) {
-                content += `\n할인구매가: ${formatPrice(finalPrice)}\n`;
+            if(finalPrice < productPriceNum && productPriceNum > 0) {
+                content += `\n할인구매가: ${formatPrice(Math.max(0, finalPrice))}\n`;
             }
             content += `\n상품 링크: ${productInfo.final_url}\n`;
 
@@ -261,13 +264,11 @@ export default function Home() {
             if (bandResponse.ok) {
                 successCount++;
                  if (product.rowNumber) {
-                     // Update sheet
                     await fetch('/api/sheets', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ rowNumber: product.rowNumber, column: 'checkup', value: '2' }),
                     });
-                     // Also update other fields if needed, for simplicity we only update checkup
                  }
             } else {
                 try {
@@ -287,6 +288,7 @@ export default function Home() {
                 title: "성공!",
                 description: `총 ${totalCount}개의 상품이 밴드에 성공적으로 게시되었습니다.`,
               });
+             fetchSheetData(); // Refresh sheet data
         } else {
             const finalErrorMessage = `총 ${totalCount}개 상품 중 ${successCount}개 성공 / ${totalCount - successCount}개 실패\n\n[오류 내역]\n${errorMessages.join('\n')}`;
             setBandPostResult({ status: 'error', message: finalErrorMessage });
@@ -295,6 +297,7 @@ export default function Home() {
                 title: "일부 실패",
                 description: `총 ${totalCount}개 중 ${totalCount - successCount}개의 상품을 밴드에 게시하지 못했습니다.`,
             });
+             fetchSheetData(); // Refresh sheet data
         }
     } catch (error: any) {
       setBandPostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
@@ -327,11 +330,9 @@ export default function Home() {
   };
 
   const handleSelectSheetRow = (row: SheetRow) => {
-    // We will populate the first product form.
-    // If you want to add a new form instead, the logic can be changed.
     setValue('products.0.productUrl', row.URL);
     setValue('products.0.productPrice', row.가격);
-    setValue('products.0.rowNumber', row.rowNumber); // Keep track of the row
+    setValue('products.0.rowNumber', row.rowNumber); 
     toast({
         title: "상품 정보 적용",
         description: `'${row.상품명}'의 정보가 상품 1에 적용되었습니다.`
@@ -339,7 +340,7 @@ export default function Home() {
   };
 
   const handleDeleteSheetRow = async (row: SheetRow) => {
-    // Optimistically remove from UI
+    const originalSheetData = [...sheetData];
     setSheetData(prev => prev.filter(item => item.rowNumber !== row.rowNumber));
 
     try {
@@ -362,8 +363,7 @@ export default function Home() {
             title: "시트 업데이트 오류",
             description: error.message,
         });
-        // Re-add the item to the list if the API call fails
-        setSheetData(prev => [...prev, row].sort((a,b) => a.rowNumber - b.rowNumber));
+        setSheetData(originalSheetData);
     }
   };
 
@@ -416,7 +416,7 @@ export default function Home() {
             <CardHeader>
                 <CardTitle>작업 대기 목록</CardTitle>
                 <CardDescription>
-                    구글 시트에서 가져온 작업 대기중인 상품 목록입니다.
+                    구글 시트에서 가져온 작업 대기중인 상품 목록입니다. (최신순 정렬)
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -438,7 +438,7 @@ export default function Home() {
                                             <CardContent className="flex-grow text-xs space-y-1">
                                                <p><strong>사이트:</strong> {item.사이트}</p>
                                                <p><strong>URL:</strong> <a href={item.URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block">{item.URL}</a></p>
-                                               <p><strong>Runtime:</strong> {item.Runtime}</p>
+                                               <p><strong>Runtime:</strong> {new Date(item.Runtime).toLocaleString()}</p>
                                             </CardContent>
                                             <div className="flex border-t">
                                                 <Button variant="ghost" className="w-1/2 rounded-none rounded-bl-lg" onClick={() => handleSelectSheetRow(item)}>
@@ -593,5 +593,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
