@@ -51,7 +51,7 @@ export async function GET() {
         });
 
         const filteredAndSortedData = data
-            .filter(item => item.checkup === '0')
+            .filter(item => item.checkup === '0') // Compare with string '0'
             .sort((a, b) => new Date(b.Runtime).getTime() - new Date(a.Runtime).getTime());
 
         return NextResponse.json({ data: filteredAndSortedData });
