@@ -413,30 +413,13 @@ export default function Home() {
 
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
-        setSelectedRowNumber(null);
-        form.reset({ productUrl: "", affShortKey: "", productPrice: "", coinDiscountRate: "", productTag: "", discountCode: "", discountCodePrice: "", storeCouponCode: "", storeCouponPrice: "", cardCompanyName: "", cardPrice: "" });
-        setAllInfo(null);
-        setPreviewContent("");
+      // If the same item is clicked, deselect it.
+      setSelectedRowNumber(null);
     } else if (selectedRowNumber === null) {
-        setSelectedRowNumber(item.rowNumber);
-        form.reset({
-            productUrl: item.URL,
-            productPrice: item.가격,
-            affShortKey: "",
-            coinDiscountRate: "",
-            productTag: "",
-            discountCode: "",
-            discountCodePrice: "",
-            storeCouponCode: "",
-            storeCouponPrice: "",
-            cardCompanyName: "",
-            cardPrice: ""
-        });
-        toast({
-            title: "항목 선택됨",
-            description: "상품 URL과 가격이 자동으로 입력되었습니다. 제휴 단축키를 입력해주세요.",
-        });
+      // If nothing is selected, select the new item.
+      setSelectedRowNumber(item.rowNumber);
     }
+    // If another item is already selected, do nothing to prevent confusion.
   };
   
   const copyToClipboard = (text: string) => {
@@ -669,7 +652,7 @@ export default function Home() {
                       </Button>
                 </div>
                 
-                {allInfo && (
+                {previewContent && allInfo && (
                   <>
                   <Separator />
                   <div className="space-y-4 rounded-lg border p-4">
@@ -752,8 +735,8 @@ export default function Home() {
                        />
                     )}
                   </div>
-                  
-                   <div className="space-y-4 rounded-lg border p-4">
+
+                  <div className="space-y-4 rounded-lg border p-4">
                       <Collapsible>
                           <CollapsibleTrigger asChild>
                               <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
