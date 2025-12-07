@@ -55,18 +55,21 @@ export async function GET() {
             throw new Error("'checkup' column not found in the sheet.");
         }
         
-        const filteredData: SheetRow[] = rows
+        const allData: SheetRow[] = rows
             .slice(1) // Skip header row
             .map((row, index) => {
-                // Ensure the row has enough columns
-                if (row.length < header.length) return null;
+                // First, map every row to an object with its correct row number
                 const rowData: any = { rowNumber: index + 2 }; // +2 because of 1-based index and header
                 header.forEach((key, i) => {
                     rowData[key] = row[i] || ''; // Use empty string for empty cells
                 });
                 return rowData as SheetRow;
             })
-            .filter((row): row is SheetRow => row !== null && row.checkup === '0');
+            .filter((row): row is SheetRow => row !== null); // Filter out any potential nulls from mapping, just in case
+
+        // Now, filter the mapped data
+        const filteredData = allData.filter(row => row.checkup === '0');
+
 
         return NextResponse.json({ data: filteredData });
     } catch (error: any) {
