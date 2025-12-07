@@ -85,10 +85,6 @@ interface AllInfo {
     final_url: string;
     original_url: string;
     sale_volume?: string | number;
-    korean_summary?: string;
-    korean_local_count?: number;
-    total_num?: number;
-    reviewImageUrls?: string[];
 }
 
 type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
@@ -223,7 +219,6 @@ export default function Home() {
 
           let productInfo = infoResult.allInfos[0] as AllInfo;
           
-          // Now, call the reviews API if original_url exists
           if (productInfo.original_url) {
               const reviewsRequestBody = { target_urls: [productInfo.original_url] };
               try {
@@ -236,7 +231,7 @@ export default function Home() {
                    setApiLog(prev => ({ ...prev, reviews: { name: "/api/generate-reviews", request: reviewsRequestBody, response: reviewsResult }}));
 
                   if (reviewsResponse.ok) {
-                      // DO NOT MERGE REVIEW DATA as per user request. User wants to inspect the data first.
+                      // DO NOT MERGE REVIEW DATA. User will inspect the data first.
                   } else {
                      toast({ variant: "destructive", title: "후기 정보 조회 실패", description: reviewsResult.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
                   }
@@ -319,13 +314,10 @@ export default function Home() {
 
     try {
         let productInfo = allInfo;
-        // Re-fetch info if it's not present or doesn't match the form's URL
+
         if (!productInfo || productInfo.original_url !== data.productUrl) {
             setBandPostResult({ status: 'loading', message: '상품 정보를 다시 가져오는 중...' });
-            await handleGeneratePreview(); // This will regenerate preview and fetch all data.
-            // After handleGeneratePreview, allInfo is updated. We need to get the updated value.
-            // A better way would be for handleGeneratePreview to return the info.
-            // For now, we'll rely on a small timeout for the state to update.
+            await handleGeneratePreview(); 
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
@@ -445,23 +437,12 @@ export default function Home() {
     }
   };
 
-  const handleSelectSheetRow = (item: SheetData) => {
+  const toggleRowSelection = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
-      setSelectedRowNumber(null);
-      form.reset();
-      setAllInfo(null);
-      setPreviewContent("");
-      setApiLog({ allInfo: null, reviews: null });
-    } else if (selectedRowNumber === null) {
-      setSelectedRowNumber(item.rowNumber);
-      form.reset({
-        productUrl: item.URL,
-        productPrice: item.가격,
-      });
-      toast({
-        title: "항목 선택됨",
-        description: "상품 URL과 가격이 자동으로 입력되었습니다. 제휴 단축키를 입력해주세요.",
-      });
+        setSelectedRowNumber(null);
+    } 
+    else {
+        setSelectedRowNumber(item.rowNumber);
     }
   };
   
@@ -586,13 +567,13 @@ export default function Home() {
                                 <Separator />
                                 <div className="flex flex-col sm:flex-row gap-2">
                                     <Button 
-                                        onClick={() => handleSelectSheetRow(item)} 
+                                        onClick={() => toggleRowSelection(item)} 
                                         variant={selectedRowNumber === item.rowNumber ? "default" : "outline"}
                                         disabled={selectedRowNumber !== null && selectedRowNumber !== item.rowNumber}
                                         className="w-full"
                                     >
                                         <CheckCircle className={`mr-2 h-4 w-4 ${selectedRowNumber !== item.rowNumber && 'hidden'}`} />
-                                        {selectedRowNumber === item.rowNumber ? "선택 해제" : "선택하여 글쓰기"}
+                                        {selectedRowNumber === item.rowNumber ? "선택 해제" : "작업 선택 (값 채우기 X)"}
                                     </Button>
                                     <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">
                                         <Trash2 className="mr-2 h-4 w-4"/>
@@ -778,50 +759,51 @@ export default function Home() {
                          />
                       )}
                     </div>
-
-                    {(apiLog.allInfo || apiLog.reviews) && (
-                        <div className="space-y-4 rounded-lg border p-4">
-                            <Collapsible>
-                                <CollapsibleTrigger asChild>
-                                    <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
-                                        <FileJson className="mr-2 h-4 w-4" />
-                                        API 결과값 보기
-                                        <ChevronDown className="h-4 w-4 ml-auto" />
-                                    </Button>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent className="space-y-4 pt-4">
-                                    {apiLog.allInfo && (
-                                        <div>
-                                          <h4 className="font-semibold mb-2">상품정보 API ({apiLog.allInfo.name})</h4>
-                                          <h5 className="font-medium text-sm text-muted-foreground mt-2">요청 (Request)</h5>
-                                          <pre className="text-xs bg-muted p-2 rounded-md max-h-40 overflow-auto">
-                                              {JSON.stringify(apiLog.allInfo.request, null, 2)}
-                                          </pre>
-                                          <h5 className="font-medium text-sm text-muted-foreground mt-2">응답 (Response)</h5>
-                                          <pre className="text-xs bg-muted p-2 rounded-md max-h-60 overflow-auto">
-                                              {JSON.stringify(apiLog.allInfo.response, null, 2)}
-                                          </pre>
-                                        </div>
-                                    )}
-                                    {apiLog.reviews && (
-                                        <div>
-                                          <h4 className="font-semibold mb-2 mt-4">후기정보 API ({apiLog.reviews.name})</h4>
-                                          <h5 className="font-medium text-sm text-muted-foreground mt-2">요청 (Request)</h5>
-                                          <pre className="text-xs bg-muted p-2 rounded-md max-h-40 overflow-auto">
-                                              {JSON.stringify(apiLog.reviews.request, null, 2)}
-                                          </pre>
-                                          <h5 className="font-medium text-sm text-muted-foreground mt-2">응답 (Response)</h5>
-                                          <pre className="text-xs bg-muted p-2 rounded-md max-h-60 overflow-auto">
-                                              {JSON.stringify(apiLog.reviews.response, null, 2)}
-                                          </pre>
-                                        </div>
-                                    )}
-                                </CollapsibleContent>
-                            </Collapsible>
-                        </div>
-                    )}
                   </div>
                 )}
+                
+                {(apiLog.allInfo || apiLog.reviews) && (
+                    <div className="space-y-4 rounded-lg border p-4">
+                        <Collapsible>
+                            <CollapsibleTrigger asChild>
+                                <Button type="button" variant="ghost" className="w-full text-left justify-start px-2">
+                                    <FileJson className="mr-2 h-4 w-4" />
+                                    API 결과값 보기
+                                    <ChevronDown className="h-4 w-4 ml-auto" />
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-4 pt-4">
+                                {apiLog.allInfo && (
+                                    <div>
+                                      <h4 className="font-semibold mb-2">상품정보 API ({apiLog.allInfo.name})</h4>
+                                      <h5 className="font-medium text-sm text-muted-foreground mt-2">요청 (Request)</h5>
+                                      <pre className="text-xs bg-muted p-2 rounded-md max-h-40 overflow-auto">
+                                          {JSON.stringify(apiLog.allInfo.request, null, 2)}
+                                      </pre>
+                                      <h5 className="font-medium text-sm text-muted-foreground mt-2">응답 (Response)</h5>
+                                      <pre className="text-xs bg-muted p-2 rounded-md max-h-60 overflow-auto">
+                                          {JSON.stringify(apiLog.allInfo.response, null, 2)}
+                                      </pre>
+                                    </div>
+                                )}
+                                {apiLog.reviews && (
+                                    <div>
+                                      <h4 className="font-semibold mb-2 mt-4">후기정보 API ({apiLog.reviews.name})</h4>
+                                      <h5 className="font-medium text-sm text-muted-foreground mt-2">요청 (Request)</h5>
+                                      <pre className="text-xs bg-muted p-2 rounded-md max-h-40 overflow-auto">
+                                          {JSON.stringify(apiLog.reviews.request, null, 2)}
+                                      </pre>
+                                      <h5 className="font-medium text-sm text-muted-foreground mt-2">응답 (Response)</h5>
+                                      <pre className="text-xs bg-muted p-2 rounded-md max-h-60 overflow-auto">
+                                          {JSON.stringify(apiLog.reviews.response, null, 2)}
+                                      </pre>
+                                    </div>
+                                )}
+                            </CollapsibleContent>
+                        </Collapsible>
+                    </div>
+                )}
+
 
                 <Button
                   type="submit"
