@@ -434,7 +434,7 @@ export default function Home() {
                     </CardDescription>
                 </div>
                 <Button variant="outline" size="icon" onClick={fetchSheetData} disabled={isSheetLoading}>
-                    <RefreshCw className={`h-4 w-4 animate-spin ${isSheetLoading ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 ${isSheetLoading ? 'animate-spin' : ''}`} />
                     <span className="sr-only">새로고침</span>
                 </Button>
             </CardHeader>
