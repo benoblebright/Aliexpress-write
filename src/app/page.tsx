@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -47,7 +47,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -89,6 +88,7 @@ interface AllInfo {
     korean_summary?: string;
     korean_local_count?: number;
     total_num?: number;
+    reviewImageUrls?: string[];
 }
 
 interface ReviewInfo {
@@ -118,6 +118,8 @@ export default function Home() {
   const [isHtmlPreviewOpen, setIsHtmlPreviewOpen] = useState(false);
   const [htmlContent, setHtmlContent] = useState("");
   const [rawHtml, setRawHtml] = useState("");
+
+  const [allInfo, setAllInfo] = useState<AllInfo | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -188,6 +190,7 @@ export default function Home() {
 
       setIsGeneratingPreview(true);
       setPreviewContent("미리보기를 생성 중입니다...");
+      setAllInfo(null);
 
       try {
           // Fetch product info and reviews in parallel
@@ -215,6 +218,7 @@ export default function Home() {
               return;
           }
           const productInfo = infoResult.allInfos[0] as AllInfo;
+          setAllInfo(productInfo);
 
           if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
               setPreviewContent("상품 정보를 가져오지 못했습니다.");
@@ -401,7 +405,25 @@ export default function Home() {
   };
 
   const handleSelectSheetRow = (item: SheetData) => {
+    form.reset({
+      ...form.getValues(), // retain other values like affShortKey
+      productUrl: item.URL,
+      productPrice: item.가격,
+      // Reset other fields if needed
+      coinDiscountRate: "",
+      productTag: "",
+      discountCode: "",
+      discountCodePrice: "",
+      storeCouponCode: "",
+      storeCouponPrice: "",
+      cardCompanyName: "",
+      cardPrice: "",
+    });
     setSelectedRowNumber(item.rowNumber);
+    toast({
+        title: "정보 채우기 완료",
+        description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.`,
+    });
   };
 
   const copyToClipboard = (text: string) => {
@@ -442,6 +464,14 @@ export default function Home() {
     setHtmlContent(html);
     setIsHtmlPreviewOpen(true);
 };
+
+  const addImageToPreview = (imageUrl: string) => {
+    setPreviewContent(prev => `${prev}\n${imageUrl}`);
+    toast({
+        title: "이미지 추가 완료",
+        description: "선택한 이미지가 미리보기 내용에 추가되었습니다.",
+    });
+  };
 
 
   const formFields = {
@@ -675,6 +705,28 @@ export default function Home() {
                     />
                 </div>
 
+                {allInfo && allInfo.reviewImageUrls && allInfo.reviewImageUrls.length > 0 && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>상세 이미지 선택</CardTitle>
+                            <CardDescription>추가하고 싶은 이미지를 선택하여 미리보기에 반영하세요.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                            {allInfo.reviewImageUrls.map((url, index) => (
+                                <div key={index} className="relative group">
+                                    <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button size="sm" onClick={() => addImageToPreview(url)}>
+                                            <ImagePlus className="mr-2 h-4 w-4" />
+                                            이미지 추가
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
+
                 <Button
                   type="submit"
                   className="w-full text-lg py-6"
@@ -744,5 +796,3 @@ export default function Home() {
     </main>
   );
 }
-
-    

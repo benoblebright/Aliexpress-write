@@ -16,6 +16,7 @@ interface BackendDetail {
     korean_summary?: string; 
     korean_local_count?: number;
     total_num?: number;
+    reviewImageUrls?: string[];
 }
 
 interface BackendResponse {
@@ -33,6 +34,7 @@ interface FrontendInfo {
     korean_summary?: string;
     korean_local_count?: number;
     total_num?: number;
+    reviewImageUrls?: string[];
 }
 
 
@@ -86,6 +88,7 @@ export async function POST(request: Request) {
                 korean_summary: (detail as any).korean_summary,
                 korean_local_count: (detail as any).korean_local_count,
                 total_num: (detail as any).total_num,
+                reviewImageUrls: (detail as any).reviewImageUrls,
             };
         });
 
