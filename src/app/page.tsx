@@ -61,7 +61,7 @@ const formSchema = z.object({
   productTag: z.string().optional(),
   discountCode: z.string().optional(),
   discountCodePrice: z.string().optional(),
-  storeCouponCode: zstring().optional(),
+  storeCouponCode: z.string().optional(),
   storeCouponPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
   cardPrice: z.string().optional(),
@@ -392,8 +392,13 @@ export default function Home() {
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
       setSelectedRowNumber(null);
-    } else {
+      form.reset();
+    } else if (selectedRowNumber === null) {
       setSelectedRowNumber(item.rowNumber);
+      form.reset({
+        productUrl: item.URL,
+        productPrice: item.가격?.replace(/[^0-9]/g, ''),
+      });
     }
   };
 
@@ -745,5 +750,6 @@ export default function Home() {
     </main>
   );
 }
+
 
     
