@@ -401,20 +401,6 @@ export default function Home() {
 
   const handleSelectSheetRow = (item: SheetData) => {
     setSelectedRowNumber(item.rowNumber);
-    form.reset({
-      productUrl: item.URL || "",
-      productPrice: item.가격 || "",
-      affShortKey: form.getValues("affShortKey"),
-      coinDiscountRate: "",
-      productTag: "",
-      discountCode: "",
-      discountCodePrice: "",
-      storeCouponCode: "",
-      storeCouponPrice: "",
-      cardCompanyName: "",
-      cardPrice: "",
-    });
-    toast({ title: "선택됨", description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.` });
   };
 
   const copyToClipboard = (text: string) => {
