@@ -234,7 +234,6 @@ export default function Home() {
 
           let productInfo = infoResult.allInfos[0] as AllInfo;
           
-          let finalProductInfo = { ...productInfo };
           let tempReviewsInfo: ReviewInfo | null = null;
 
           // Step 2: Fetch reviews if original_url exists
@@ -259,16 +258,16 @@ export default function Home() {
               }
           }
 
-          setAllInfo(finalProductInfo);
+          setAllInfo(productInfo);
           setReviewsInfo(tempReviewsInfo);
 
-          if (!finalProductInfo.product_title || !finalProductInfo.final_url) {
+          if (!productInfo.product_title || !productInfo.final_url) {
               setPreviewContent("<p>조회된 상품 정보가 올바르지 않습니다.</p>");
               setIsHtmlMode(true);
               return;
           }
           
-          let content = `<p>${finalProductInfo.product_title}</p><br />`;
+          let content = `<p>${productInfo.product_title}</p><br />`;
 
           const productPriceNum = parsePrice(product.productPrice);
           const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
@@ -304,7 +303,11 @@ export default function Home() {
               content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice))}</p>`;
           }
           
-          content += `<br /><p>할인상품 : <a href="${finalProductInfo.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
+          content += `<br /><p>할인상품 : <a href="${productInfo.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
+
+          if (productInfo.sale_volume || tempReviewsInfo?.total_num || tempReviewsInfo?.korean_local_count) {
+            content += `<p>리뷰 요약: 총판매 ${productInfo.sale_volume || 0}개, 총리뷰 ${tempReviewsInfo?.total_num || 0}개, 국내리뷰 ${tempReviewsInfo?.korean_local_count || 0}개</p><br />`;
+          }
 
           if (product.productTag) {
               const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
@@ -797,12 +800,6 @@ export default function Home() {
                          </div>
                       </div>
 
-                      {reviewsInfo && (
-                        <div className="text-sm text-muted-foreground bg-accent/30 p-3 rounded-md">
-                          <strong>리뷰 요약:</strong> 총판매 {allInfo.sale_volume || 0}개, 총리뷰 {reviewsInfo.total_num || 0}개, 국내리뷰 {reviewsInfo.korean_local_count || 0}개
-                        </div>
-                      )}
-
                       {isHtmlMode ? (
                          <Textarea
                             id="preview-html"
@@ -930,5 +927,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
