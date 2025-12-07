@@ -185,7 +185,7 @@ export default function Home() {
       setIsGeneratingPreview(true);
       setPreviewContent("미리보기를 생성 중입니다...");
       setAllInfo(null);
-      setIsHtmlMode(true); // Default to HTML preview now
+      setIsHtmlMode(false); // Default to visual preview
 
       try {
           const infoResponse = await fetch("/api/generate-all", {
@@ -201,6 +201,7 @@ export default function Home() {
           
           if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
               setPreviewContent("<p>상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.</p>");
+              setIsHtmlMode(true);
               return;
           }
           const productInfo = infoResult.allInfos[0] as AllInfo;
@@ -208,6 +209,7 @@ export default function Home() {
 
           if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
               setPreviewContent("<p>상품 정보를 가져오지 못했습니다.</p>");
+               setIsHtmlMode(true);
               return;
           }
           
@@ -260,6 +262,7 @@ export default function Home() {
 
       } catch (e) {
           setPreviewContent("<p>미리보기 생성 중 오류 발생.</p>");
+          setIsHtmlMode(true);
       } finally {
         setIsGeneratingPreview(false);
       }
@@ -391,17 +394,36 @@ export default function Home() {
 
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
+      // Deselect if the same item is clicked again
       setSelectedRowNumber(null);
-      form.reset();
+      form.reset({
+        productUrl: "",
+        affShortKey: "",
+        productPrice: "",
+        coinDiscountRate: "",
+        productTag: "",
+        discountCode: "",
+        discountCodePrice: "",
+        storeCouponCode: "",
+        storeCouponPrice: "",
+        cardCompanyName: "",
+        cardPrice: "",
+      });
     } else if (selectedRowNumber === null) {
+      // Select if no item is currently selected
       setSelectedRowNumber(item.rowNumber);
       form.reset({
         productUrl: item.URL,
         productPrice: item.가격?.replace(/[^0-9]/g, ''),
       });
+      toast({
+        title: "정보 채우기 완료",
+        description: "선택한 항목의 정보가 아래 폼에 채워졌습니다.",
+      });
     }
+    // If another item is selected, do nothing. User must deselect first.
   };
-
+  
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       toast({ title: "복사 완료", description: "클립보드에 복사되었습니다." });
@@ -750,6 +772,5 @@ export default function Home() {
     </main>
   );
 }
-
 
     
