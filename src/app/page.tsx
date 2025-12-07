@@ -236,14 +236,14 @@ export default function Home() {
                    setApiLog(prev => ({ ...prev, reviews: { name: "/api/generate-reviews", request: reviewsRequestBody, response: reviewsResult }}));
 
                   if (reviewsResponse.ok) {
-                      // Merge review data into productInfo
-                      productInfo = {
-                          ...productInfo,
-                          korean_summary: reviewsResult.korean_summary,
-                          korean_local_count: reviewsResult.korean_local_count,
-                          total_num: reviewsResult.total_num,
-                          reviewImageUrls: reviewsResult.reviewImageUrls,
-                      };
+                      // DO NOT MERGE REVIEW DATA as per user request. User wants to inspect the data first.
+                      // productInfo = {
+                      //     ...productInfo,
+                      //     korean_summary: reviewsResult.korean_summary,
+                      //     korean_local_count: reviewsResult.korean_local_count,
+                      //     total_num: reviewsResult.total_num,
+                      //     reviewImageUrls: reviewsResult.reviewImageUrls,
+                      // };
                   } else {
                      toast({ variant: "destructive", title: "후기 정보 조회 실패", description: reviewsResult.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
                   }
@@ -455,8 +455,13 @@ export default function Home() {
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
       setSelectedRowNumber(null);
+      form.reset();
+      setAllInfo(null);
+      setPreviewContent("");
+      setApiLog({ allInfo: null, reviews: null });
     } else if (selectedRowNumber === null) {
       setSelectedRowNumber(item.rowNumber);
+      // No longer auto-filling the form.
     }
   };
   
@@ -699,7 +704,7 @@ export default function Home() {
                          <div className="flex gap-2">
                             <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button type="button" variant="outline" size="sm">
+                                    <Button type="button" variant="outline" size="sm" disabled={!apiLog.reviews?.response}>
                                       <MessageSquareText className="mr-2 h-4 w-4" />
                                       후기 확인하기
                                     </Button>
@@ -712,21 +717,21 @@ export default function Home() {
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
-                                        {allInfo.korean_summary && (
+                                        {(apiLog.reviews?.response as any)?.korean_summary && (
                                             <Card>
                                                 <CardHeader><CardTitle>AI 후기 요약</CardTitle></CardHeader>
                                                 <CardContent>
                                                     <p className="text-sm text-muted-foreground whitespace-pre-line">
-                                                        {allInfo.korean_summary}
+                                                        {(apiLog.reviews?.response as any).korean_summary}
                                                     </p>
                                                 </CardContent>
                                             </Card>
                                         )}
-                                        {allInfo.reviewImageUrls && allInfo.reviewImageUrls.length > 0 && (
+                                        {(apiLog.reviews?.response as any)?.reviewImageUrls && (apiLog.reviews?.response as any).reviewImageUrls.length > 0 && (
                                             <Card>
                                                 <CardHeader><CardTitle>상세 이미지</CardTitle></CardHeader>
                                                 <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                                    {allInfo.reviewImageUrls.map((url, index) => (
+                                                    {(apiLog.reviews?.response as any).reviewImageUrls.map((url: string, index: number) => (
                                                         <div key={index} className="relative group cursor-pointer" onClick={() => { addImageToPreview(url); setIsReviewDialogOpen(false); }}>
                                                             <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
                                                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -739,7 +744,7 @@ export default function Home() {
                                                 </CardContent>
                                             </Card>
                                         )}
-                                        {!allInfo.korean_summary && (!allInfo.reviewImageUrls || allInfo.reviewImageUrls.length === 0) && (
+                                        {!(apiLog.reviews?.response as any)?.korean_summary && (!(apiLog.reviews?.response as any)?.reviewImageUrls || (apiLog.reviews?.response as any).reviewImageUrls.length === 0) && (
                                           <p className="text-center text-muted-foreground py-8">표시할 후기 정보가 없습니다.</p>
                                         )}
                                     </div>
