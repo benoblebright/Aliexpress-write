@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useForm } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus, Pilcrow, MessageSquareText } from "lucide-react";
@@ -452,9 +452,12 @@ export default function Home() {
     } else {
       setSelectedRowNumber(item.rowNumber);
       form.reset({
-        ...form.getValues(),
         productUrl: item.URL,
         productPrice: item.가격,
+      });
+       toast({
+          title: "선택 완료",
+          description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.`,
       });
     }
   };
