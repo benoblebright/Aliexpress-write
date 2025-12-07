@@ -2,24 +2,17 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 
-// Type definition for a sheet row
-interface SheetRow {
-    rowNumber: number;
-    상품명: string;
-    URL: string;
-    Runtime: string;
-    사이트: string;
-    가격: string;
-    checkup: string;
-}
-
 // Helper function to get Google Sheets API client
 async function getSheetsClient() {
-    if (!process.env.GOOGLE_CREDENTIALS) {
+    const credentialsString = process.env.GOOGLE_CREDENTIALS;
+    if (!credentialsString) {
         throw new Error('GOOGLE_CREDENTIALS environment variable is not set.');
     }
-    const credentialsString = process.env.GOOGLE_CREDENTIALS;
-    const credentials = typeof credentialsString === 'string' ? JSON.parse(credentialsString) : credentialsString;
+    
+    // credentials can be a string or an object, handle both.
+    const credentials = typeof credentialsString === 'string' 
+        ? JSON.parse(credentialsString) 
+        : credentialsString;
     
     const auth = new google.auth.GoogleAuth({
         credentials,
@@ -32,7 +25,7 @@ async function getSheetsClient() {
 const SPREADSHEET_ID = process.env.SHEET_ID;
 const RANGE = '시트1!A:G'; // Assuming data is in columns A to G
 
-// GET: Fetch rows where checkup is '0'
+// GET: Fetch all rows for debugging
 export async function GET() {
     try {
         if (!SPREADSHEET_ID) {
@@ -45,41 +38,17 @@ export async function GET() {
         });
 
         const rows = response.data.values;
-        if (!rows || rows.length < 2) { // Need at least a header and one data row
+        
+        if (!rows || rows.length === 0) {
             return NextResponse.json({ data: [] });
         }
-
-        // Assuming the first row is the header
-        const header = rows[0] as string[];
-        const checkupIndex = header.indexOf('checkup');
         
-        if (checkupIndex === -1) {
-            throw new Error("'checkup' column not found in the sheet.");
-        }
-        
-        const allData: SheetRow[] = rows
-            .slice(1) // Skip header row
-            .map((row, index) => {
-                const rowData: any = { rowNumber: index + 2 }; // +2 because of 1-based index and header
-                header.forEach((key, i) => {
-                    rowData[key] = row[i] || '';
-                });
-                return rowData as SheetRow;
-            });
-            
-        const filteredData = allData.filter(row => row.checkup === '0');
+        // Just return the raw data for now to debug
+        return NextResponse.json({ data: rows });
 
-        // Sort by Runtime in descending order
-        filteredData.sort((a, b) => {
-            const dateA = new Date(a.Runtime).getTime();
-            const dateB = new Date(b.Runtime).getTime();
-            return dateB - dateA;
-        });
-
-
-        return NextResponse.json({ data: filteredData });
     } catch (error: any) {
         console.error('Error fetching from Google Sheets:', error);
+        // Ensure a valid JSON response is always sent, even on error
         return NextResponse.json({ error: error.message || 'Failed to fetch data from Google Sheets' }, { status: 500 });
     }
 }
