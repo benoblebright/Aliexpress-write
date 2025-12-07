@@ -400,6 +400,7 @@ export default function Home() {
   };
 
   const handleSelectSheetRow = (item: SheetData) => {
+    setSelectedRowNumber(item.rowNumber);
     form.reset({
       productUrl: item.URL || "",
       productPrice: item.가격 || "",
@@ -413,7 +414,6 @@ export default function Home() {
       cardCompanyName: "",
       cardPrice: "",
     });
-    setSelectedRowNumber(item.rowNumber);
     toast({ title: "선택됨", description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.` });
   };
 
@@ -544,6 +544,11 @@ export default function Home() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <p className="text-2xl font-bold text-primary">{item.가격 || "가격 정보 없음"}</p>
+                                {item.Runtime && (
+                                    <p className="text-xs text-muted-foreground">
+                                        확인일시: {new Date(item.Runtime).toLocaleString('ko-KR')}
+                                    </p>
+                                )}
                                 <div className="flex flex-col sm:flex-row gap-2">
                                      <Button asChild variant="outline" className="w-full">
                                         <a href={item.URL} target="_blank" rel="noopener noreferrer">URL 가서 확인하기</a>
