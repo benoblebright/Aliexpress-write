@@ -2,10 +2,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -373,6 +373,13 @@ export default function Home() {
     toast({ title: "선택됨", description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.` });
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({ title: "복사 완료", description: "URL이 클립보드에 복사되었습니다." });
+    }, (err) => {
+      toast({ variant: "destructive", title: "복사 실패", description: "클립보드 복사에 실패했습니다." });
+    });
+  };
 
   const formFields = {
     required: [
@@ -419,11 +426,17 @@ export default function Home() {
         </header>
 
          <Card className="shadow-lg mb-8">
-            <CardHeader>
-                <CardTitle>작업 대기 목록</CardTitle>
-                <CardDescription>
-                구글 시트에서 가져온 작업 목록입니다. 좌우로 스와이프하여 다른 항목을 볼 수 있습니다.
-                </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                    <CardTitle>작업 대기 목록</CardTitle>
+                    <CardDescription>
+                    구글 시트에서 가져온 작업 목록입니다.
+                    </CardDescription>
+                </div>
+                <Button variant="outline" size="icon" onClick={fetchSheetData} disabled={isSheetLoading}>
+                    <RefreshCw className={`h-4 w-4 ${isSheetLoading ? 'animate-spin' : ''}`} />
+                    <span className="sr-only">새로고침</span>
+                </Button>
             </CardHeader>
             <CardContent>
               {isSheetLoading ? (
@@ -459,6 +472,13 @@ export default function Home() {
                                      <Button asChild variant="outline" className="w-full">
                                         <a href={item.URL} target="_blank" rel="noopener noreferrer">URL 가서 확인하기</a>
                                     </Button>
+                                    <Button variant="outline" className="w-full" onClick={() => item.URL && copyToClipboard(item.URL)}>
+                                        <ClipboardCopy className="mr-2 h-4 w-4" />
+                                        URL 복사하기
+                                    </Button>
+                                </div>
+                                <Separator />
+                                <div className="flex flex-col sm:flex-row gap-2">
                                     <Button onClick={() => handleSelectSheetRow(item)} className="w-full">선택</Button>
                                     <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">삭제</Button>
                                 </div>
