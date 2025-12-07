@@ -101,6 +101,7 @@ export default function Home() {
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -387,7 +388,7 @@ export default function Home() {
     form.reset({
       productUrl: item.URL || "",
       productPrice: item.가격 || "",
-      affShortKey: form.getValues("affShortKey"), 
+      affShortKey: form.getValues("affShortKey"),
       coinDiscountRate: "",
       productTag: "",
       discountCode: "",
@@ -397,6 +398,7 @@ export default function Home() {
       cardCompanyName: "",
       cardPrice: "",
     });
+    setSelectedRowNumber(item.rowNumber);
     toast({ title: "선택됨", description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.` });
   };
 
@@ -506,7 +508,13 @@ export default function Home() {
                                 </div>
                                 <Separator />
                                 <div className="flex flex-col sm:flex-row gap-2">
-                                    <Button onClick={() => handleSelectSheetRow(item)} className="w-full">선택</Button>
+                                    <Button 
+                                        onClick={() => handleSelectSheetRow(item)} 
+                                        variant={selectedRowNumber === item.rowNumber ? "default" : "outline"}
+                                        className="w-full"
+                                    >
+                                        {selectedRowNumber === item.rowNumber ? "선택됨" : "선택"}
+                                    </Button>
                                     <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">삭제</Button>
                                 </div>
                             </CardContent>
