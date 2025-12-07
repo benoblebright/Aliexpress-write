@@ -2,10 +2,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Plus, Trash2, ChevronDown, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,9 +40,9 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 
-const productSchema = z.object({
+const formSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
   affShortKey: z.string().min(1, { message: "제휴 단축 키를 입력해주세요." }),
   productPrice: z.string().optional(),
@@ -56,10 +56,6 @@ const productSchema = z.object({
   cardPrice: z.string().optional(),
 });
 
-const formSchema = z.object({
-  products: z.array(productSchema).min(1, "최소 1개의 상품을 추가해야 합니다."),
-});
-
 type FormData = z.infer<typeof formSchema>;
 
 interface SheetData {
@@ -70,7 +66,6 @@ interface SheetData {
   URL?: string;
   [key: string]: any;
 }
-
 
 interface AllInfo {
     product_main_image_url: string;
@@ -93,6 +88,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
+  const [previewContent, setPreviewContent] = useState("");
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -102,21 +98,18 @@ export default function Home() {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      products: [
-        {
-          productUrl: "",
-          affShortKey: "",
-          productPrice: "",
-          coinDiscountRate: "",
-          productTag: "",
-        },
-      ],
+        productUrl: "",
+        affShortKey: "",
+        productPrice: "",
+        coinDiscountRate: "",
+        productTag: "",
+        discountCode: "",
+        discountCodePrice: "",
+        storeCouponCode: "",
+        storeCouponPrice: "",
+        cardCompanyName: "",
+        cardPrice: "",
     },
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "products",
   });
   
   const fetchSheetData = useCallback(async () => {
@@ -145,7 +138,6 @@ export default function Home() {
     fetchSheetData();
   }, [fetchSheetData]);
 
-
   const parsePrice = (price: string | number | undefined | null): number => {
       if (price === undefined || price === null || price === '') return 0;
       if (typeof price === 'number') return price;
@@ -156,58 +148,37 @@ export default function Home() {
   const formatPrice = (price: number): string => {
       return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
+  
+  const formData = form.watch();
 
-  const handlePostToBand = async (data: FormData) => {
-    setIsLoading(true);
-    setBandPostResult({ status: 'loading', message: '상품 정보를 가져오는 중...' });
+  useEffect(() => {
+    const generatePreview = async () => {
+        const { productUrl, affShortKey, ...product } = formData;
+        if (!productUrl || !affShortKey) {
+            setPreviewContent("");
+            return;
+        };
 
-    // Find the original item from sheetData to get its rowNumber
-    const firstProductUrl = data.products[0]?.productUrl;
-    const originalItem = sheetData.find(item => item.URL === firstProductUrl);
-
-    try {
-        const productUrls = data.products.map(p => p.productUrl);
-        const affShortKeys = data.products.map(p => p.affShortKey);
-
-        const infoResponse = await fetch("/api/generate-all", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                target_urls: productUrls,
-                aff_short_key: affShortKeys
-            }),
-        });
-        
-        const infoResult = await infoResponse.json();
-
-        if (!infoResponse.ok) {
-            const errorMessage = infoResult.error || `상품 정보 API 오류: ${infoResponse.status}`;
-            const errorDetails = infoResult.details ? `\n\n[상세 정보]\n${JSON.stringify(infoResult.details, null, 2)}` : '';
-            throw new Error(`${errorMessage}${errorDetails}`);
-        }
-
-        const allInfos = infoResult.allInfos as (AllInfo | null)[];
-
-        if (!allInfos || !Array.isArray(allInfos)) {
-            throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
-        }
-
-        if(allInfos.length !== data.products.length){
-            throw new Error("가져온 상품 정보의 개수가 요청한 개수와 다릅니다.");
-        }
-
-        setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
-
-        let successCount = 0;
-        const totalCount = data.products.length;
-        const errorMessages: string[] = [];
-
-        for (const [index, product] of data.products.entries()) {
-            const productInfo = allInfos[index];
+        try {
+            const infoResponse = await fetch("/api/generate-all", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    target_urls: [productUrl],
+                    aff_short_key: [affShortKey]
+                }),
+            });
+            const infoResult = await infoResponse.json();
+            
+            if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
+                 setPreviewContent("상품 정보를 가져오는 중 오류가 발생했습니다. URL과 제휴키를 확인해주세요.");
+                return;
+            }
+            const productInfo = infoResult.allInfos[0] as AllInfo;
 
             if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
-                errorMessages.push(`상품 ${index + 1} (${product.productUrl}) : 필수 정보(상품명 또는 최종 링크)를 가져오지 못해 건너뛰었습니다.`);
-                continue;
+                setPreviewContent("상품 정보를 가져오지 못했습니다.");
+                return;
             }
 
             let content = `${productInfo.product_title}\n\n`;
@@ -253,43 +224,73 @@ export default function Home() {
                     content += `\n${tags}`;
                 }
             }
+            setPreviewContent(content);
 
-            const bandPayload: { content: string; image_url?: string } = { content };
-            if (productInfo.product_main_image_url) {
-                bandPayload.image_url = productInfo.product_main_image_url;
-            }
+        } catch (e) {
+            setPreviewContent("미리보기 생성 중 오류 발생.");
+        }
+    };
+    
+    const debounceTimeout = setTimeout(generatePreview, 500);
+    return () => clearTimeout(debounceTimeout);
 
-            const bandResponse = await fetch("/api/post-to-band", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(bandPayload),
-            });
+  }, [formData]);
 
-            if (bandResponse.ok) {
-                successCount++;
-            } else {
-                try {
-                    const bandErrorResult = await bandResponse.json();
-                    const bandErrorMessage = bandErrorResult.error || `Status: ${bandResponse.status}`;
-                    errorMessages.push(`상품 ${index + 1} (${product.productUrl}) 실패: ${bandErrorMessage}`);
-                } catch {
-                     const errorText = await bandResponse.text();
-                     errorMessages.push(`상품 ${index + 1} (${product.productUrl}) 실패: ${errorText || `Status: ${bandResponse.status}`}`);
-                }
-            }
+
+  const handlePostToBand = async (data: FormData) => {
+    setIsLoading(true);
+    setBandPostResult({ status: 'loading', message: '상품 정보를 가져오는 중...' });
+
+    const firstProductUrl = data.productUrl;
+    const originalItem = sheetData.find(item => item.URL === firstProductUrl);
+
+    try {
+        const infoResponse = await fetch("/api/generate-all", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                target_urls: [data.productUrl],
+                aff_short_key: [data.affShortKey]
+            }),
+        });
+        
+        const infoResult = await infoResponse.json();
+
+        if (!infoResponse.ok) {
+            const errorMessage = infoResult.error || `상품 정보 API 오류: ${infoResponse.status}`;
+            const errorDetails = infoResult.details ? `\n\n[상세 정보]\n${JSON.stringify(infoResult.details, null, 2)}` : '';
+            throw new Error(`${errorMessage}${errorDetails}`);
         }
 
-        if (successCount === totalCount) {
-             setBandPostResult({ status: 'success', message: `총 ${totalCount}개 상품 모두 밴드 글쓰기 성공!` });
+        const productInfo = infoResult.allInfos?.[0] as AllInfo;
+
+        if (!productInfo || !productInfo.product_title || !productInfo.final_url) {
+            throw new Error("상품 정보를 가져오는 데 실패했습니다. API 응답이 올바르지 않습니다.");
+        }
+
+        setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
+
+        const bandPayload: { content: string; image_url?: string } = { content: previewContent };
+        if (productInfo.product_main_image_url) {
+            bandPayload.image_url = productInfo.product_main_image_url;
+        }
+
+        const bandResponse = await fetch("/api/post-to-band", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(bandPayload),
+        });
+
+        if (bandResponse.ok) {
+             setBandPostResult({ status: 'success', message: `상품이 밴드에 성공적으로 게시되었습니다.` });
              toast({
                 title: "성공!",
-                description: `총 ${totalCount}개의 상품이 밴드에 성공적으로 게시되었습니다.`,
+                description: `상품이 밴드에 성공적으로 게시되었습니다.`,
               });
-              // Update sheet if the original item was found
               if (originalItem) {
                  try {
                     const newValues = {
-                      ...data.products[0], // Assuming we only update for the first product
+                      ...data,
                       checkup: '1',
                       "글쓰기 시간": new Date().toISOString(),
                     };
@@ -299,7 +300,6 @@ export default function Home() {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ rowNumber: originalItem.rowNumber, newValues }),
                     });
-                     // Optimistically remove from UI
                     setSheetData(prev => prev.filter(d => d.rowNumber !== originalItem.rowNumber));
 
                  } catch (sheetError) {
@@ -313,13 +313,9 @@ export default function Home() {
               }
 
         } else {
-            const finalErrorMessage = `총 ${totalCount}개 상품 중 ${successCount}개 성공 / ${totalCount - successCount}개 실패\n\n[오류 내역]\n${errorMessages.join('\n')}`;
-            setBandPostResult({ status: 'error', message: finalErrorMessage });
-             toast({
-                variant: "destructive",
-                title: "일부 실패",
-                description: `총 ${totalCount}개 중 ${totalCount - successCount}개의 상품을 밴드에 게시하지 못했습니다.`,
-            });
+             const bandErrorResult = await bandResponse.json();
+             const bandErrorMessage = bandErrorResult.error || `Status: ${bandResponse.status}`;
+             throw new Error(`밴드 게시 실패: ${bandErrorMessage}`);
         }
     } catch (error: any) {
       setBandPostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
@@ -332,28 +328,9 @@ export default function Home() {
       setIsLoading(false);
     }
   };
-  
-  const handleAddProduct = () => {
-    const products = form.getValues("products");
-    const lastProduct = products[products.length - 1];
-    append({
-        productUrl: "",
-        affShortKey: lastProduct?.affShortKey || "",
-        productPrice: "",
-        coinDiscountRate: "",
-        productTag: "",
-        discountCode: "",
-        discountCodePrice: "",
-        storeCouponCode: "",
-        storeCouponPrice: "",
-        cardCompanyName: "",
-        cardPrice: "",
-    });
-  };
 
   const handleDeleteSheetRow = async (rowNumber: number) => {
     const originalData = [...sheetData];
-    // Optimistically remove from UI
     setSheetData(prevData => prevData.filter(item => item.rowNumber !== rowNumber));
 
     try {
@@ -374,27 +351,23 @@ export default function Home() {
             title: "삭제 실패",
             description: `항목(Row: ${rowNumber}) 삭제 중 오류 발생: ${error.message}`,
         });
-        // Revert UI on failure
         setSheetData(originalData);
     }
   };
 
   const handleSelectSheetRow = (item: SheetData) => {
     form.reset({
-      products: [{
-        productUrl: item.URL || "",
-        productPrice: item.가격 || "",
-        // Reset other fields or map them if they exist in sheetData
-        affShortKey: "", 
-        coinDiscountRate: "",
-        productTag: "",
-        discountCode: "",
-        discountCodePrice: "",
-        storeCouponCode: "",
-        storeCouponPrice: "",
-        cardCompanyName: "",
-        cardPrice: "",
-      }]
+      productUrl: item.URL || "",
+      productPrice: item.가격 || "",
+      affShortKey: form.getValues("affShortKey"), 
+      coinDiscountRate: "",
+      productTag: "",
+      discountCode: "",
+      discountCodePrice: "",
+      storeCouponCode: "",
+      storeCouponPrice: "",
+      cardCompanyName: "",
+      cardPrice: "",
     });
     toast({ title: "선택됨", description: `상품 '${item.상품명}' 정보가 아래 폼에 채워졌습니다.` });
   };
@@ -515,25 +488,13 @@ export default function Home() {
                 onSubmit={form.handleSubmit(handlePostToBand)}
                 className="space-y-6"
               >
-                {fields.map((item, index) => (
-                  <div key={item.id} className="space-y-4 rounded-lg border p-4 relative">
-                      <CardTitle className="text-xl mb-4">상품 {index + 1}</CardTitle>
-                      {fields.length > 1 && (
-                          <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="absolute top-4 right-4 h-7 w-7"
-                              onClick={() => remove(index)}
-                          >
-                              <Trash2 className="h-4 w-4" />
-                          </Button>
-                      )}
+                <div className="space-y-4 rounded-lg border p-4 relative">
+                    <CardTitle className="text-xl mb-4">상품 정보</CardTitle>
                     {formFields.required.map((fieldInfo) => (
                       <FormField
-                        key={`${item.id}-${fieldInfo.name}`}
+                        key={fieldInfo.name}
                         control={form.control}
-                        name={`products.${index}.${fieldInfo.name as 'productUrl' | 'affShortKey' | 'productPrice' | 'coinDiscountRate' | 'productTag'}`}
+                        name={fieldInfo.name as keyof FormData}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
@@ -562,9 +523,9 @@ export default function Home() {
                           <CollapsibleContent className="space-y-4 pt-4">
                               {formFields.collapsible.map((fieldInfo) => (
                                   <FormField
-                                  key={`${item.id}-${fieldInfo.name}`}
+                                  key={fieldInfo.name}
                                   control={form.control}
-                                  name={`products.${index}.${fieldInfo.name as 'discountCode' | 'discountCodePrice' | 'storeCouponCode' | 'storeCouponPrice' | 'cardCompanyName' | 'cardPrice'}`}
+                                  name={fieldInfo.name as keyof FormData}
                                   render={({ field }) => (
                                       <FormItem>
                                       <FormLabel>
@@ -585,25 +546,25 @@ export default function Home() {
                               ))}
                           </CollapsibleContent>
                       </Collapsible>
-                  </div>
-                ))}
+                </div>
                 
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleAddProduct}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  상품 추가하기
-                </Button>
-
                 <Separator />
+
+                <div className="space-y-2">
+                    <Label htmlFor="preview">미리보기 및 수정</Label>
+                    <Textarea
+                        id="preview"
+                        placeholder="입력 폼을 채우면 여기에 내용이 자동으로 생성됩니다."
+                        value={previewContent}
+                        onChange={(e) => setPreviewContent(e.target.value)}
+                        className="min-h-[200px] text-sm"
+                    />
+                </div>
 
                 <Button
                   type="submit"
                   className="w-full text-lg py-6"
-                  disabled={isLoading}
+                  disabled={isLoading || !previewContent}
                 >
                   {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
                   {isLoading ? "게시 중..." : "밴드 글쓰기"}
