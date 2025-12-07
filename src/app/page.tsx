@@ -278,7 +278,7 @@ export default function Home() {
     setIsLoading(true);
     setBandPostResult({ status: 'loading', message: '상품 정보를 가져오는 중...' });
 
-    const originalItem = sheetData.find(item => item.URL === data.productUrl);
+    const originalItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
 
     try {
         let productInfo = allInfo;
@@ -327,12 +327,20 @@ export default function Home() {
               });
               if (originalItem) {
                  try {
-                    const newValues = {
-                      ...data, // form 데이터 사용
+                    const newValues: {[key: string]: any} = {
                       checkup: '1',
                       "글쓰기 시간": new Date().toISOString(),
                     };
                     
+                    // form 데이터의 필드들을 newValues에 추가
+                    Object.keys(form.getValues()).forEach(key => {
+                        const typedKey = key as keyof FormData;
+                        const value = form.getValues(typedKey);
+                        if (value) {
+                          newValues[typedKey] = value;
+                        }
+                    });
+
                     await fetch('/api/sheets', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -409,16 +417,9 @@ export default function Home() {
     if (selectedRowNumber === item.rowNumber) {
       // 이미 선택된 항목을 다시 클릭하면 선택 해제
       setSelectedRowNumber(null);
-      form.reset(); // 폼 초기화
-      setAllInfo(null);
-      setPreviewContent("");
     } else if (selectedRowNumber === null) {
       // 아무것도 선택되지 않았을 때 새로운 항목 선택
       setSelectedRowNumber(item.rowNumber);
-      form.reset({
-        productUrl: item.URL || "",
-        // affShortKey는 시트에 없으므로 사용자가 직접 입력해야 함
-      });
     }
     // 다른 항목이 이미 선택되어 있다면 아무 동작도 하지 않음
   };
@@ -791,5 +792,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
