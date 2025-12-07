@@ -104,7 +104,8 @@ export default function Home() {
             setIsSheetLoading(true);
             const response = await fetch('/api/sheets');
             if (!response.ok) {
-                throw new Error('스프레드시트 데이터를 가져오는데 실패했습니다.');
+                const errorResult = await response.json();
+                throw new Error(errorResult.error || '스프레드시트 데이터를 가져오는데 실패했습니다.');
             }
             const result = await response.json();
             setSheetData(result.data);
@@ -129,6 +130,9 @@ export default function Home() {
         {
           productUrl: "",
           affShortKey: "",
+          productPrice: "",
+          coinDiscountRate: "",
+          productTag: "",
         },
       ],
     },
@@ -230,14 +234,17 @@ export default function Home() {
                 content += `카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )\n`;
                 finalPrice -= cardPriceNum;
             }
+            
             if(finalPrice < productPriceNum) {
                 content += `\n할인구매가: ${formatPrice(finalPrice)}\n`;
             }
             content += `\n상품 링크: ${productInfo.final_url}\n`;
 
             if (product.productTag) {
-                const tags = product.productTag.split(' ').map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
-                content += `\n${tags}`;
+                const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
+                if (tags) {
+                    content += `\n${tags}`;
+                }
             }
 
             const bandPayload: { content: string; image_url?: string } = { content };
@@ -332,6 +339,7 @@ export default function Home() {
   };
 
   const handleDeleteSheetRow = async (row: SheetRow) => {
+    // Optimistically remove from UI
     setSheetData(prev => prev.filter(item => item.rowNumber !== row.rowNumber));
 
     try {
@@ -489,7 +497,7 @@ export default function Home() {
                       <FormField
                         key={`${item.id}-${fieldInfo.name}`}
                         control={form.control}
-                        name={`products.${index}.${fieldInfo.name as 'productUrl'}`}
+                        name={`products.${index}.${fieldInfo.name as 'productUrl' | 'affShortKey' | 'productPrice' | 'coinDiscountRate' | 'productTag'}`}
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
@@ -520,7 +528,7 @@ export default function Home() {
                                   <FormField
                                   key={`${item.id}-${fieldInfo.name}`}
                                   control={form.control}
-                                  name={`products.${index}.${fieldInfo.name as 'discountCode'}`}
+                                  name={`products.${index}.${fieldInfo.name as 'discountCode' | 'discountCodePrice' | 'storeCouponCode' | 'storeCouponPrice' | 'cardCompanyName' | 'cardPrice'}`}
                                   render={({ field }) => (
                                       <FormItem>
                                       <FormLabel>
@@ -586,3 +594,4 @@ export default function Home() {
   );
 }
 
+    
