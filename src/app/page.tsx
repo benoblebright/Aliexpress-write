@@ -41,6 +41,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
