@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, ImagePlus, Pilcrow, MessageSquareText, Database } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Database } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,16 +41,6 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
 
@@ -135,7 +125,6 @@ export default function Home() {
   const [apiLog, setApiLog] = useState<ApiLogEntry[]>([]);
 
   const [isHtmlMode, setIsHtmlMode] = useState(false);
-  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
 
   const [parsedReviews, setParsedReviews] = useState<string[]>([]);
   const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>([]);
@@ -491,15 +480,6 @@ export default function Home() {
     });
   };
 
-  const addImageToPreview = (imageUrl: string) => {
-    const imageTag = `<img src="${imageUrl}" alt="상세 이미지" style="max-width:100%; height:auto;" /><br />`;
-    setPreviewContent(prev => `${prev}${imageTag}`);
-    toast({
-        title: "이미지 추가 완료",
-        description: "선택한 이미지가 미리보기 내용에 추가되었습니다.",
-    });
-  };
-
   const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
       const newSelections = [...reviewSelections];
       newSelections[index][type] = !newSelections[index][type];
@@ -761,46 +741,6 @@ export default function Home() {
                       <div className="flex items-center justify-between">
                          <CardTitle className="text-xl">미리보기 및 수정</CardTitle>
                          <div className="flex gap-2">
-                            <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-                                <DialogTrigger asChild>
-                                    <Button type="button" variant="outline" size="sm" disabled={!reviewsInfo?.reviewImageUrls || reviewsInfo.reviewImageUrls.length === 0}>
-                                      <ImagePlus className="mr-2 h-4 w-4" />
-                                      상세 이미지 보기
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-3xl">
-                                    <DialogHeader>
-                                        <DialogTitle>상품 상세 이미지</DialogTitle>
-                                        <DialogDescription>
-                                            리뷰에 포함된 이미지입니다. 이미지를 클릭하여 본문에 추가할 수 있습니다.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
-                                        {reviewsInfo?.reviewImageUrls && reviewsInfo.reviewImageUrls.length > 0 && (
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                                {reviewsInfo.reviewImageUrls.map((url: string, index: number) => (
-                                                    <div key={index} className="relative group cursor-pointer" onClick={() => { addImageToPreview(url); setIsReviewDialogOpen(false); }}>
-                                                        <img src={url} alt={`Review image ${index + 1}`} className="w-full h-auto rounded-md object-cover aspect-square" />
-                                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <div className="text-white flex items-center">
-                                                              <ImagePlus className="mr-2 h-5 w-5" /> 본문에 추가
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {(!reviewsInfo?.reviewImageUrls || reviewsInfo.reviewImageUrls.length === 0) && (
-                                          <p className="text-center text-muted-foreground py-8">표시할 상세 이미지가 없습니다.</p>
-                                        )}
-                                    </div>
-                                    <DialogFooter>
-                                        <DialogClose asChild>
-                                            <Button type="button" variant="secondary">닫기</Button>
-                                        </DialogClose>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
                                 {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
                                 {isHtmlMode ? "미리보기" : "HTML 소스보기"}
@@ -872,20 +812,20 @@ export default function Home() {
                             <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
                             <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
                                 {parsedReviews.map((review, index) => (
-                                    <div key={index} className="flex items-start gap-4 p-2 rounded-md border">
+                                    <div key={index} className="flex items-start gap-4 p-3 rounded-md border bg-muted/40">
                                         <div className="flex-grow">
-                                           <label htmlFor={`review-${index}`} className="text-sm text-muted-foreground cursor-pointer">
+                                           <label htmlFor={`review-${index}`} className="text-sm text-muted-foreground cursor-pointer leading-relaxed">
                                                 {review}
                                             </label>
                                         </div>
-                                        <div className="flex flex-col gap-2 items-end">
+                                        <div className="flex flex-col gap-2 items-end shrink-0">
                                             <div className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id={`include-${index}`}
                                                     checked={reviewSelections[index]?.included}
                                                     onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
                                                 />
-                                                <label htmlFor={`include-${index}`} className="text-xs font-medium leading-none">
+                                                <label htmlFor={`include-${index}`} className="text-xs font-medium leading-none cursor-pointer">
                                                     본문에 포함
                                                 </label>
                                             </div>
@@ -895,7 +835,7 @@ export default function Home() {
                                                     checked={reviewSelections[index]?.summarized}
                                                     onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
                                                 />
-                                                <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none">
+                                                <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none cursor-pointer">
                                                     요약하기
                                                 </label>
                                             </div>
@@ -943,4 +883,3 @@ export default function Home() {
   );
 }
 
-    
