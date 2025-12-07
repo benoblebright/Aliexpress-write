@@ -8,7 +8,8 @@ async function getSheetsClient() {
     if (!credentialsString) {
         throw new Error("GOOGLE_CREDENTIALS environment variable not set.");
     }
-
+    
+    // The credentials may be a string or an object. The `fromJSON` method handles both.
     const credentials = JSON.parse(credentialsString);
 
     const auth = new google.auth.GoogleAuth({
@@ -22,11 +23,25 @@ async function getSheetsClient() {
 }
 
 const SPREADSHEET_ID = process.env.SHEET_ID;
-const RANGE = '시트1!A:J'; // Assuming data is in Columns A to J
 
 export async function GET() {
     try {
         const sheets = await getSheetsClient();
+        
+        // First, get spreadsheet metadata to find the actual title of the first sheet (gid=0)
+        const spreadsheetMeta = await sheets.spreadsheets.get({
+            spreadsheetId: SPREADSHEET_ID
+        });
+
+        const firstSheet = spreadsheetMeta.data.sheets?.find(s => s.properties?.sheetId === 0);
+        const sheetTitle = firstSheet?.properties?.title;
+
+        if (!sheetTitle) {
+            return NextResponse.json({ error: 'Failed to find the first sheet (gid=0) in the spreadsheet.' }, { status: 404 });
+        }
+        
+        const RANGE = `${sheetTitle}!A:J`; // Dynamically construct the range
+
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: RANGE,
@@ -46,7 +61,6 @@ export async function GET() {
             return rowData;
         });
 
-        // Filter for checkup === '0' and sort by Runtime descending
         const filteredAndSortedData = data
             .filter(item => item.checkup === '0')
             .sort((a, b) => new Date(b.Runtime).getTime() - new Date(a.Runtime).getTime());
@@ -55,10 +69,9 @@ export async function GET() {
 
     } catch (error: any) {
         console.error('Error fetching sheet data:', error);
-        return NextResponse.json({ error: 'Failed to fetch sheet data', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to fetch sheet data', details: error.message || error }, { status: 500 });
     }
 }
-
 
 export async function POST(request: Request) {
     try {
@@ -69,9 +82,21 @@ export async function POST(request: Request) {
         }
 
         const sheets = await getSheetsClient();
+        
+        // Find sheet title dynamically for POST as well
+        const spreadsheetMeta = await sheets.spreadsheets.get({
+            spreadsheetId: SPREADSHEET_ID
+        });
+        const firstSheet = spreadsheetMeta.data.sheets?.find(s => s.properties?.sheetId === 0);
+        const sheetTitle = firstSheet?.properties?.title;
+
+        if (!sheetTitle) {
+            return NextResponse.json({ error: 'Failed to find the first sheet (gid=0) for updating.' }, { status: 404 });
+        }
+        
         const headerResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: '시트1!1:1',
+            range: `${sheetTitle}!1:1`,
         });
         
         const headers = headerResponse.data.values?.[0];
@@ -86,7 +111,7 @@ export async function POST(request: Request) {
             }
             const columnLetter = String.fromCharCode('A'.charCodeAt(0) + columnIndex);
             return {
-                range: `시트1!${columnLetter}${rowNumber}`,
+                range: `${sheetTitle}!${columnLetter}${rowNumber}`,
                 values: [[newValues[key]]],
             };
         }).filter(update => update !== null);
@@ -107,7 +132,6 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error('Error updating sheet data:', error);
-        return NextResponse.json({ error: 'Failed to update sheet data', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to update sheet data', details: error.message || error }, { status: 500 });
     }
 }
-
