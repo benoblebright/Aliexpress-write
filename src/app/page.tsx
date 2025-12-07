@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +42,17 @@ import {
 } from "@/components/ui/carousel";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 const formSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
@@ -102,6 +113,10 @@ export default function Home() {
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
+
+  const [isHtmlPreviewOpen, setIsHtmlPreviewOpen] = useState(false);
+  const [htmlContent, setHtmlContent] = useState("");
+  const [rawHtml, setRawHtml] = useState("");
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -410,6 +425,38 @@ export default function Home() {
     });
   };
 
+  const handleHtmlPreview = () => {
+    if (!previewContent) {
+        toast({
+            variant: "destructive",
+            title: "내용 없음",
+            description: "먼저 미리보기 내용을 생성해주세요.",
+        });
+        return;
+    }
+
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    let html = previewContent
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .replace(/\n/g, '<br />');
+
+    html = html.replace(urlRegex, (url) => {
+        if (url.includes('aliexpress.com')) {
+             return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        }
+        return url;
+    });
+
+    setRawHtml(html);
+    setHtmlContent(html);
+    setIsHtmlPreviewOpen(true);
+};
+
+
   const formFields = {
     required: [
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
@@ -513,9 +560,13 @@ export default function Home() {
                                         variant={selectedRowNumber === item.rowNumber ? "default" : "outline"}
                                         className="w-full"
                                     >
+                                        <CheckCircle className={`mr-2 h-4 w-4 ${selectedRowNumber === item.rowNumber ? '' : 'hidden'}`} />
                                         {selectedRowNumber === item.rowNumber ? "선택됨" : "선택"}
                                     </Button>
-                                    <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">삭제</Button>
+                                    <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">
+                                        <Trash2 className="mr-2 h-4 w-4"/>
+                                        삭제
+                                    </Button>
                                 </div>
                             </CardContent>
                           </Card>
@@ -616,7 +667,13 @@ export default function Home() {
                 <Separator />
 
                 <div className="space-y-2">
-                    <Label htmlFor="preview">미리보기 및 수정</Label>
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="preview">미리보기 및 수정</Label>
+                        <Button type="button" variant="outline" size="sm" onClick={handleHtmlPreview} disabled={!previewContent}>
+                            <Code className="mr-2 h-4 w-4" />
+                            HTML 변환
+                        </Button>
+                    </div>
                     <Textarea
                         id="preview"
                         placeholder="입력 폼을 채우고 '미리보기 생성' 버튼을 누르세요."
@@ -652,6 +709,48 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+      
+      <Dialog open={isHtmlPreviewOpen} onOpenChange={setIsHtmlPreviewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>HTML 미리보기</DialogTitle>
+            <DialogDescription>
+              생성된 콘텐츠의 HTML 버전입니다. 복사하여 활용할 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <Tabs defaultValue="preview" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="preview">미리보기</TabsTrigger>
+              <TabsTrigger value="source">HTML 소스</TabsTrigger>
+            </TabsList>
+            <TabsContent value="preview">
+              <div
+                className="mt-4 p-4 border rounded-md min-h-[200px] text-sm"
+                dangerouslySetInnerHTML={{ __html: htmlContent }}
+              />
+            </TabsContent>
+            <TabsContent value="source">
+                <div className="relative">
+                    <Textarea
+                        readOnly
+                        value={rawHtml}
+                        className="mt-4 min-h-[200px] bg-gray-100 dark:bg-gray-800 font-mono text-xs"
+                    />
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-6 right-2"
+                        onClick={() => copyToClipboard(rawHtml)}
+                    >
+                        <ClipboardCopy className="h-4 w-4" />
+                    </Button>
+                </div>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
+
+    
