@@ -23,24 +23,13 @@ async function getSheetsClient() {
 }
 
 const SPREADSHEET_ID = process.env.SHEET_ID;
+const SHEET_NAME = 'data'; // Use the correct sheet name provided by the user
 
 export async function GET() {
     try {
         const sheets = await getSheetsClient();
         
-        // First, get spreadsheet metadata to find the actual title of the first sheet (gid=0)
-        const spreadsheetMeta = await sheets.spreadsheets.get({
-            spreadsheetId: SPREADSHEET_ID
-        });
-
-        const firstSheet = spreadsheetMeta.data.sheets?.find(s => s.properties?.sheetId === 0);
-        const sheetTitle = firstSheet?.properties?.title;
-
-        if (!sheetTitle) {
-            return NextResponse.json({ error: 'Failed to find the first sheet (gid=0) in the spreadsheet.' }, { status: 404 });
-        }
-        
-        const RANGE = `${sheetTitle}!A:J`; // Dynamically construct the range
+        const RANGE = `${SHEET_NAME}!A:J`;
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
@@ -83,20 +72,9 @@ export async function POST(request: Request) {
 
         const sheets = await getSheetsClient();
         
-        // Find sheet title dynamically for POST as well
-        const spreadsheetMeta = await sheets.spreadsheets.get({
-            spreadsheetId: SPREADSHEET_ID
-        });
-        const firstSheet = spreadsheetMeta.data.sheets?.find(s => s.properties?.sheetId === 0);
-        const sheetTitle = firstSheet?.properties?.title;
-
-        if (!sheetTitle) {
-            return NextResponse.json({ error: 'Failed to find the first sheet (gid=0) for updating.' }, { status: 404 });
-        }
-        
         const headerResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetTitle}!1:1`,
+            range: `${SHEET_NAME}!1:1`,
         });
         
         const headers = headerResponse.data.values?.[0];
@@ -111,7 +89,7 @@ export async function POST(request: Request) {
             }
             const columnLetter = String.fromCharCode('A'.charCodeAt(0) + columnIndex);
             return {
-                range: `${sheetTitle}!${columnLetter}${rowNumber}`,
+                range: `${SHEET_NAME}!${columnLetter}${rowNumber}`,
                 values: [[newValues[key]]],
             };
         }).filter(update => update !== null);
@@ -121,7 +99,7 @@ export async function POST(request: Request) {
         }
         
         const batchUpdateResponse = await sheets.spreadsheets.values.batchUpdate({
-            spreadsheetId: SPREADSHEET_ID,
+            spreadsheetId: SPREADSHEE_ID,
             requestBody: {
                 valueInputOption: 'USER_ENTERED',
                 data: updates as any,
