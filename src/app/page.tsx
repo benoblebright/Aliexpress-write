@@ -75,6 +75,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
+  const [sheetApiResponse, setSheetApiResponse] = useState<any>(null);
+  const [isFetchingSheet, setIsFetchingSheet] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -270,6 +272,21 @@ export default function Home() {
     });
   };
 
+  const checkSheetApi = async () => {
+    setIsFetchingSheet(true);
+    setSheetApiResponse(null);
+    try {
+      const response = await fetch('/api/sheets');
+      const data = await response.json();
+      setSheetApiResponse(data);
+    } catch (error: any) {
+      setSheetApiResponse({ error: "Fetch failed", details: error.message });
+    } finally {
+      setIsFetchingSheet(false);
+    }
+  };
+
+
   const formFields = {
     required: [
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
@@ -313,6 +330,29 @@ export default function Home() {
             상품 정보를 입력하고 밴드에 바로 글을 게시하세요.
           </p>
         </header>
+
+        <Card className="shadow-lg mb-8">
+            <CardHeader>
+                <CardTitle>API 테스트</CardTitle>
+                <CardDescription>
+                아래 버튼을 눌러 구글 스프레드시트 API가 반환하는 JSON을 확인하세요.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={checkSheetApi} disabled={isFetchingSheet}>
+                    {isFetchingSheet ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    시트 데이터 확인
+                </Button>
+                {sheetApiResponse && (
+                <div className="mt-4 rounded-lg bg-muted p-4">
+                    <pre className="text-sm whitespace-pre-wrap break-all">
+                    {JSON.stringify(sheetApiResponse, null, 2)}
+                    </pre>
+                </div>
+                )}
+            </CardContent>
+        </Card>
+
 
         <Card className="shadow-lg">
           <CardHeader>
@@ -441,3 +481,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
