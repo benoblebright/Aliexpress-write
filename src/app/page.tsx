@@ -185,7 +185,7 @@ export default function Home() {
       setIsGeneratingPreview(true);
       setPreviewContent("미리보기를 생성 중입니다...");
       setAllInfo(null);
-      setIsHtmlMode(false); // Default to visual preview
+      setIsHtmlMode(false);
 
       try {
           const infoResponse = await fetch("/api/generate-all", {
@@ -399,15 +399,6 @@ export default function Home() {
     } else if (selectedRowNumber === null) {
       // Select if no item is currently selected
       setSelectedRowNumber(item.rowNumber);
-      form.reset({
-        productUrl: item.URL,
-        productPrice: item.가격?.replace(/[^0-9]/g, ''),
-        affShortKey: form.getValues('affShortKey'), // Keep existing aff short key
-      });
-      toast({
-        title: "정보 채우기 완료",
-        description: "선택한 항목의 정보가 아래 폼에 채워졌습니다.",
-      });
     }
     // If another item is selected, do nothing. User must deselect first.
   };
