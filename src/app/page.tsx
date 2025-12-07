@@ -407,8 +407,30 @@ export default function Home() {
   const handleSelectSheetRow = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
       setSelectedRowNumber(null);
+      form.reset({
+          productUrl: "",
+          affShortKey: form.getValues("affShortKey"), // Keep affShortKey
+          productPrice: "",
+          coinDiscountRate: "",
+          productTag: "",
+          discountCode: "",
+          discountCodePrice: "",
+          storeCouponCode: "",
+          storeCouponPrice: "",
+          cardCompanyName: "",
+          cardPrice: "",
+      });
     } else {
       setSelectedRowNumber(item.rowNumber);
+      form.reset({
+        ...form.getValues(), // Keep other values
+        productUrl: item.URL || "",
+        productPrice: item.가격 || "",
+      });
+      toast({
+        title: "항목 선택됨",
+        description: `상품 '${item.상품명 || "이름 없음"}' 정보가 아래 폼에 채워졌습니다.`,
+      });
     }
   };
 
@@ -438,7 +460,6 @@ export default function Home() {
         .replace(/'/g, '&#039;')
         .replace(/\n/g, '<br />');
 
-    // "할인상품 : http..." 패턴을 찾아서 a 태그로 변경
     const urlRegex = /(할인상품\s*:\s*)(https?:\/\/[^\s<]+)/g;
     html = html.replace(urlRegex, (match, prefix, url) => {
       const cleanUrl = url.replace(/&amp;/g, '&');
@@ -566,10 +587,11 @@ export default function Home() {
                                     <Button 
                                         onClick={() => handleSelectSheetRow(item)} 
                                         variant={selectedRowNumber === item.rowNumber ? "default" : "outline"}
+                                        disabled={selectedRowNumber !== null && selectedRowNumber !== item.rowNumber}
                                         className="w-full"
                                     >
                                         <CheckCircle className={`mr-2 h-4 w-4 ${selectedRowNumber === item.rowNumber ? '' : 'hidden'}`} />
-                                        {selectedRowNumber === item.rowNumber ? "선택됨" : "선택"}
+                                        {selectedRowNumber === item.rowNumber ? "선택 해제" : "선택하여 글쓰기"}
                                     </Button>
                                     <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">
                                         <Trash2 className="mr-2 h-4 w-4"/>
@@ -782,5 +804,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
