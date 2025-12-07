@@ -2,6 +2,9 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 
+// Load environment variables from .env.local
+require('dotenv').config();
+
 // Type definition for a sheet row
 interface SheetRow {
     rowNumber: number;
@@ -15,7 +18,10 @@ interface SheetRow {
 
 // Helper function to get Google Sheets API client
 async function getSheetsClient() {
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
+    if (!process.env.GOOGLE_CREDENTIALS) {
+        throw new Error('GOOGLE_CREDENTIALS environment variable is not set.');
+    }
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
     const auth = new google.auth.GoogleAuth({
         credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -30,6 +36,9 @@ const RANGE = '시트1!A:G'; // Assuming data is in columns A to G
 // GET: Fetch rows where checkup is '0'
 export async function GET() {
     try {
+        if (!SPREADSHEET_ID) {
+            throw new Error('SHEET_ID environment variable is not set.');
+        }
         const sheets = await getSheetsClient();
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
@@ -37,7 +46,7 @@ export async function GET() {
         });
 
         const rows = response.data.values;
-        if (!rows || rows.length === 0) {
+        if (!rows || rows.length < 2) { // Need at least a header and one data row
             return NextResponse.json({ data: [] });
         }
 
@@ -52,13 +61,15 @@ export async function GET() {
         const filteredData: SheetRow[] = rows
             .slice(1) // Skip header row
             .map((row, index) => {
+                // Ensure the row has enough columns
+                if (row.length < header.length) return null;
                 const rowData: any = { rowNumber: index + 2 }; // +2 because of 1-based index and header
                 header.forEach((key, i) => {
-                    rowData[key] = row[i];
+                    rowData[key] = row[i] || ''; // Use empty string for empty cells
                 });
                 return rowData as SheetRow;
             })
-            .filter(row => row.checkup === '0');
+            .filter((row): row is SheetRow => row !== null && row.checkup === '0');
 
         return NextResponse.json({ data: filteredData });
     } catch (error: any) {
@@ -70,6 +81,9 @@ export async function GET() {
 // POST: Update a row in the sheet
 export async function POST(request: Request) {
     try {
+         if (!SPREADSHEET_ID) {
+            throw new Error('SHEET_ID environment variable is not set.');
+        }
         const { rowNumber, column, value } = await request.json();
 
         if (!rowNumber || !column || value === undefined) {
