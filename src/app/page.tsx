@@ -405,7 +405,11 @@ export default function Home() {
   };
 
   const handleSelectSheetRow = (item: SheetData) => {
-    setSelectedRowNumber(item.rowNumber);
+    if (selectedRowNumber === item.rowNumber) {
+      setSelectedRowNumber(null);
+    } else {
+      setSelectedRowNumber(item.rowNumber);
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -779,3 +783,4 @@ export default function Home() {
   );
 }
 
+    
