@@ -99,7 +99,7 @@ export async function POST(request: Request) {
         }
         
         const batchUpdateResponse = await sheets.spreadsheets.values.batchUpdate({
-            spreadsheetId: SPREADSHEE_ID,
+            spreadsheetId: SPREADSHEET_ID,
             requestBody: {
                 valueInputOption: 'USER_ENTERED',
                 data: updates as any,
