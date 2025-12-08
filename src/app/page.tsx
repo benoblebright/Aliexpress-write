@@ -103,7 +103,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -317,7 +317,7 @@ export default function Home() {
         };
         
         setCombinedInfo(newCombinedInfo);
-        
+        form.setValue("productTitle", newCombinedInfo.product_title);
         const content = generateHtmlContent(newCombinedInfo, reviewSelections);
         setPreviewContent(content);
         
@@ -486,7 +486,7 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("productTitle", item.상품명 || "");
-        form.setValue("productUrl", item.URL || "");
+        form.setValue("productUrl", "");
     }
   };
   
@@ -521,7 +521,7 @@ export default function Home() {
   
   const formFields = {
     required: [
-        { name: "productTitle", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 직접 입력", isRequired: false },
+        { name: "productTitle", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 미리보기 생성시 자동입력", isRequired: false },
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
         { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", isRequired: false },
@@ -702,6 +702,7 @@ export default function Home() {
                                 placeholder={fieldInfo.placeholder}
                                 {...field}
                                 value={field.value ?? ""}
+                                readOnly={fieldInfo.name === 'productTitle'}
                               />
                             </FormControl>
                             <FormMessage />
@@ -786,7 +787,13 @@ export default function Home() {
                     
                     {reviews.length > 0 && (
                         <div className="space-y-4 rounded-lg border p-4">
-                            <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
+                                <Button type="button" size="sm" onClick={handleUpdatePreviewWithReviews}>
+                                    <MessageSquareText className="mr-2 h-4 w-4" />
+                                    후기 반영하기
+                                </Button>
+                            </div>
                             <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
                                 {reviews.map((review, index) => (
                                     <div key={index} className="flex items-start gap-4 p-3 rounded-md border bg-muted/40">
