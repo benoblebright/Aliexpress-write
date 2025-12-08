@@ -217,7 +217,7 @@ export default function Home() {
         content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice))}</p>`;
     }
     
-    content += `<br /><p>할인상품 : <a href="${info.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
+    content += `<br /><p>할인상품 : <a href='${info.final_url}'>특가상품 바로가기</a></p><br />`;
     
     const saleVolume = info.sale_volume || 0;
     const totalNum = info.total_num || 0;
@@ -239,11 +239,11 @@ export default function Home() {
     .map(({ review, selection }) => {
         let reviewContent = review!.replace(/<[^>]*>?/gm, ''); // Basic HTML tag removal
         if (selection.summarized && reviewContent.length > 50) {
-            reviewContent = `${reviewContent.substring(0, 50)}... <a href="${info.final_url}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>`;
+            reviewContent = `${reviewContent.substring(0, 50)}... <a href='${info.final_url}'>더보기</a>`;
         }
-        return `<p style="margin: 0 0 10px 0; font-size: 14px;">- ${reviewContent}</p>`;
+        return `<p>- ${reviewContent}</p>`;
     })
-    .join('');
+    .join('<br />');
 
     if(reviewsToAdd) {
         content += reviewsToAdd + '<br />';
