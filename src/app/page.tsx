@@ -102,7 +102,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -171,7 +171,7 @@ export default function Home() {
       return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
 
-  const generateHtmlContent = (info: CombinedInfo | null, selections: ReviewSelection[]): string => {
+  const generateHtmlContent = useCallback((info: CombinedInfo | null, selections: ReviewSelection[]): string => {
     const { productUrl, affShortKey, ...product } = form.getValues();
 
     if (!info?.product_title || !info?.final_url) {
@@ -254,7 +254,7 @@ export default function Home() {
     }
     
     return content;
-  }
+  }, [form]);
   
   const handleGeneratePreview = async () => {
     const { productUrl, affShortKey } = form.getValues();
@@ -336,7 +336,7 @@ export default function Home() {
     }
     const content = generateHtmlContent(combinedInfo, reviewSelections);
     setPreviewContent(content);
-    setIsHtmlMode(true); // Switch to HTML source view after updating
+    setIsHtmlMode(true);
     toast({
         title: "미리보기 업데이트 완료",
         description: "선택한 후기 설정이 HTML 소스에 반영되었습니다.",
@@ -354,17 +354,26 @@ export default function Home() {
 
     const originalItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
 
+    const cafePayload = {
+        subject: combinedInfo.product_title,
+        content: previewContent,
+        image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
+        club_id: "31609361",
+        menu_id: "2"
+    };
+
+    toast({
+      title: "네이버 카페 API 호출 값",
+      description: (
+        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+          <code className="text-white">{JSON.stringify(cafePayload, null, 2)}</code>
+        </pre>
+      ),
+    });
+
     try {
         setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
         
-        const cafePayload = {
-            subject: combinedInfo.product_title,
-            content: previewContent,
-            image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
-            club_id: "31609361",
-            menu_id: "2"
-        };
-
         const cafeResponse = await fetch("/api/post-to-naver-cafe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -466,9 +475,14 @@ export default function Home() {
   const toggleRowSelection = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
         setSelectedRowNumber(null);
+        form.reset();
+        setCombinedInfo(null);
+        setPreviewContent("");
+        setReviewSelections(Array(5).fill({ included: false, summarized: false }));
     } 
     else {
         setSelectedRowNumber(item.rowNumber);
+        form.setValue("productUrl", item.URL || "");
     }
   };
   
@@ -487,12 +501,10 @@ export default function Home() {
 
         if (type === 'included') {
             currentSelection.included = !currentSelection.included;
-            // '본문 포함' 해제 시 '줄임 선택'도 해제
             if (!currentSelection.included) {
                 currentSelection.summarized = false;
             }
         } else if (type === 'summarized') {
-            // '줄임 선택'은 '본문 포함'이 true일 때만 토글 가능
             if (currentSelection.included) {
                 currentSelection.summarized = !currentSelection.summarized;
             }
@@ -542,6 +554,15 @@ export default function Home() {
     combinedInfo.korean_summary5,
   ].filter(Boolean) : [];
 
+  useEffect(() => {
+    if (selectedRowNumber === null) {
+      form.reset();
+    }
+  }, [selectedRowNumber, form]);
+  
+  useEffect(() => {
+    handleUpdatePreviewWithReviews();
+  }, [reviewSelections, combinedInfo]);
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
@@ -621,7 +642,7 @@ export default function Home() {
                                         className="w-full"
                                     >
                                         <CheckCircle className={`mr-2 h-4 w-4 ${selectedRowNumber !== item.rowNumber && 'hidden'}`} />
-                                        {selectedRowNumber === item.rowNumber ? "선택 해제" : "작업 선택 (값 채우기 X)"}
+                                        {selectedRowNumber === item.rowNumber ? "선택 해제" : "작업 선택"}
                                     </Button>
                                     <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">
                                         <Trash2 className="mr-2 h-4 w-4"/>
