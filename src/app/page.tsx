@@ -44,7 +44,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
-  productTitle: z.string().optional(),
+  Subject_title: z.string().optional(),
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
   affShortKey: z.string().min(1, { message: "제휴 단축 키를 입력해주세요." }),
   productPrice: z.string().optional(),
@@ -124,7 +124,7 @@ export default function Home() {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-        productTitle: "",
+        Subject_title: "",
         productUrl: "",
         affShortKey: "",
         productPrice: "",
@@ -183,7 +183,7 @@ export default function Home() {
         return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
     }
 
-    let content = `<p>${form.getValues("productTitle")}</p><br />`;
+    let content = `<p>${form.getValues("Subject_title")}</p><br />`;
 
     const productPriceNum = parsePrice(product.productPrice);
     const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
@@ -322,6 +322,7 @@ export default function Home() {
         };
         
         setCombinedInfo(newCombinedInfo);
+
         const content = generateHtmlContent(newCombinedInfo, reviewSelections);
         setPreviewContent(content);
         
@@ -358,7 +359,7 @@ export default function Home() {
     setIsLoading(true);
     
     const cafePayload = {
-      subject: form.getValues("productTitle"),
+      subject: form.getValues("Subject_title"),
       content: previewContent,
       image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
       club_id: "31609361",
@@ -418,7 +419,7 @@ export default function Home() {
             const newValues: { [key: string]: any } = {
               'checkup': '1',
               "글쓰기 시간": new Date().toISOString(),
-              'productTitle': form.getValues("productTitle") || '',
+              'Subject_title': form.getValues("Subject_title") || '',
               '할인판매가': productPriceNum,
               '할인구매가': finalPrice,
               '이미지URL': combinedInfo.product_main_image_url || '',
@@ -510,7 +511,7 @@ export default function Home() {
     } 
     else {
         setSelectedRowNumber(item.rowNumber);
-        form.setValue("productTitle", item.상품명 || "");
+        form.setValue("Subject_title", item.상품명 || "");
         form.setValue("productUrl", "");
     }
   };
@@ -546,7 +547,7 @@ export default function Home() {
   
   const formFields = {
     required: [
-        { name: "productTitle", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 직접 입력", isRequired: false },
+        { name: "Subject_title", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 직접 입력", isRequired: false },
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
         { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", isRequired: false },
@@ -892,6 +893,5 @@ export default function Home() {
     </main>
   );
 }
-
 
     
