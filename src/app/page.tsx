@@ -93,7 +93,6 @@ type CafePostStatus = 'idle' | 'success' | 'error' | 'loading';
 interface CafePostResult {
     status: CafePostStatus;
     message: string;
-    payload?: string;
 }
 
 interface ReviewSelection {
@@ -106,7 +105,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -177,11 +176,11 @@ export default function Home() {
   };
 
   const generateHtmlContent = useCallback((info: CombinedInfo | null, selections: ReviewSelection[]): string => {
-    const { productUrl, affShortKey, ...product } = form.getValues();
-
     if (!info?.product_title || !info?.final_url) {
         return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
     }
+
+    const { ...product } = form.getValues();
 
     let content = `<p>${info.product_title}</p><br />`;
 
@@ -322,9 +321,6 @@ export default function Home() {
         };
         
         setCombinedInfo(newCombinedInfo);
-
-        const content = generateHtmlContent(newCombinedInfo, reviewSelections);
-        setPreviewContent(content);
         
     } catch (e: any) {
         const errorMessage = `미리보기 생성 오류: ${e.message}`;
@@ -366,9 +362,8 @@ export default function Home() {
       menu_id: "2"
     };
 
-    const payloadString = JSON.stringify(cafePayload, null, 2);
-    setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...', payload: payloadString });
-    console.log("네이버 카페 API 호출 값:", payloadString);
+    setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
+    console.log("네이버 카페 API 호출 값:", JSON.stringify(cafePayload, null, 2));
 
     try {
       const cafeResponse = await fetch("/api/post-to-naver-cafe", {
@@ -378,8 +373,15 @@ export default function Home() {
       });
 
       if (cafeResponse.ok) {
-        const result = await cafeResponse.json();
-        setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다. URL: ${result.articleUrl}`, payload: payloadString });
+        const resultText = await cafeResponse.text();
+        const urlMatch = resultText.match(/url=([^,}]*)/);
+        const articleUrl = urlMatch ? urlMatch[1] : null;
+
+        if (!articleUrl) {
+            throw new Error(`게시물 URL을 찾을 수 없습니다. 응답: ${resultText}`);
+        }
+
+        setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다. URL: ${articleUrl}` });
         toast({
           title: "성공!",
           description: `상품이 네이버 카페에 성공적으로 게시되었습니다.`,
@@ -413,7 +415,8 @@ export default function Home() {
                 combinedInfo.korean_summary4,
                 combinedInfo.korean_summary5,
             ];
-            const firstSelectedReview = reviews[reviewSelections.findIndex(s => s.included)] || "";
+            const firstSelectedReviewIndex = reviewSelections.findIndex(s => s.included);
+            const firstSelectedReview = firstSelectedReviewIndex !== -1 ? reviews[firstSelectedReviewIndex] : "";
 
 
             const newValues: { [key: string]: any } = {
@@ -426,9 +429,9 @@ export default function Home() {
               '총판매': combinedInfo.sale_volume,
               '총리뷰': combinedInfo.total_num,
               '국내리뷰': combinedInfo.korean_local_count,
-              '고객리뷰': firstSelectedReview,
+              '고객리뷰': firstSelectedReview || '',
               '할인율': `${discountRate.toFixed(2)}%`,
-              '게시물URL': result.articleUrl || '',
+              '게시물URL': articleUrl,
             };
 
             await fetch('/api/sheets', {
@@ -458,7 +461,7 @@ export default function Home() {
         throw new Error(`네이버 카페 게시 실패: ${cafeErrorMessage}`);
       }
     } catch (error: any) {
-      setCafePostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다.", payload: payloadString });
+      setCafePostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
       toast({
         variant: "destructive",
         title: "오류 발생",
@@ -876,12 +879,6 @@ export default function Home() {
                     </AlertTitle>
                     <AlertDescription>
                       <p className="whitespace-pre-wrap font-sans mb-4">{cafePostResult.message}</p>
-                      {cafePostResult.payload && (
-                        <details className="mt-2">
-                            <summary className="cursor-pointer text-xs text-muted-foreground">호출 값 보기</summary>
-                            <pre className="mt-2 w-full text-xs whitespace-pre-wrap rounded-md bg-muted p-4 font-mono">{cafePostResult.payload}</pre>
-                        </details>
-                      )}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -893,3 +890,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
