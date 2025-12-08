@@ -351,9 +351,10 @@ export default function Home() {
       toast({ variant: "destructive", title: "게시 불가", description: "먼저 미리보기를 생성해주세요." });
       return;
     }
-
+  
     setIsLoading(true);
-    
+    setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
+  
     const cafePayload = {
       subject: form.getValues("Subject_title"),
       content: previewContent,
@@ -361,31 +362,28 @@ export default function Home() {
       club_id: "31609361",
       menu_id: "2"
     };
-
-    setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
-    
+  
     try {
       const cafeResponse = await fetch("/api/post-to-naver-cafe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cafePayload),
       });
-
+  
       if (cafeResponse.ok) {
-        const resultText = await cafeResponse.text();
-        const urlMatch = resultText.match(/url=([^,}]*)/);
-        const articleUrl = urlMatch ? urlMatch[1] : null;
-
+        const result = await cafeResponse.json();
+        const articleUrl = result.url;
+  
         if (!articleUrl) {
-            throw new Error(`게시물 URL을 찾을 수 없습니다. 응답: ${resultText}`);
+          throw new Error(`게시물 URL을 찾을 수 없습니다. 응답: ${JSON.stringify(result)}`);
         }
-
+  
         setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다. URL: ${articleUrl}` });
         toast({
           title: "성공!",
           description: `상품이 네이버 카페에 성공적으로 게시되었습니다.`,
         });
-
+  
         if (selectedRowNumber !== null) {
           try {
             const product = form.getValues();
@@ -394,7 +392,7 @@ export default function Home() {
             const discountCodePriceNum = parsePrice(product.discountCodePrice);
             const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
             const cardPriceNum = parsePrice(product.cardPrice);
-
+  
             let finalPrice = productPriceNum;
             if (coinDiscountRateNum > 0) {
               const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
@@ -404,9 +402,9 @@ export default function Home() {
             if (storeCouponPriceNum > 0) finalPrice -= storeCouponPriceNum;
             if (cardPriceNum > 0) finalPrice -= cardPriceNum;
             finalPrice = Math.max(0, finalPrice);
-
+  
             const discountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
-
+  
             const reviews = [
                 combinedInfo.korean_summary1,
                 combinedInfo.korean_summary2,
@@ -416,8 +414,7 @@ export default function Home() {
             ];
             const firstSelectedReviewIndex = reviewSelections.findIndex(s => s.included);
             const firstSelectedReview = firstSelectedReviewIndex !== -1 ? reviews[firstSelectedReviewIndex] : "";
-
-
+  
             const newValues: { [key: string]: any } = {
               'checkup': '1',
               "글쓰기 시간": new Date().toISOString(),
@@ -432,19 +429,19 @@ export default function Home() {
               '할인율': `${discountRate.toFixed(2)}%`,
               '게시물URL': articleUrl,
             };
-
+  
             await fetch('/api/sheets', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ rowNumber: selectedRowNumber, newValues }),
             });
-
+  
             setSheetData(prev => prev.filter(d => d.rowNumber !== selectedRowNumber));
             setSelectedRowNumber(null);
             form.reset();
             setCombinedInfo(null);
             setPreviewContent("");
-            
+  
           } catch (sheetError) {
             console.error("Failed to update sheet after posting:", sheetError);
             toast({
@@ -514,7 +511,7 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
-        form.setValue("productUrl", "");
+        form.setValue("productUrl", item.URL || "");
     }
   };
   
@@ -889,3 +886,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
