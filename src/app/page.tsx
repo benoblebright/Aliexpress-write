@@ -43,7 +43,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
-
 const formSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
   affShortKey: z.string().min(1, { message: "제휴 단축 키를 입력해주세요." }),
@@ -70,24 +69,21 @@ interface SheetData {
   [key: string]: any;
 }
 
-interface AllInfo {
-    product_main_image_url: string;
-    product_title: string;
-    final_url: string;
+interface CombinedInfo {
     original_url: string;
-    sale_volume?: string | number;
-}
-
-interface ReviewInfo {
-  korean_summary?: string;
-  reviewImageUrls?: string[];
-  reviews?: {
-    content: string;
-    rating: number;
-    author: string;
-  }[];
-  total_num?: number;
-  korean_local_count?: number;
+    final_url: string;
+    product_title: string;
+    product_main_image_url: string | null;
+    sale_volume: string | number | null;
+    product_id: string;
+    total_num: number;
+    korean_local_count: number;
+    korean_summary1?: string;
+    korean_summary2?: string;
+    korean_summary3?: string;
+    korean_summary4?: string;
+    korean_summary5?: string;
+    source_url: string;
 }
 
 type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
@@ -120,15 +116,15 @@ export default function Home() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
-  const [allInfo, setAllInfo] = useState<AllInfo | null>(null);
-  const [reviewsInfo, setReviewsInfo] = useState<ReviewInfo | null>(null);
+  const [combinedInfo, setCombinedInfo] = useState<CombinedInfo | null>(null);
   const [apiLog, setApiLog] = useState<ApiLogEntry[]>([]);
   const [uiLog, setUiLog] = useState<string[]>([]);
-
   const [isHtmlMode, setIsHtmlMode] = useState(false);
 
-  const [parsedReviews, setParsedReviews] = useState<string[]>([]);
-  const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>([]);
+  // 5개의 리뷰에 대한 선택 상태를 관리
+  const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>(
+    Array(5).fill({ included: false, summarized: false })
+  );
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -183,177 +179,186 @@ export default function Home() {
   const formatPrice = (price: number): string => {
       return new Intl.NumberFormat('ko-KR').format(price) + '원';
   };
+
+  const generateHtmlContent = (info: CombinedInfo | null, selections: ReviewSelection[]): string => {
+    const { productUrl, affShortKey, ...product } = form.getValues();
+
+    if (!info?.product_title || !info?.final_url) {
+        return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
+    }
+
+    let content = `<p>${info.product_title}</p><br />`;
+
+    const productPriceNum = parsePrice(product.productPrice);
+    const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+    const discountCodePriceNum = parsePrice(product.discountCodePrice);
+    const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
+    const cardPriceNum = parsePrice(product.cardPrice);
+
+    let finalPrice = productPriceNum;
+    
+    if (productPriceNum > 0) {
+      content += `<p>할인판매가: ${formatPrice(productPriceNum)}</p>`;
+    }
+    
+    if (coinDiscountRateNum > 0) {
+      content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
+      const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
+      finalPrice -= Math.round(coinDiscountValue / 10) * 10;
+    }
+    if (discountCodePriceNum > 0 && product.discountCode) {
+        content += `<p>할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )</p>`;
+        finalPrice -= discountCodePriceNum;
+    }
+     if (storeCouponPriceNum > 0 && product.storeCouponCode) {
+        content += `<p>스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )</p>`;
+        finalPrice -= storeCouponPriceNum;
+    }
+    if (cardPriceNum > 0 && product.cardCompanyName) {
+        content += `<p>카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )</p>`;
+        finalPrice -= cardPriceNum;
+    }
+    
+    if(finalPrice < productPriceNum && productPriceNum > 0) {
+        content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice))}</p>`;
+    }
+    
+    content += `<br /><p>할인상품 : <a href="${info.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
+    
+    const saleVolume = info.sale_volume || 0;
+    const totalNum = info.total_num || 0;
+    const koreanLocalCount = info.korean_local_count || 0;
+
+    if (saleVolume > 0 || totalNum > 0 || koreanLocalCount > 0) {
+      content += `<p>리뷰 요약: 총판매 ${saleVolume}개, 총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개</p><br />`;
+    }
+
+    const reviewsToAdd = [
+        info.korean_summary1,
+        info.korean_summary2,
+        info.korean_summary3,
+        info.korean_summary4,
+        info.korean_summary5,
+    ]
+    .map((review, index) => ({ review, selection: selections[index] }))
+    .filter(({ review, selection }) => review && selection.included)
+    .map(({ review, selection }) => {
+        let reviewContent = review!.replace(/<[^>]*>?/gm, ''); // Basic HTML tag removal
+        if (selection.summarized && reviewContent.length > 50) {
+            reviewContent = `${reviewContent.substring(0, 50)}... <a href="${info.final_url}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>`;
+        }
+        return `<p style="margin: 0 0 10px 0; font-size: 14px;">- ${reviewContent}</p>`;
+    })
+    .join('');
+
+    if(reviewsToAdd) {
+        content += reviewsToAdd + '<br />';
+    }
+
+    if (product.productTag) {
+        const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
+        if (tags) {
+            content += `<p>${tags}</p>`;
+        }
+    }
+    
+    return content;
+  }
   
 const handleGeneratePreview = async () => {
-    setUiLog(prev => [...prev, "[LOG] 1. 미리보기 생성을 시작합니다."]);
-    const { productUrl, affShortKey, ...product } = form.getValues();
+    const { productUrl, affShortKey } = form.getValues();
     const isFormValid = await form.trigger(["productUrl", "affShortKey"]);
     
     if (!isFormValid) {
-        toast({
-            variant: "destructive",
-            title: "입력 오류",
-            description: "상품 URL과 제휴 단축 키를 올바르게 입력해주세요.",
-        });
-        setUiLog(prev => [...prev, "[ERROR] 폼 유효성 검사 실패."]);
+        toast({ variant: "destructive", title: "입력 오류", description: "상품 URL과 제휴 단축 키를 올바르게 입력해주세요." });
         return;
     }
 
     setIsGeneratingPreview(true);
     setPreviewContent("");
-    setAllInfo(null);
-    setReviewsInfo(null);
+    setCombinedInfo(null);
     setApiLog([]);
-    setUiLog(["[LOG] 1. 미리보기 생성을 시작합니다. 상태를 초기화합니다."]);
+    setUiLog([]);
     setIsHtmlMode(false);
-    setParsedReviews([]);
-    setReviewSelections([]);
+    setReviewSelections(Array(5).fill({ included: false, summarized: false }));
 
     const currentLog: ApiLogEntry[] = [];
     
     try {
-        setUiLog(prev => [...prev, "[LOG] 2. 상품정보 API 호출을 시작합니다."]);
-        const infoRequestBody = {
-            target_urls: [productUrl],
-            aff_short_key: [affShortKey]
-        };
-        const infoResponse = await fetch("/api/generate-all", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(infoRequestBody),
-        });
+        const infoRequest = { target_urls: [productUrl], aff_short_key: [affShortKey] };
+        const reviewsRequest = { target_urls: [productUrl] };
+
+        const [infoResponse, reviewsResponse] = await Promise.all([
+            fetch("/api/generate-all", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(infoRequest),
+            }),
+            fetch("/api/generate-reviews", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(reviewsRequest),
+            }),
+        ]);
+
         const infoResult = await infoResponse.json();
-        setUiLog(prev => [...prev, `[LOG] 3. 상품정보 API 응답 받음: ${JSON.stringify(infoResult, null, 2)}`]);
-        currentLog.push({ name: '상품정보 API (/api/generate-all)', request: infoRequestBody, response: infoResult });
-        
+        const reviewsResult = await reviewsResponse.json();
+
+        currentLog.push({ name: '상품정보 API (/api/generate-all)', request: infoRequest, response: infoResult });
+        currentLog.push({ name: '후기정보 API (/api/generate-reviews)', request: reviewsRequest, response: reviewsResult });
+
         if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
             throw new Error(infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.');
         }
+
+        const productInfo = infoResult.allInfos[0];
         
-        const productInfo: AllInfo = infoResult.allInfos[0];
-        setUiLog(prev => [...prev, `[LOG] 4. productInfo 변수 할당: ${JSON.stringify(productInfo, null, 2)}`]);
+        const koreanReviews = (reviewsResult?.korean_summary || '').split('|').map((s:string) => s.trim()).filter(Boolean);
 
-        let reviewsResult: ReviewInfo | null = null;
-        if (productInfo?.original_url) {
-            setUiLog(prev => [...prev, `[LOG] 5. 후기정보 API 호출을 시작합니다. URL: ${productInfo.original_url}`]);
-            const reviewsRequestBody = { target_urls: [productInfo.original_url] };
-            try {
-                const reviewsResponse = await fetch("/api/generate-reviews", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(reviewsRequestBody),
-                });
-                reviewsResult = await reviewsResponse.json();
-                setUiLog(prev => [...prev, `[LOG] 6. 후기정보 API 응답 받음: ${JSON.stringify(reviewsResult, null, 2)}`]);
-                currentLog.push({ name: '후기정보 API (/api/generate-reviews)', request: reviewsRequestBody, response: reviewsResult });
-                if (!reviewsResponse.ok) {
-                   toast({ variant: "destructive", title: "후기 정보 조회 실패", description: (reviewsResult as any)?.error || '후기 정보를 가져오는 중 오류가 발생했습니다.' });
-                   reviewsResult = null;
-                }
-            } catch (reviewError: any) {
-                toast({ variant: "destructive", title: "후기 정보 조회 오류", description: reviewError.message });
-                reviewsResult = null;
-            }
-        } else {
-            setUiLog(prev => [...prev, "[LOG] 5. original_url이 없어 후기정보 API를 호출하지 않습니다."]);
-        }
+        const newCombinedInfo: CombinedInfo = {
+            original_url: productInfo.original_url,
+            final_url: productInfo.final_url,
+            product_title: productInfo.product_title,
+            product_main_image_url: productInfo.product_main_image_url,
+            sale_volume: productInfo.sale_volume || 0,
+            product_id: productInfo.original_url.split('/item/')[1]?.split('.html')[0] || '',
+            total_num: reviewsResult?.total_num || 0,
+            korean_local_count: reviewsResult?.korean_local_count || 0,
+            korean_summary1: koreanReviews[0],
+            korean_summary2: koreanReviews[1],
+            korean_summary3: koreanReviews[2],
+            korean_summary4: koreanReviews[3],
+            korean_summary5: koreanReviews[4],
+            source_url: productInfo.original_url
+        };
         
-        setUiLog(prev => [...prev, "[LOG] 7. HTML 콘텐츠 생성을 시작합니다."]);
-        setUiLog(prev => [...prev, `[LOG] 7a. 사용할 productInfo: ${JSON.stringify(productInfo, null, 2)}`]);
-        setUiLog(prev => [...prev, `[LOG] 7b. 사용할 reviewsResult: ${JSON.stringify(reviewsResult, null, 2)}`]);
-        
-        let content = '';
-
-        if (!productInfo?.product_title || !productInfo?.final_url) {
-            content = "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
-            setUiLog(prev => [...prev, "[LOG] 7c. 오류: 상품 제목 또는 최종 URL이 없어 콘텐츠 생성을 중단합니다."]);
-        } else {
-            content = `<p>${productInfo.product_title}</p><br />`;
-
-            const productPriceNum = parsePrice(product.productPrice);
-            const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
-            const discountCodePriceNum = parsePrice(product.discountCodePrice);
-            const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
-            const cardPriceNum = parsePrice(product.cardPrice);
-
-            let finalPrice = productPriceNum;
-            
-            if (productPriceNum > 0) {
-              content += `<p>할인판매가: ${formatPrice(productPriceNum)}</p>`;
-            }
-            
-            if (coinDiscountRateNum > 0) {
-              content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
-              const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
-              finalPrice -= Math.round(coinDiscountValue / 10) * 10;
-            }
-            if (discountCodePriceNum > 0 && product.discountCode) {
-                content += `<p>할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )</p>`;
-                finalPrice -= discountCodePriceNum;
-            }
-             if (storeCouponPriceNum > 0 && product.storeCouponCode) {
-                content += `<p>스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )</p>`;
-                finalPrice -= storeCouponPriceNum;
-            }
-            if (cardPriceNum > 0 && product.cardCompanyName) {
-                content += `<p>카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )</p>`;
-                finalPrice -= cardPriceNum;
-            }
-            
-            if(finalPrice < productPriceNum && productPriceNum > 0) {
-                content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice))}</p>`;
-            }
-            
-            content += `<br /><p>할인상품 : <a href="${productInfo.final_url}" target="_blank" rel="noopener noreferrer">특가상품 바로가기</a></p><br />`;
-            
-            const saleVolume = productInfo.sale_volume || 0;
-            const totalNum = reviewsResult?.total_num || 0;
-            const koreanLocalCount = reviewsResult?.korean_local_count || 0;
-
-            if (saleVolume > 0 || totalNum > 0 || koreanLocalCount > 0) {
-              content += `<p>리뷰 요약: 총판매 ${saleVolume}개, 총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개</p><br />`;
-            }
-
-            if (product.productTag) {
-                const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
-                if (tags) {
-                    content += `<p>${tags}</p>`;
-                }
-            }
-        }
-
-        setUiLog(prev => [...prev, `[LOG] 8. 생성된 HTML 콘텐츠: ${content}`]);
-        
-        setUiLog(prev => [...prev, "[LOG] 9. 최종 상태 업데이트를 시작합니다."]);
-        setUiLog(prev => [...prev, `[LOG] 9a. setAllInfo에 전달할 값: ${JSON.stringify(productInfo, null, 2)}`]);
-        setUiLog(prev => [...prev, `[LOG] 9b. setReviewsInfo에 전달할 값: ${JSON.stringify(reviewsResult, null, 2)}`]);
-        setUiLog(prev => [...prev, `[LOG] 9c. setPreviewContent에 전달할 값: ${content}`]);
-
-        setAllInfo(productInfo);
-        setReviewsInfo(reviewsResult);
+        setCombinedInfo(newCombinedInfo);
         setApiLog(currentLog);
+
+        const content = generateHtmlContent(newCombinedInfo, reviewSelections);
         setPreviewContent(content);
 
-        if (reviewsResult?.korean_summary) {
-          const parsed = reviewsResult.korean_summary.split('|').map((r: string) => r.trim()).filter(Boolean);
-          setUiLog(prev => [...prev, `[LOG] 9d. setParsedReviews에 전달할 값: ${JSON.stringify(parsed)}`]);
-          setParsedReviews(parsed);
-          setReviewSelections(parsed.map(() => ({ included: false, summarized: false })));
-        } else {
-          setUiLog(prev => [...prev, "[LOG] 9d. korean_summary가 없어 리뷰를 파싱하지 않습니다."]);
-        }
-
     } catch (e: any) {
-        setUiLog(prev => [...prev, `[LOG] 10. 미리보기 생성 중 오류 발생: ${e.message}`]);
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
         setPreviewContent(`<p>미리보기 생성 중 오류 발생: ${e.message}</p>`);
         setIsHtmlMode(true);
     } finally {
-      setUiLog(prev => [...prev, "[LOG] 11. 미리보기 생성을 종료합니다."]);
       setIsGeneratingPreview(false);
     }
 };
 
+  const handleUpdatePreviewWithReviews = () => {
+    if (!combinedInfo) {
+        toast({ variant: "destructive", title: "오류", description: "먼저 미리보기를 생성해주세요." });
+        return;
+    }
+    const content = generateHtmlContent(combinedInfo, reviewSelections);
+    setPreviewContent(content);
+    toast({
+        title: "미리보기 업데이트 완료",
+        description: "선택한 후기 설정이 미리보기에 반영되었습니다.",
+    });
+  };
 
   const handlePostToBand = async (data: FormData) => {
     setIsLoading(true);
@@ -362,27 +367,27 @@ const handleGeneratePreview = async () => {
     const originalItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
 
     try {
-        let productInfo = allInfo;
-
-        if (!productInfo || productInfo.original_url !== data.productUrl) {
+        if (!combinedInfo || combinedInfo.original_url !== data.productUrl) {
             setBandPostResult({ status: 'loading', message: '상품 정보를 다시 가져오는 중...' });
             await handleGeneratePreview(); 
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // handleGeneratePreview is async, wait for state to update
+            // A better way is to use the result of handleGeneratePreview directly
+            // But for now, a small delay might work for UI feedback, though not reliable for data
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        const finalProductInfo = allInfo;
+        const finalCombinedInfo = combinedInfo;
+        const finalPreviewContent = generateHtmlContent(finalCombinedInfo, reviewSelections);
 
-        if (!finalProductInfo || !finalProductInfo.product_title || !finalProductInfo.final_url) {
+        if (!finalCombinedInfo || !finalCombinedInfo.product_title || !finalCombinedInfo.final_url) {
             throw new Error("상품 정보가 올바르지 않아 밴드에 게시할 수 없습니다. 미리보기를 먼저 생성해주세요.");
         }
 
         setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
         
-        const postContent = previewContent;
-
-        const bandPayload: { content: string; image_url?: string } = { content: postContent };
-        if (finalProductInfo.product_main_image_url) {
-            bandPayload.image_url = finalProductInfo.product_main_image_url;
+        const bandPayload: { content: string; image_url?: string } = { content: finalPreviewContent };
+        if (finalCombinedInfo.product_main_image_url) {
+            bandPayload.image_url = finalCombinedInfo.product_main_image_url;
         }
 
         const bandResponse = await fetch("/api/post-to-band", {
@@ -421,12 +426,9 @@ const handleGeneratePreview = async () => {
                     setSheetData(prev => prev.filter(d => d.rowNumber !== originalItem.rowNumber));
                     setSelectedRowNumber(null);
                     form.reset(); 
-                    setAllInfo(null);
+                    setCombinedInfo(null);
                     setPreviewContent("");
-                    setReviewsInfo(null);
                     setApiLog([]);
-                    setParsedReviews([]);
-                    setReviewSelections([]);
                     setUiLog([]);
 
                  } catch (sheetError) {
@@ -462,12 +464,9 @@ const handleGeneratePreview = async () => {
     if (selectedRowNumber === rowNumber) {
         setSelectedRowNumber(null);
         form.reset();
-        setAllInfo(null);
+        setCombinedInfo(null);
         setPreviewContent("");
-        setReviewsInfo(null);
         setApiLog([]);
-        setParsedReviews([]);
-        setReviewSelections([]);
         setUiLog([]);
     }
 
@@ -516,42 +515,6 @@ const handleGeneratePreview = async () => {
       setReviewSelections(newSelections);
   };
   
-  const updatePreviewWithReviews = () => {
-      if (!allInfo) return;
-  
-      const reviewsToAdd = parsedReviews
-          .map((review, index) => ({ review, selection: reviewSelections[index] }))
-          .filter(({ selection }) => selection.included)
-          .map(({ review, selection }) => {
-              let content = review.replace(/<[^>]*>?/gm, ''); // Basic HTML tag removal
-              if (selection.summarized && content.length > 50) {
-                  content = `${content.substring(0, 50)}... <a href="${allInfo.final_url}" target="_blank" rel="noopener noreferrer" style="color: #2761c4; text-decoration: none;">더보기</a>`;
-              }
-              return `<div style="margin-bottom: 15px;"><p style="margin: 0 0 10px 0; font-size: 14px;">- ${content}</p></div>`;
-          })
-          .join('');
-  
-      if (reviewsToAdd) {
-          // Find the last occurrence of the affiliate link to insert reviews before tags
-          const insertionPoint = previewContent.lastIndexOf(`<br /><p>할인상품 : <a href="${allInfo.final_url}"`);
-          const baseContent = insertionPoint !== -1 ? previewContent.substring(0, insertionPoint) : previewContent;
-          const remainingContent = insertionPoint !== -1 ? previewContent.substring(insertionPoint) : '';
-  
-          setPreviewContent(`${baseContent}<br />${reviewsToAdd}${remainingContent}`);
-          toast({
-              title: "리뷰 추가 완료",
-              description: "선택한 리뷰가 미리보기 내용에 추가되었습니다.",
-          });
-      } else {
-          toast({
-              variant: "destructive",
-              title: "선택된 리뷰 없음",
-              description: "본문에 추가할 리뷰를 먼저 선택해주세요.",
-          });
-      }
-  };
-
-
   const formFields = {
     required: [
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
@@ -582,6 +545,15 @@ const handleGeneratePreview = async () => {
             return 'default';
     }
   };
+
+  const reviews = combinedInfo ? [
+    combinedInfo.korean_summary1,
+    combinedInfo.korean_summary2,
+    combinedInfo.korean_summary3,
+    combinedInfo.korean_summary4,
+    combinedInfo.korean_summary5,
+  ].filter(Boolean) : [];
+
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
@@ -858,15 +830,15 @@ const handleGeneratePreview = async () => {
                         </CollapsibleContent>
                     </Collapsible>
 
-                     {parsedReviews.length > 0 && (
+                    {reviews.length > 0 && (
                         <div className="space-y-4 rounded-lg border p-4">
                             <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
                             <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
-                                {parsedReviews.map((review, index) => (
+                                {reviews.map((review, index) => (
                                     <div key={index} className="flex items-start gap-4 p-3 rounded-md border bg-muted/40">
                                         <div className="flex-grow">
                                            <label htmlFor={`review-${index}`} className="text-sm text-muted-foreground cursor-pointer leading-relaxed">
-                                                {review}
+                                                {review as string}
                                             </label>
                                         </div>
                                         <div className="flex flex-col gap-2 items-end shrink-0">
@@ -885,9 +857,10 @@ const handleGeneratePreview = async () => {
                                                     id={`summarize-${index}`}
                                                     checked={reviewSelections[index]?.summarized}
                                                     onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
+                                                    disabled={!reviewSelections[index]?.included}
                                                 />
-                                                <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none cursor-pointer">
-                                                    요약하기
+                                                <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                    줄임 선택
                                                 </label>
                                             </div>
                                         </div>
@@ -895,9 +868,9 @@ const handleGeneratePreview = async () => {
                                 ))}
                             </div>
                             <Separator />
-                            <Button type="button" className="w-full" onClick={updatePreviewWithReviews}>
+                            <Button type="button" className="w-full" onClick={handleUpdatePreviewWithReviews}>
                                 <MessageSquareText className="mr-2 h-4 w-4" />
-                                후기 포함하여 미리보기 업데이트
+                                후기 반영하기
                             </Button>
                         </div>
                     )}
@@ -933,3 +906,5 @@ const handleGeneratePreview = async () => {
     </main>
   );
 }
+
+    
