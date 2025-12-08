@@ -316,8 +316,9 @@ const handleGeneratePreview = async () => {
         setUiLog([...currentUiLog]);
         
         const productInfo = infoResult.allInfos[0];
-        
-        const koreanReviews = (reviewsResult?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
+        const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : {};
+
+        const koreanReviews = (reviewData?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
         const newCombinedInfo: CombinedInfo = {
             original_url: productInfo.original_url,
@@ -326,8 +327,8 @@ const handleGeneratePreview = async () => {
             product_main_image_url: productInfo.product_main_image_url,
             sale_volume: parseInt(productInfo.sale_volume || '0', 10),
             product_id: productInfo.original_url.split('/item/')[1]?.split('.html')[0] || '',
-            total_num: parseInt(reviewsResult?.total_num || '0', 10),
-            korean_local_count: parseInt(reviewsResult?.korean_local_count || '0', 10),
+            total_num: parseInt(reviewData?.total_num || '0', 10),
+            korean_local_count: parseInt(reviewData?.korean_local_count || '0', 10),
             korean_summary1: koreanReviews[0] || '',
             korean_summary2: koreanReviews[1] || '',
             korean_summary3: koreanReviews[2] || '',
