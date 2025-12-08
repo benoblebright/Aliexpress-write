@@ -52,7 +52,7 @@ const formSchema = z.object({
   discountCode: z.string().optional(),
   discountCodePrice: z.string().optional(),
   storeCouponCode: z.string().optional(),
-  storeCouponPrice: zstring().optional(),
+  storeCouponPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
   cardPrice: z.string().optional(),
 });
@@ -294,6 +294,7 @@ export default function Home() {
 
         const productInfo = infoResult.allInfos[0];
         const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : null;
+
         const koreanReviews = (reviewData?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
         const newCombinedInfo: CombinedInfo = {
