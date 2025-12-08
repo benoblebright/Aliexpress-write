@@ -369,6 +369,7 @@ export default function Home() {
           <code className="text-white">{JSON.stringify(cafePayload, null, 2)}</code>
         </pre>
       ),
+      duration: Infinity,
     });
 
     try {
@@ -862,5 +863,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
