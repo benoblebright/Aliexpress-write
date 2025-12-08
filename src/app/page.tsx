@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Database, ListChecks } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -92,12 +91,6 @@ interface BandPostResult {
     message: string;
 }
 
-interface ApiLogEntry {
-  name: string;
-  request: any;
-  response: any;
-}
-
 interface ReviewSelection {
     included: boolean;
     summarized: boolean;
@@ -117,8 +110,6 @@ export default function Home() {
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
   const [combinedInfo, setCombinedInfo] = useState<CombinedInfo | null>(null);
-  const [apiLog, setApiLog] = useState<ApiLogEntry[]>([]);
-  const [uiLog, setUiLog] = useState<string[]>([]);
   const [isHtmlMode, setIsHtmlMode] = useState(false);
 
   // 5개의 리뷰에 대한 선택 상태를 관리
@@ -277,16 +268,10 @@ const handleGeneratePreview = async () => {
     setIsGeneratingPreview(true);
     setCombinedInfo(null);
     setPreviewContent("");
-    setApiLog([]);
-    let currentUiLog: string[] = ["[1/6] 미리보기 생성 시작..."];
-    setUiLog(currentUiLog);
     setReviewSelections(Array(5).fill({ included: false, summarized: false }));
     setIsHtmlMode(false);
 
     try {
-        currentUiLog.push("[2/6] 상품정보와 후기정보 API 동시 호출 시도...");
-        setUiLog([...currentUiLog]);
-
         const [infoResponse, reviewsResponse] = await Promise.all([
             fetch("/api/generate-all", {
                 method: "POST",
@@ -302,22 +287,14 @@ const handleGeneratePreview = async () => {
 
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
-
-        currentUiLog.push(`[3/6] API 응답 받음: 상품정보(${infoResponse.ok ? '성공' : '실패'}), 후기정보(${reviewsResponse.ok ? '성공' : '실패'})`);
-        currentUiLog.push(`[3/6] 상품정보 응답: ${JSON.stringify(infoResult, null, 2)}`);
-        currentUiLog.push(`[3/6] 후기정보 응답: ${JSON.stringify(reviewsResult, null, 2)}`);
-        setUiLog([...currentUiLog]);
         
         if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
             throw new Error(infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.');
         }
 
-        currentUiLog.push("[4/6] API 결과들을 하나의 데이터 테이블로 조합 시도...");
-        setUiLog([...currentUiLog]);
-        
         const productInfo = infoResult.allInfos[0];
         const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : {};
-
+        
         const koreanReviews = (reviewData?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
         const newCombinedInfo: CombinedInfo = {
@@ -337,29 +314,13 @@ const handleGeneratePreview = async () => {
             source_url: productInfo.original_url
         };
         
-        currentUiLog.push(`[4/6] 조합된 데이터 테이블: ${JSON.stringify(newCombinedInfo, null, 2)}`);
-        setUiLog([...currentUiLog]);
-
-        currentUiLog.push("[5/6] 조합된 데이터로 HTML 콘텐츠 생성 시도...");
-        setUiLog([...currentUiLog]);
         const content = generateHtmlContent(newCombinedInfo, reviewSelections);
-        currentUiLog.push(`[5/6] 생성된 HTML: ${content}`);
-        setUiLog([...currentUiLog]);
-
-        currentUiLog.push("[6/6] 최종 상태 업데이트 시도...");
-        setUiLog([...currentUiLog]);
-
+        
         setCombinedInfo(newCombinedInfo);
-        setApiLog([{ name: '상품정보 API', request: { target_urls: [productUrl], aff_short_key: [affShortKey] }, response: infoResult }, { name: '후기정보 API', request: { target_urls: [productUrl] }, response: reviewsResult }]);
         setPreviewContent(content);
         
-        currentUiLog.push("[완료] 모든 작업이 성공적으로 완료되었습니다.");
-        setUiLog([...currentUiLog]);
-
     } catch (e: any) {
         const errorMessage = `미리보기 생성 오류: ${e.message}`;
-        currentUiLog.push(`[오류] ${errorMessage}`);
-        setUiLog([...currentUiLog]);
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
         setPreviewContent(`<p>${errorMessage}</p>`);
         setIsHtmlMode(true);
@@ -449,8 +410,6 @@ const handleGeneratePreview = async () => {
                     form.reset(); 
                     setCombinedInfo(null);
                     setPreviewContent("");
-                    setApiLog([]);
-                    setUiLog([]);
 
                  } catch (sheetError) {
                      console.error("Failed to update sheet after posting:", sheetError);
@@ -487,8 +446,6 @@ const handleGeneratePreview = async () => {
         form.reset();
         setCombinedInfo(null);
         setPreviewContent("");
-        setApiLog([]);
-        setUiLog([]);
     }
 
     try {
@@ -531,9 +488,24 @@ const handleGeneratePreview = async () => {
   };
 
   const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
-      const newSelections = [...reviewSelections];
-      newSelections[index][type] = !newSelections[index][type];
-      setReviewSelections(newSelections);
+      setReviewSelections(prev => {
+        const newSelections = [...prev];
+        const current = newSelections[index];
+
+        if (type === 'included') {
+            current.included = !current.included;
+            // If un-including, also un-summarize
+            if (!current.included) {
+                current.summarized = false;
+            }
+        } else if (type === 'summarized') {
+            // Can only summarize if included
+            if (current.included) {
+                current.summarized = !current.summarized;
+            }
+        }
+        return newSelections;
+      });
   };
   
   const formFields = {
@@ -787,70 +759,7 @@ const handleGeneratePreview = async () => {
                          />
                       )}
                     </div>
-
-                    <Collapsible>
-                      <CollapsibleTrigger asChild>
-                        <Button type="button" variant="outline" className="w-full">
-                          <Database className="mr-2 h-4 w-4" />
-                          API 로그 보기
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="space-y-4 pt-4">
-                        <div className="rounded-lg border p-4 space-y-2 bg-muted/50">
-                          <h4 className="font-semibold">API 호출 기록</h4>
-                          {apiLog.length > 0 ? (
-                            apiLog.map((log, index) => (
-                              <Collapsible key={index} className="space-y-2">
-                                <CollapsibleTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="w-full justify-start">
-                                    <ChevronDown className="h-4 w-4 mr-2" />
-                                    {log.name}
-                                  </Button>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent className="space-y-2 pl-4">
-                                  <div>
-                                    <h5 className="font-semibold">요청 (Request)</h5>
-                                    <pre className="mt-2 w-full rounded-md bg-background p-4 text-xs overflow-x-auto">
-                                      {JSON.stringify(log.request, null, 2)}
-                                    </pre>
-                                  </div>
-                                  <div>
-                                    <h5 className="font-semibold">응답 (Response)</h5>
-                                    <pre className="mt-2 w-full rounded-md bg-background p-4 text-xs overflow-x-auto">
-                                      {JSON.stringify(log.response, null, 2)}
-                                    </pre>
-                                  </div>
-                                </CollapsibleContent>
-                              </Collapsible>
-                            ))
-                          ) : (
-                            <p className="text-sm text-muted-foreground">API 호출 기록이 없습니다.</p>
-                          )}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-
-                     <Collapsible>
-                        <CollapsibleTrigger asChild>
-                            <Button type="button" variant="outline" className="w-full">
-                                <ListChecks className="mr-2 h-4 w-4" />
-                                UI 업데이트 로그 보기
-                            </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-4 pt-4">
-                            <div className="rounded-lg border p-4 space-y-2 bg-muted/50 max-h-96 overflow-y-auto">
-                                <h4 className="font-semibold">UI 업데이트 기록</h4>
-                                {uiLog.length > 0 ? (
-                                    <pre className="mt-2 w-full rounded-md bg-background p-4 text-xs overflow-x-auto whitespace-pre-wrap break-all">
-                                        {uiLog.join('\n')}
-                                    </pre>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">UI 업데이트 기록이 없습니다.</p>
-                                )}
-                            </div>
-                        </CollapsibleContent>
-                    </Collapsible>
-
+                    
                     {reviews.length > 0 && (
                         <div className="space-y-4 rounded-lg border p-4">
                             <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
@@ -927,4 +836,3 @@ const handleGeneratePreview = async () => {
     </main>
   );
 }
-
