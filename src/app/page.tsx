@@ -44,6 +44,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
+  productTitle: z.string().optional(),
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
   affShortKey: z.string().min(1, { message: "제휴 단축 키를 입력해주세요." }),
   productPrice: z.string().optional(),
@@ -102,7 +103,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -120,6 +121,7 @@ export default function Home() {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+        productTitle: "",
         productUrl: "",
         affShortKey: "",
         productPrice: "",
@@ -483,6 +485,7 @@ export default function Home() {
     } 
     else {
         setSelectedRowNumber(item.rowNumber);
+        form.setValue("productTitle", item.상품명 || "");
         form.setValue("productUrl", item.URL || "");
     }
   };
@@ -518,6 +521,7 @@ export default function Home() {
   
   const formFields = {
     required: [
+        { name: "productTitle", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 직접 입력", isRequired: false },
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
         { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", isRequired: false },
@@ -563,9 +567,10 @@ export default function Home() {
   
   useEffect(() => {
     if(combinedInfo) {
-      handleUpdatePreviewWithReviews();
+      const content = generateHtmlContent(combinedInfo, reviewSelections);
+      setPreviewContent(content);
     }
-  }, [reviewSelections, combinedInfo]);
+  }, [reviewSelections, combinedInfo, generateHtmlContent]);
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
@@ -816,11 +821,6 @@ export default function Home() {
                                     </div>
                                 ))}
                             </div>
-                            <Separator />
-                            <Button type="button" className="w-full" onClick={handleUpdatePreviewWithReviews}>
-                                <MessageSquareText className="mr-2 h-4 w-4" />
-                                후기 반영하기
-                            </Button>
                         </div>
                     )}
                   </div>
@@ -855,3 +855,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
