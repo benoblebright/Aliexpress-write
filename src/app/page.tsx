@@ -183,7 +183,7 @@ export default function Home() {
         return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
     }
 
-    let content = `<p>${form.getValues("Subject_title")}</p><br />`;
+    let content = `<p>${info.product_title}</p><br />`;
 
     const productPriceNum = parsePrice(product.productPrice);
     const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
@@ -893,5 +893,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
