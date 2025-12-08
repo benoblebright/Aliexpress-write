@@ -105,7 +105,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -363,8 +363,7 @@ export default function Home() {
     };
 
     setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
-    console.log("네이버 카페 API 호출 값:", JSON.stringify(cafePayload, null, 2));
-
+    
     try {
       const cafeResponse = await fetch("/api/post-to-naver-cafe", {
         method: "POST",
@@ -890,5 +889,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
