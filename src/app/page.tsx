@@ -52,7 +52,7 @@ const formSchema = z.object({
   discountCode: z.string().optional(),
   discountCodePrice: z.string().optional(),
   storeCouponCode: z.string().optional(),
-  storeCouponPrice: z.string().optional(),
+  storeCouponPrice: zstring().optional(),
   cardCompanyName: z.string().optional(),
   cardPrice: z.string().optional(),
 });
@@ -86,9 +86,9 @@ interface CombinedInfo {
     source_url: string;
 }
 
-type BandPostStatus = 'idle' | 'success' | 'error' | 'loading';
-interface BandPostResult {
-    status: BandPostStatus;
+type CafePostStatus = 'idle' | 'success' | 'error' | 'loading';
+interface CafePostResult {
+    status: CafePostStatus;
     message: string;
 }
 
@@ -100,7 +100,7 @@ interface ReviewSelection {
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const [bandPostResult, setBandPostResult] = useState<BandPostResult | null>(null);
+  const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
@@ -113,7 +113,6 @@ export default function Home() {
   const [combinedInfo, setCombinedInfo] = useState<CombinedInfo | null>(null);
   const [isHtmlMode, setIsHtmlMode] = useState(false);
 
-  // 5개의 리뷰에 대한 선택 상태를 관리
   const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>(
     Array(5).fill({ included: false, summarized: false })
   );
@@ -295,7 +294,6 @@ export default function Home() {
 
         const productInfo = infoResult.allInfos[0];
         const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : null;
-        
         const koreanReviews = (reviewData?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
         const newCombinedInfo: CombinedInfo = {
@@ -315,9 +313,9 @@ export default function Home() {
             source_url: productInfo.original_url
         };
         
-        const content = generateHtmlContent(newCombinedInfo, reviewSelections);
-        
         setCombinedInfo(newCombinedInfo);
+        
+        const content = generateHtmlContent(newCombinedInfo, reviewSelections);
         setPreviewContent(content);
         
     } catch (e: any) {
@@ -337,53 +335,46 @@ export default function Home() {
     }
     const content = generateHtmlContent(combinedInfo, reviewSelections);
     setPreviewContent(content);
+    setIsHtmlMode(true); // Switch to HTML source view after updating
     toast({
         title: "미리보기 업데이트 완료",
-        description: "선택한 후기 설정이 미리보기에 반영되었습니다.",
+        description: "선택한 후기 설정이 HTML 소스에 반영되었습니다.",
     });
   };
 
-  const handlePostToBand = async (data: FormData) => {
+  const handlePostToNaverCafe = async (data: FormData) => {
+    if (!combinedInfo || !previewContent) {
+        toast({ variant: "destructive", title: "게시 불가", description: "먼저 미리보기를 생성하고, 후기를 반영해주세요." });
+        return;
+    }
+      
     setIsLoading(true);
-    setBandPostResult({ status: 'loading', message: '게시글을 준비하는 중...' });
+    setCafePostResult({ status: 'loading', message: '네이버 카페에 게시글을 준비하는 중...' });
 
     const originalItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
 
     try {
-        if (!combinedInfo || combinedInfo.original_url !== data.productUrl) {
-            setBandPostResult({ status: 'loading', message: '상품 정보를 다시 가져오는 중...' });
-            await handleGeneratePreview(); 
-            // handleGeneratePreview is async, wait for state to update
-            // A better way is to use the result of handleGeneratePreview directly
-            // But for now, a small delay might work for UI feedback, though not reliable for data
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        const finalCombinedInfo = combinedInfo;
-        const finalPreviewContent = generateHtmlContent(finalCombinedInfo, reviewSelections);
-
-        if (!finalCombinedInfo || !finalCombinedInfo.product_title || !finalCombinedInfo.final_url) {
-            throw new Error("상품 정보가 올바르지 않아 밴드에 게시할 수 없습니다. 미리보기를 먼저 생성해주세요.");
-        }
-
-        setBandPostResult({ status: 'loading', message: '밴드에 글을 게시하는 중...' });
+        setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
         
-        const bandPayload: { content: string; image_url?: string } = { content: finalPreviewContent };
-        if (finalCombinedInfo.product_main_image_url) {
-            bandPayload.image_url = finalCombinedInfo.product_main_image_url;
-        }
+        const cafePayload = {
+            subject: combinedInfo.product_title,
+            content: previewContent,
+            image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
+            club_id: "31609361",
+            menu_id: "2"
+        };
 
-        const bandResponse = await fetch("/api/post-to-band", {
+        const cafeResponse = await fetch("/api/post-to-naver-cafe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(bandPayload),
+            body: JSON.stringify(cafePayload),
         });
 
-        if (bandResponse.ok) {
-             setBandPostResult({ status: 'success', message: `상품이 밴드에 성공적으로 게시되었습니다.` });
+        if (cafeResponse.ok) {
+             setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다.` });
              toast({
                 title: "성공!",
-                description: `상품이 밴드에 성공적으로 게시되었습니다.`,
+                description: `상품이 네이버 카페에 성공적으로 게시되었습니다.`,
               });
               if (originalItem) {
                  try {
@@ -417,22 +408,22 @@ export default function Home() {
                      toast({
                          variant: "destructive",
                          title: "시트 업데이트 실패",
-                         description: "밴드 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
+                         description: "네이버 카페 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
                      })
                  }
               }
 
         } else {
-             const bandErrorResult = await bandResponse.json();
-             const bandErrorMessage = bandErrorResult.error?.message || bandErrorResult.error || `Status: ${bandResponse.status}`;
-             throw new Error(`밴드 게시 실패: ${bandErrorMessage}`);
+             const cafeErrorResult = await cafeResponse.json();
+             const cafeErrorMessage = cafeErrorResult.error?.message || cafeErrorResult.error || `Status: ${cafeResponse.status}`;
+             throw new Error(`네이버 카페 게시 실패: ${cafeErrorMessage}`);
         }
     } catch (error: any) {
-      setBandPostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
+      setCafePostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
       toast({
         variant: "destructive",
         title: "오류 발생",
-        description: error.message || "밴드 글쓰기 중 오류가 발생했습니다.",
+        description: error.message || "네이버 카페 글쓰기 중 오류가 발생했습니다.",
       });
     } finally {
       setIsLoading(false);
@@ -490,24 +481,24 @@ export default function Home() {
 
   const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
     setReviewSelections(prev => {
-        return prev.map((selection, i) => {
-            if (i === index) {
-                const newSelection = { ...selection };
-                if (type === 'included') {
-                    newSelection.included = !newSelection.included;
-                    if (!newSelection.included) {
-                        newSelection.summarized = false; // 포함이 아니면 요약도 해제
-                    }
-                } else if (type === 'summarized') {
-                    // 포함되어 있을 때만 요약 가능
-                    if (newSelection.included) {
-                        newSelection.summarized = !newSelection.summarized;
-                    }
-                }
-                return newSelection;
+        const newSelections = [...prev];
+        const currentSelection = { ...newSelections[index] };
+
+        if (type === 'included') {
+            currentSelection.included = !currentSelection.included;
+            // '본문 포함' 해제 시 '줄임 선택'도 해제
+            if (!currentSelection.included) {
+                currentSelection.summarized = false;
             }
-            return selection;
-        });
+        } else if (type === 'summarized') {
+            // '줄임 선택'은 '본문 포함'이 true일 때만 토글 가능
+            if (currentSelection.included) {
+                currentSelection.summarized = !currentSelection.summarized;
+            }
+        }
+        
+        newSelections[index] = currentSelection;
+        return newSelections;
     });
 };
   
@@ -529,7 +520,7 @@ export default function Home() {
     ]
   };
   
-  const getAlertVariant = (status: BandPostStatus): "default" | "destructive" => {
+  const getAlertVariant = (status: CafePostStatus): "default" | "destructive" => {
     switch (status) {
         case 'success':
             return 'default';
@@ -557,10 +548,10 @@ export default function Home() {
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-extrabold text-primary flex items-center justify-center gap-3">
             <Rocket className="h-10 w-10" />
-            Aliexpress 밴드 글쓰기
+            Aliexpress 네이버 카페 글쓰기
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
-            상품 정보를 입력하고 밴드에 바로 글을 게시하세요.
+            상품 정보를 입력하고 네이버 카페에 바로 글을 게시하세요.
           </p>
         </header>
 
@@ -660,7 +651,7 @@ export default function Home() {
           <CardContent>
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit(handlePostToBand)}
+                onSubmit={form.handleSubmit(handlePostToNaverCafe)}
                 className="space-y-8"
               >
                 <div className="space-y-4 rounded-lg border p-4">
@@ -778,7 +769,7 @@ export default function Home() {
                                             <div className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id={`include-${index}`}
-                                                    checked={reviewSelections[index]?.included}
+                                                    checked={reviewSelections[index].included}
                                                     onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
                                                 />
                                                 <label htmlFor={`include-${index}`} className="text-xs font-medium leading-none cursor-pointer">
@@ -788,9 +779,9 @@ export default function Home() {
                                              <div className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id={`summarize-${index}`}
-                                                    checked={reviewSelections[index]?.summarized}
+                                                    checked={reviewSelections[index].summarized}
                                                     onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
-                                                    disabled={!reviewSelections[index]?.included}
+                                                    disabled={!reviewSelections[index].included}
                                                 />
                                                 <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                                     줄임 선택
@@ -816,18 +807,18 @@ export default function Home() {
                   disabled={isLoading || !previewContent}
                 >
                   {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Rocket className="mr-2 h-5 w-5" />}
-                  {isLoading ? "게시 중..." : "밴드 글쓰기"}
+                  {isLoading ? "게시 중..." : "네이버 카페 글쓰기"}
                 </Button>
 
-                {bandPostResult && bandPostResult.status !== 'idle' && (
-                  <Alert variant={getAlertVariant(bandPostResult.status)}>
+                {cafePostResult && cafePostResult.status !== 'idle' && (
+                  <Alert variant={getAlertVariant(cafePostResult.status)}>
                     <AlertTitle>
-                      {bandPostResult.status === 'loading' && '처리 중'}
-                      {bandPostResult.status === 'success' && '성공'}
-                      {bandPostResult.status === 'error' && '오류'}
+                      {cafePostResult.status === 'loading' && '처리 중'}
+                      {cafePostResult.status === 'success' && '성공'}
+                      {cafePostResult.status === 'error' && '오류'}
                     </AlertTitle>
                     <AlertDescription>
-                      <pre className="whitespace-pre-wrap font-sans">{bandPostResult.message}</pre>
+                      <pre className="whitespace-pre-wrap font-sans">{cafePostResult.message}</pre>
                     </AlertDescription>
                   </Alert>
                 )}
