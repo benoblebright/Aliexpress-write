@@ -278,15 +278,19 @@ const handleGeneratePreview = async () => {
     setPreviewContent("");
     setCombinedInfo(null);
     setApiLog([]);
-    setUiLog([]);
+    setUiLog(["[1/6] 미리보기 생성 시작됨..."]);
     setIsHtmlMode(false);
     setReviewSelections(Array(5).fill({ included: false, summarized: false }));
 
     const currentLog: ApiLogEntry[] = [];
+    const currentUiLog: string[] = ["[1/6] 미리보기 생성 시작됨..."];
     
     try {
         const infoRequest = { target_urls: [productUrl], aff_short_key: [affShortKey] };
         const reviewsRequest = { target_urls: [productUrl] };
+        
+        currentUiLog.push("[2/6] 상품정보와 후기정보 API 동시 호출 시도...");
+        setUiLog([...currentUiLog]);
 
         const [infoResponse, reviewsResponse] = await Promise.all([
             fetch("/api/generate-all", {
@@ -306,14 +310,20 @@ const handleGeneratePreview = async () => {
 
         currentLog.push({ name: '상품정보 API (/api/generate-all)', request: infoRequest, response: infoResult });
         currentLog.push({ name: '후기정보 API (/api/generate-reviews)', request: reviewsRequest, response: reviewsResult });
-
+        currentUiLog.push(`[3/6] API 응답 받음: 상품정보(${infoResponse.ok ? '성공' : '실패'}), 후기정보(${reviewsResponse.ok ? '성공' : '실패'})`);
+        currentUiLog.push(`[3/6] 상품정보 응답: ${JSON.stringify(infoResult)}`);
+        currentUiLog.push(`[3/6] 후기정보 응답: ${JSON.stringify(reviewsResult)}`);
+        setUiLog([...currentUiLog]);
+        
         if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
             throw new Error(infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.');
         }
 
         const productInfo = infoResult.allInfos[0];
-        
         const koreanReviews = (reviewsResult?.korean_summary || '').split('|').map((s:string) => s.trim()).filter(Boolean);
+
+        currentUiLog.push("[4/6] API 결과들을 하나의 데이터 테이블로 조합 시도...");
+        setUiLog([...currentUiLog]);
 
         const newCombinedInfo: CombinedInfo = {
             original_url: productInfo.original_url,
@@ -324,23 +334,40 @@ const handleGeneratePreview = async () => {
             product_id: productInfo.original_url.split('/item/')[1]?.split('.html')[0] || '',
             total_num: reviewsResult?.total_num || 0,
             korean_local_count: reviewsResult?.korean_local_count || 0,
-            korean_summary1: koreanReviews[0],
-            korean_summary2: koreanReviews[1],
-            korean_summary3: koreanReviews[2],
-            korean_summary4: koreanReviews[3],
-            korean_summary5: koreanReviews[4],
+            korean_summary1: koreanReviews[0] || '',
+            korean_summary2: koreanReviews[1] || '',
+            korean_summary3: koreanReviews[2] || '',
+            korean_summary4: koreanReviews[3] || '',
+            korean_summary5: koreanReviews[4] || '',
             source_url: productInfo.original_url
         };
-        
+        currentUiLog.push(`[4/6] 조합된 데이터 테이블: ${JSON.stringify(newCombinedInfo)}`);
+        setUiLog([...currentUiLog]);
+
+        currentUiLog.push("[5/6] 조합된 데이터로 HTML 콘텐츠 생성 시도...");
+        setUiLog([...currentUiLog]);
+        const content = generateHtmlContent(newCombinedInfo, reviewSelections);
+        currentUiLog.push(`[5/6] 생성된 HTML: ${content}`);
+        setUiLog([...currentUiLog]);
+
+        currentUiLog.push("[6/6] 최종 상태 업데이트 시도...");
+        currentUiLog.push(`- setCombinedInfo`);
+        currentUiLog.push(`- setApiLog`);
+        currentUiLog.push(`- setPreviewContent`);
+        setUiLog([...currentUiLog]);
+
         setCombinedInfo(newCombinedInfo);
         setApiLog(currentLog);
-
-        const content = generateHtmlContent(newCombinedInfo, reviewSelections);
         setPreviewContent(content);
+        currentUiLog.push("[완료] 모든 작업이 성공적으로 완료되었습니다.");
+        setUiLog([...currentUiLog]);
 
     } catch (e: any) {
+        const errorMessage = `미리보기 생성 오류: ${e.message}`;
+        currentUiLog.push(`[오류] ${errorMessage}`);
+        setUiLog([...currentUiLog]);
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
-        setPreviewContent(`<p>미리보기 생성 중 오류 발생: ${e.message}</p>`);
+        setPreviewContent(`<p>${errorMessage}</p>`);
         setIsHtmlMode(true);
     } finally {
       setIsGeneratingPreview(false);
@@ -906,5 +933,3 @@ const handleGeneratePreview = async () => {
     </main>
   );
 }
-
-    
