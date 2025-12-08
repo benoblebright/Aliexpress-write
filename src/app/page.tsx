@@ -362,15 +362,7 @@ export default function Home() {
         menu_id: "2"
     };
 
-    toast({
-      title: "네이버 카페 API 호출 값",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(cafePayload, null, 2)}</code>
-        </pre>
-      ),
-      duration: Infinity,
-    });
+    console.log("네이버 카페 API 호출 값:", JSON.stringify(cafePayload, null, 2));
 
     try {
         setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
@@ -863,3 +855,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
