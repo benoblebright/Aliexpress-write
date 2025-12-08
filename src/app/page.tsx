@@ -91,6 +91,7 @@ type CafePostStatus = 'idle' | 'success' | 'error' | 'loading';
 interface CafePostResult {
     status: CafePostStatus;
     message: string;
+    payload?: string;
 }
 
 interface ReviewSelection {
@@ -352,8 +353,7 @@ export default function Home() {
     }
 
     setIsLoading(true);
-    setCafePostResult({ status: 'loading', message: '네이버 카페에 게시글을 준비하는 중...' });
-
+    
     const cafePayload = {
       subject: combinedInfo.product_title,
       content: previewContent,
@@ -362,11 +362,11 @@ export default function Home() {
       menu_id: "2"
     };
 
-    console.log("네이버 카페 API 호출 값:", JSON.stringify(cafePayload, null, 2));
+    const payloadString = JSON.stringify(cafePayload, null, 2);
+    setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...', payload: payloadString });
+    console.log("네이버 카페 API 호출 값:", payloadString);
 
     try {
-      setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
-      
       const cafeResponse = await fetch("/api/post-to-naver-cafe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -374,49 +374,47 @@ export default function Home() {
       });
 
       if (cafeResponse.ok) {
-        setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다.` });
+        const result = await cafeResponse.json();
+        setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다.`, payload: payloadString });
         toast({
           title: "성공!",
           description: `상품이 네이버 카페에 성공적으로 게시되었습니다.`,
         });
 
         if (selectedRowNumber !== null) {
-          const originalItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
-          if (originalItem) {
-            try {
-              const newValues: { [key: string]: any } = {
-                checkup: '1',
-                "글쓰기 시간": new Date().toISOString(),
-              };
+          try {
+            const newValues: { [key: string]: any } = {
+              checkup: '1',
+              "글쓰기 시간": new Date().toISOString(),
+            };
 
-              Object.keys(form.getValues()).forEach(key => {
-                const typedKey = key as keyof FormData;
-                const value = form.getValues(typedKey);
-                if (value) {
-                  newValues[typedKey] = value;
-                }
-              });
+            Object.keys(form.getValues()).forEach(key => {
+              const typedKey = key as keyof FormData;
+              const value = form.getValues(typedKey);
+              if (value) {
+                newValues[typedKey] = value;
+              }
+            });
 
-              await fetch('/api/sheets', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rowNumber: originalItem.rowNumber, newValues }),
-              });
+            await fetch('/api/sheets', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rowNumber: selectedRowNumber, newValues }),
+            });
 
-              setSheetData(prev => prev.filter(d => d.rowNumber !== originalItem.rowNumber));
-              setSelectedRowNumber(null);
-              form.reset();
-              setCombinedInfo(null);
-              setPreviewContent("");
-
-            } catch (sheetError) {
-              console.error("Failed to update sheet after posting:", sheetError);
-              toast({
-                variant: "destructive",
-                title: "시트 업데이트 실패",
-                description: "네이버 카페 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
-              });
-            }
+            setSheetData(prev => prev.filter(d => d.rowNumber !== selectedRowNumber));
+            setSelectedRowNumber(null);
+            form.reset();
+            setCombinedInfo(null);
+            setPreviewContent("");
+            
+          } catch (sheetError) {
+            console.error("Failed to update sheet after posting:", sheetError);
+            toast({
+              variant: "destructive",
+              title: "시트 업데이트 실패",
+              description: "네이버 카페 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
+            });
           }
         }
       } else {
@@ -425,7 +423,7 @@ export default function Home() {
         throw new Error(`네이버 카페 게시 실패: ${cafeErrorMessage}`);
       }
     } catch (error: any) {
-      setCafePostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
+      setCafePostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다.", payload: payloadString });
       toast({
         variant: "destructive",
         title: "오류 발생",
@@ -843,7 +841,13 @@ export default function Home() {
                       {cafePostResult.status === 'error' && '오류'}
                     </AlertTitle>
                     <AlertDescription>
-                      <pre className="whitespace-pre-wrap font-sans">{cafePostResult.message}</pre>
+                      <p className="whitespace-pre-wrap font-sans mb-4">{cafePostResult.message}</p>
+                      {cafePostResult.payload && (
+                        <details className="mt-2">
+                            <summary className="cursor-pointer text-xs text-muted-foreground">호출 값 보기</summary>
+                            <pre className="mt-2 w-full text-xs whitespace-pre-wrap rounded-md bg-muted p-4 font-mono">{cafePostResult.payload}</pre>
+                        </details>
+                      )}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -855,3 +859,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
