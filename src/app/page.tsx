@@ -51,7 +51,9 @@ const formSchema = z.object({
   coinDiscountRate: z.string().optional(),
   productTag: z.string().optional(),
   discountCode: z.string().optional(),
-  discountCodePrice: z.string().optional(),
+  discountCodePrice: z
+    .string()
+    .optional(),
   storeCouponCode: z.string().optional(),
   storeCouponPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
@@ -181,7 +183,7 @@ export default function Home() {
         return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
     }
 
-    let content = `<p>${info.product_title}</p><br />`;
+    let content = `<p>${form.getValues("productTitle")}</p><br />`;
 
     const productPriceNum = parsePrice(product.productPrice);
     const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
@@ -377,7 +379,7 @@ export default function Home() {
 
       if (cafeResponse.ok) {
         const result = await cafeResponse.json();
-        setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다.`, payload: payloadString });
+        setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다. URL: ${result.articleUrl}`, payload: payloadString });
         toast({
           title: "성공!",
           description: `상품이 네이버 카페에 성공적으로 게시되었습니다.`,
@@ -385,18 +387,49 @@ export default function Home() {
 
         if (selectedRowNumber !== null) {
           try {
-            const newValues: { [key: string]: any } = {
-              checkup: '1',
-              "글쓰기 시간": new Date().toISOString(),
-            };
+            const product = form.getValues();
+            const productPriceNum = parsePrice(product.productPrice);
+            const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+            const discountCodePriceNum = parsePrice(product.discountCodePrice);
+            const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
+            const cardPriceNum = parsePrice(product.cardPrice);
 
-            Object.keys(form.getValues()).forEach(key => {
-              const typedKey = key as keyof FormData;
-              const value = form.getValues(typedKey);
-              if (value) {
-                newValues[typedKey] = value;
-              }
-            });
+            let finalPrice = productPriceNum;
+            if (coinDiscountRateNum > 0) {
+              const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
+              finalPrice -= Math.round(coinDiscountValue / 10) * 10;
+            }
+            if (discountCodePriceNum > 0) finalPrice -= discountCodePriceNum;
+            if (storeCouponPriceNum > 0) finalPrice -= storeCouponPriceNum;
+            if (cardPriceNum > 0) finalPrice -= cardPriceNum;
+            finalPrice = Math.max(0, finalPrice);
+
+            const discountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
+
+            const reviews = [
+                combinedInfo.korean_summary1,
+                combinedInfo.korean_summary2,
+                combinedInfo.korean_summary3,
+                combinedInfo.korean_summary4,
+                combinedInfo.korean_summary5,
+            ];
+            const firstSelectedReview = reviews[reviewSelections.findIndex(s => s.included)] || "";
+
+
+            const newValues: { [key: string]: any } = {
+              'checkup': '1',
+              "글쓰기 시간": new Date().toISOString(),
+              'productTitle': form.getValues("productTitle") || '',
+              '할인판매가': productPriceNum,
+              '할인구매가': finalPrice,
+              '이미지URL': combinedInfo.product_main_image_url || '',
+              '총판매': combinedInfo.sale_volume,
+              '총리뷰': combinedInfo.total_num,
+              '국내리뷰': combinedInfo.korean_local_count,
+              '고객리뷰': firstSelectedReview,
+              '할인율': `${discountRate.toFixed(2)}%`,
+              '게시물URL': result.articleUrl || '',
+            };
 
             await fetch('/api/sheets', {
               method: 'POST',
@@ -860,5 +893,6 @@ export default function Home() {
     </main>
   );
 }
+
 
     
