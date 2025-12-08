@@ -102,7 +102,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -852,5 +852,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
