@@ -275,15 +275,13 @@ const handleGeneratePreview = async () => {
     }
 
     setIsGeneratingPreview(true);
-    setPreviewContent("");
     setCombinedInfo(null);
+    setPreviewContent("");
     setApiLog([]);
-    const currentLog: ApiLogEntry[] = [];
     let currentUiLog: string[] = ["[1/6] 미리보기 생성 시작..."];
     setUiLog(currentUiLog);
-
-    setIsHtmlMode(false);
     setReviewSelections(Array(5).fill({ included: false, summarized: false }));
+    setIsHtmlMode(false);
 
     try {
         currentUiLog.push("[2/6] 상품정보와 후기정보 API 동시 호출 시도...");
@@ -305,11 +303,9 @@ const handleGeneratePreview = async () => {
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
 
-        currentLog.push({ name: '상품정보 API (/api/generate-all)', request: { target_urls: [productUrl], aff_short_key: [affShortKey] }, response: infoResult });
-        currentLog.push({ name: '후기정보 API (/api/generate-reviews)', request: { target_urls: [productUrl] }, response: reviewsResult });
         currentUiLog.push(`[3/6] API 응답 받음: 상품정보(${infoResponse.ok ? '성공' : '실패'}), 후기정보(${reviewsResponse.ok ? '성공' : '실패'})`);
-        currentUiLog.push(`[3/6] 상품정보 응답: ${JSON.stringify(infoResult)}`);
-        currentUiLog.push(`[3/6] 후기정보 응답: ${JSON.stringify(reviewsResult)}`);
+        currentUiLog.push(`[3/6] 상품정보 응답: ${JSON.stringify(infoResult, null, 2)}`);
+        currentUiLog.push(`[3/6] 후기정보 응답: ${JSON.stringify(reviewsResult, null, 2)}`);
         setUiLog([...currentUiLog]);
         
         if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
@@ -318,9 +314,10 @@ const handleGeneratePreview = async () => {
 
         currentUiLog.push("[4/6] API 결과들을 하나의 데이터 테이블로 조합 시도...");
         setUiLog([...currentUiLog]);
-
+        
         const productInfo = infoResult.allInfos[0];
-        const koreanReviews = (reviewsResult?.korean_summary || '').split('|').map((s:string) => s.trim()).filter(Boolean);
+        
+        const koreanReviews = (reviewsResult?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
         const newCombinedInfo: CombinedInfo = {
             original_url: productInfo.original_url,
@@ -349,14 +346,12 @@ const handleGeneratePreview = async () => {
         setUiLog([...currentUiLog]);
 
         currentUiLog.push("[6/6] 최종 상태 업데이트 시도...");
-        currentUiLog.push(`- setCombinedInfo`);
-        currentUiLog.push(`- setApiLog`);
-        currentUiLog.push(`- setPreviewContent`);
         setUiLog([...currentUiLog]);
 
         setCombinedInfo(newCombinedInfo);
-        setApiLog(currentLog);
+        setApiLog([{ name: '상품정보 API', request: { target_urls: [productUrl], aff_short_key: [affShortKey] }, response: infoResult }, { name: '후기정보 API', request: { target_urls: [productUrl] }, response: reviewsResult }]);
         setPreviewContent(content);
+        
         currentUiLog.push("[완료] 모든 작업이 성공적으로 완료되었습니다.");
         setUiLog([...currentUiLog]);
 
