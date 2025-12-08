@@ -352,8 +352,6 @@ export default function Home() {
     setIsLoading(true);
     setCafePostResult({ status: 'loading', message: '네이버 카페에 게시글을 준비하는 중...' });
 
-    const originalItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
-
     const cafePayload = {
         subject: combinedInfo.product_title,
         content: previewContent,
@@ -386,40 +384,43 @@ export default function Home() {
                 title: "성공!",
                 description: `상품이 네이버 카페에 성공적으로 게시되었습니다.`,
               });
-              if (originalItem) {
-                 try {
-                    const newValues: {[key: string]: any} = {
-                      checkup: '1',
-                      "글쓰기 시간": new Date().toISOString(),
-                    };
-                    
-                    Object.keys(form.getValues()).forEach(key => {
-                        const typedKey = key as keyof FormData;
-                        const value = form.getValues(typedKey);
-                        if (value) {
-                          newValues[typedKey] = value;
-                        }
-                    });
-
-                    await fetch('/api/sheets', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ rowNumber: originalItem.rowNumber, newValues }),
-                    });
-                    
-                    setSheetData(prev => prev.filter(d => d.rowNumber !== originalItem.rowNumber));
-                    setSelectedRowNumber(null);
-                    form.reset(); 
-                    setCombinedInfo(null);
-                    setPreviewContent("");
-
-                 } catch (sheetError) {
-                     console.error("Failed to update sheet after posting:", sheetError);
-                     toast({
-                         variant: "destructive",
-                         title: "시트 업데이트 실패",
-                         description: "네이버 카페 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
-                     })
+              if (selectedRowNumber !== null) {
+                 const originalItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
+                 if (originalItem) {
+                     try {
+                        const newValues: {[key: string]: any} = {
+                          checkup: '1',
+                          "글쓰기 시간": new Date().toISOString(),
+                        };
+                        
+                        Object.keys(form.getValues()).forEach(key => {
+                            const typedKey = key as keyof FormData;
+                            const value = form.getValues(typedKey);
+                            if (value) {
+                              newValues[typedKey] = value;
+                            }
+                        });
+    
+                        await fetch('/api/sheets', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ rowNumber: originalItem.rowNumber, newValues }),
+                        });
+                        
+                        setSheetData(prev => prev.filter(d => d.rowNumber !== originalItem.rowNumber));
+                        setSelectedRowNumber(null);
+                        form.reset(); 
+                        setCombinedInfo(null);
+                        setPreviewContent("");
+    
+                     } catch (sheetError) {
+                         console.error("Failed to update sheet after posting:", sheetError);
+                         toast({
+                             variant: "destructive",
+                             title: "시트 업데이트 실패",
+                             description: "네이버 카페 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
+                         })
+                     }
                  }
               }
 
@@ -561,7 +562,9 @@ export default function Home() {
   }, [selectedRowNumber, form]);
   
   useEffect(() => {
-    handleUpdatePreviewWithReviews();
+    if(combinedInfo) {
+      handleUpdatePreviewWithReviews();
+    }
   }, [reviewSelections, combinedInfo]);
 
   return (
