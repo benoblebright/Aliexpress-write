@@ -239,9 +239,11 @@ export default function Home() {
     .map(({ review, selection }) => {
         let reviewContent = review!.replace(/<[^>]*>?/gm, ''); // Basic HTML tag removal
         if (selection.summarized && reviewContent.length > 50) {
-            reviewContent = `${reviewContent.substring(0, 50)}... <a href='${info.final_url}'>더보기</a>`;
+            reviewContent = `<p>- ${reviewContent.substring(0, 50)}... <a href='${info.final_url}'>더보기</a></p>`;
+        } else {
+            reviewContent = `<p>- ${reviewContent}</p>`;
         }
-        return `<p>- ${reviewContent}</p>`;
+        return reviewContent;
     })
     .join('<br />');
 
@@ -693,7 +695,6 @@ export default function Home() {
                                 placeholder={fieldInfo.placeholder}
                                 {...field}
                                 value={field.value ?? ""}
-                                readOnly={fieldInfo.name === 'productTitle'}
                               />
                             </FormControl>
                             <FormMessage />
