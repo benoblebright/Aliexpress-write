@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -256,7 +257,7 @@ export default function Home() {
     return content;
   }
   
-const handleGeneratePreview = async () => {
+  const handleGeneratePreview = async () => {
     const { productUrl, affShortKey } = form.getValues();
     const isFormValid = await form.trigger(["productUrl", "affShortKey"]);
     
@@ -293,7 +294,7 @@ const handleGeneratePreview = async () => {
         }
 
         const productInfo = infoResult.allInfos[0];
-        const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : {};
+        const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : null;
         
         const koreanReviews = (reviewData?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
@@ -488,25 +489,27 @@ const handleGeneratePreview = async () => {
   };
 
   const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
-      setReviewSelections(prev => {
-        const newSelections = [...prev];
-        const current = newSelections[index];
-
-        if (type === 'included') {
-            current.included = !current.included;
-            // If un-including, also un-summarize
-            if (!current.included) {
-                current.summarized = false;
+    setReviewSelections(prev => {
+        return prev.map((selection, i) => {
+            if (i === index) {
+                const newSelection = { ...selection };
+                if (type === 'included') {
+                    newSelection.included = !newSelection.included;
+                    if (!newSelection.included) {
+                        newSelection.summarized = false; // 포함이 아니면 요약도 해제
+                    }
+                } else if (type === 'summarized') {
+                    // 포함되어 있을 때만 요약 가능
+                    if (newSelection.included) {
+                        newSelection.summarized = !newSelection.summarized;
+                    }
+                }
+                return newSelection;
             }
-        } else if (type === 'summarized') {
-            // Can only summarize if included
-            if (current.included) {
-                current.summarized = !current.summarized;
-            }
-        }
-        return newSelections;
-      });
-  };
+            return selection;
+        });
+    });
+};
   
   const formFields = {
     required: [
@@ -836,3 +839,5 @@ const handleGeneratePreview = async () => {
     </main>
   );
 }
+
+    
