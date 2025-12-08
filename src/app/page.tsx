@@ -322,7 +322,6 @@ export default function Home() {
         };
         
         setCombinedInfo(newCombinedInfo);
-        form.setValue("productTitle", newCombinedInfo.product_title);
         const content = generateHtmlContent(newCombinedInfo, reviewSelections);
         setPreviewContent(content);
         
@@ -350,7 +349,7 @@ export default function Home() {
     });
   };
 
-  const handlePostToNaverCafe = async (data: FormData) => {
+  const handlePostToNaverCafe = async () => {
     if (!combinedInfo || !previewContent) {
       toast({ variant: "destructive", title: "게시 불가", description: "먼저 미리보기를 생성해주세요." });
       return;
@@ -547,7 +546,7 @@ export default function Home() {
   
   const formFields = {
     required: [
-        { name: "productTitle", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 미리보기 생성시 자동입력", isRequired: false },
+        { name: "productTitle", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 직접 입력", isRequired: false },
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
         { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", isRequired: false },
