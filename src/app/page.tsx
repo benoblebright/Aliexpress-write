@@ -355,7 +355,7 @@ export default function Home() {
     setIsLoading(true);
     
     const cafePayload = {
-      subject: combinedInfo.product_title,
+      subject: form.getValues("productTitle") || combinedInfo.product_title,
       content: previewContent,
       image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
       club_id: "31609361",
@@ -859,5 +859,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
