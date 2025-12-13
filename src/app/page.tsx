@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Image as ImageIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -590,6 +590,10 @@ export default function Home() {
   };
   
   const copyToClipboard = (text: string) => {
+    if (!text) {
+        toast({ variant: "destructive", title: "복사 실패", description: "복사할 내용이 없습니다." });
+        return;
+    }
     navigator.clipboard.writeText(text).then(() => {
       toast({ title: "복사 완료", description: "클립보드에 복사되었습니다." });
     }, (err) => {
@@ -866,8 +870,16 @@ export default function Home() {
                          <div className="flex gap-2">
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
                                 {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
-                                {isHtmlMode ? "미리보기" : "HTML 소스보기"}
+                                {isHtmlMode ? "미리보기" : "HTML 보기"}
                             </Button>
+                             <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(previewContent)} disabled={!previewContent}>
+                                 <ClipboardCopy className="mr-2 h-4 w-4" />
+                                 내용 복사하기
+                             </Button>
+                             <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(combinedInfo?.product_main_image_url || '')} disabled={!combinedInfo?.product_main_image_url}>
+                                 <ImageIcon className="mr-2 h-4 w-4" />
+                                 이미지 URL 복사하기
+                             </Button>
                          </div>
                       </div>
 
@@ -965,5 +977,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
