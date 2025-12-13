@@ -173,7 +173,13 @@ export default function Home() {
   };
 
   const formatPrice = (price: number): string => {
+    if (price < 1000) {
+      // For prices less than 1000, format as USD
+      return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      // For prices 1000 and above, format as KRW
       return new Intl.NumberFormat('ko-KR').format(price) + '원';
+    }
   };
 
   const generateHtmlContent = useCallback((info: CombinedInfo | null, selections: ReviewSelection[]): string => {
@@ -732,7 +738,7 @@ export default function Home() {
                                 <Separator />
                                 <div className="flex flex-col sm:flex-row gap-2">
                                     <Button 
-                                        onClick={() => handleSelectSheetItem(item)} 
+                                        onClick={() => handleSelectSheetItem(item)}
                                         variant={selectedRowNumber === item.rowNumber ? "default" : "outline"}
                                         className="w-full"
                                     >
