@@ -172,20 +172,20 @@ export default function Home() {
       return isNaN(parsed) ? 0 : parsed;
   };
 
-  const formatPrice = (price: number): string => {
-    if (price < 1000) {
-      // For prices less than 1000, format as USD
-      return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else {
-      // For prices 1000 and above, format as KRW
-      return new Intl.NumberFormat('ko-KR').format(price) + '원';
-    }
-  };
-
   const generateHtmlContent = useCallback((info: CombinedInfo | null, selections: ReviewSelection[]): string => {
     if (!info?.product_title || !info?.final_url) {
         return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
     }
+
+    const formatPrice = (price: number, originalInput?: string): string => {
+        if (originalInput && originalInput.includes('$')) {
+            return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        if (price < 1000) {
+            return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return new Intl.NumberFormat('ko-KR').format(price) + '원';
+    };
 
     const { ...product } = form.getValues();
 
@@ -200,7 +200,7 @@ export default function Home() {
     let finalPrice = productPriceNum;
     
     if (productPriceNum > 0) {
-      content += `<p>할인판매가: ${formatPrice(productPriceNum)}</p>`;
+      content += `<p>할인판매가: ${formatPrice(productPriceNum, product.productPrice)}</p>`;
     }
     
     if (coinDiscountRateNum > 0 && productPriceNum > 0) {
@@ -209,20 +209,20 @@ export default function Home() {
       finalPrice -= coinDiscountValue;
     }
     if (discountCodePriceNum > 0 && product.discountCode) {
-        content += `<p>할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )</p>`;
+        content += `<p>할인코드: -${formatPrice(discountCodePriceNum, product.discountCodePrice)} ( ${product.discountCode} )</p>`;
         finalPrice -= discountCodePriceNum;
     }
      if (storeCouponPriceNum > 0 && product.storeCouponCode) {
-        content += `<p>스토어쿠폰: -${formatPrice(storeCouponPriceNum)} ( ${product.storeCouponCode} )</p>`;
+        content += `<p>스토어쿠폰: -${formatPrice(storeCouponPriceNum, product.storeCouponPrice)} ( ${product.storeCouponCode} )</p>`;
         finalPrice -= storeCouponPriceNum;
     }
     if (cardPriceNum > 0 && product.cardCompanyName) {
-        content += `<p>카드할인: -${formatPrice(cardPriceNum)} ( ${product.cardCompanyName} )</p>`;
+        content += `<p>카드할인: -${formatPrice(cardPriceNum, product.cardPrice)} ( ${product.cardCompanyName} )</p>`;
         finalPrice -= cardPriceNum;
     }
     
     if(finalPrice < productPriceNum && productPriceNum > 0) {
-        content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice))}</p>`;
+        content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice), product.productPrice)}</p>`;
     }
     
     content += `<br /><p>할인상품 : <a href='${info.final_url}'>특가상품 바로가기</a></p><br />`;
@@ -375,6 +375,17 @@ export default function Home() {
 
      if (combinedInfo.kakao_url) {
         const product = form.getValues();
+
+        const formatKakaoPrice = (price: number, originalInput?: string): string => {
+            if (originalInput && originalInput.includes('$')) {
+                return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            if (price < 1000) {
+                return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            return new Intl.NumberFormat('ko-KR').format(price) + '원';
+        };
+
         const productPriceNum = parsePrice(product.productPrice);
         const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
         const discountCodePriceNum = parsePrice(product.discountCodePrice);
@@ -383,7 +394,7 @@ export default function Home() {
 
         let finalPrice = productPriceNum;
         let kakaoContent = `상품명 : ${product.Subject_title || combinedInfo.product_title}\n`;
-        if (productPriceNum > 0) kakaoContent += `할인판매가 : ${formatPrice(productPriceNum)}\n`;
+        if (productPriceNum > 0) kakaoContent += `할인판매가 : ${formatKakaoPrice(productPriceNum, product.productPrice)}\n`;
 
         if (coinDiscountRateNum > 0 && productPriceNum > 0) {
             const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountRateNum / 100));
@@ -392,21 +403,21 @@ export default function Home() {
         }
         if (discountCodePriceNum > 0 && product.discountCode) {
             finalPrice -= discountCodePriceNum;
-            kakaoContent += `할인코드 : -${formatPrice(discountCodePriceNum)} (${product.discountCode})\n`;
+            kakaoContent += `할인코드 : -${formatKakaoPrice(discountCodePriceNum, product.discountCodePrice)} (${product.discountCode})\n`;
         }
         if (storeCouponPriceNum > 0 && product.storeCouponCode) {
             finalPrice -= storeCouponPriceNum;
-            kakaoContent += `스토어쿠폰 : -${formatPrice(storeCouponPriceNum)} (${product.storeCouponCode})\n`;
+            kakaoContent += `스토어쿠폰 : -${formatKakaoPrice(storeCouponPriceNum, product.storeCouponPrice)} (${product.storeCouponCode})\n`;
         }
         if (cardPriceNum > 0 && product.cardCompanyName) {
             finalPrice -= cardPriceNum;
-            kakaoContent += `카드할인 : -${formatPrice(cardPriceNum)} (${product.cardCompanyName})\n`;
+            kakaoContent += `카드할인 : -${formatKakaoPrice(cardPriceNum, product.cardPrice)} (${product.cardCompanyName})\n`;
         }
         finalPrice = Math.max(0, finalPrice);
         const totalDiscountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
         
         if (finalPrice < productPriceNum && productPriceNum > 0) {
-            kakaoContent += `할인구매가 : ${formatPrice(finalPrice)} (${Math.floor(totalDiscountRate)}%)`;
+            kakaoContent += `할인구매가 : ${formatKakaoPrice(finalPrice, product.productPrice)} (${Math.floor(totalDiscountRate)}%)`;
         }
 
         const kakaoPayload = {
@@ -954,3 +965,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
