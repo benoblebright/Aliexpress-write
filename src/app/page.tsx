@@ -75,6 +75,7 @@ interface SheetData {
 interface CombinedInfo {
     original_url: string;
     final_url: string;
+    kakao_url: string;
     product_title: string;
     product_main_image_url: string | null;
     sale_volume: number;
@@ -306,6 +307,7 @@ export default function Home() {
         const newCombinedInfo: CombinedInfo = {
             original_url: productInfo.original_url,
             final_url: productInfo.final_url,
+            kakao_url: productInfo.kakao_urls && productInfo.kakao_urls[0] ? productInfo.kakao_urls[0] : '',
             product_title: productInfo.product_title,
             product_main_image_url: productInfo.product_main_image_url,
             sale_volume: parseInt(productInfo.sale_volume || '0', 10),
@@ -364,6 +366,65 @@ export default function Home() {
     };
 
     console.log("네이버 카페 전송 데이터:", cafePayload);
+
+     if (combinedInfo.kakao_url) {
+        const product = form.getValues();
+        const productPriceNum = parsePrice(product.productPrice);
+        const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+        const discountCodePriceNum = parsePrice(product.discountCodePrice);
+        const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
+        const cardPriceNum = parsePrice(product.cardPrice);
+
+        let finalPrice = productPriceNum;
+        let kakaoContent = `상품명 : ${product.Subject_title || combinedInfo.product_title}\n`;
+        if (productPriceNum > 0) kakaoContent += `할인판매가 : ${formatPrice(productPriceNum)}\n`;
+
+        if (coinDiscountRateNum > 0 && productPriceNum > 0) {
+            const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountRateNum / 100));
+            finalPrice -= coinDiscountValue;
+            kakaoContent += `코인할인율 : ${coinDiscountRateNum}%\n`;
+        }
+        if (discountCodePriceNum > 0 && product.discountCode) {
+            finalPrice -= discountCodePriceNum;
+            kakaoContent += `할인코드 : -${formatPrice(discountCodePriceNum)} (${product.discountCode})\n`;
+        }
+        if (storeCouponPriceNum > 0 && product.storeCouponCode) {
+            finalPrice -= storeCouponPriceNum;
+            kakaoContent += `스토어쿠폰 : -${formatPrice(storeCouponPriceNum)} (${product.storeCouponCode})\n`;
+        }
+        if (cardPriceNum > 0 && product.cardCompanyName) {
+            finalPrice -= cardPriceNum;
+            kakaoContent += `카드할인 : -${formatPrice(cardPriceNum)} (${product.cardCompanyName})\n`;
+        }
+        finalPrice = Math.max(0, finalPrice);
+        const totalDiscountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
+        
+        if (finalPrice < productPriceNum && productPriceNum > 0) {
+            kakaoContent += `할인구매가 : ${formatPrice(finalPrice)} (${Math.floor(totalDiscountRate)}%)`;
+        }
+
+        const kakaoPayload = {
+            kakao_content: kakaoContent,
+            kakao_url: combinedInfo.kakao_url,
+        };
+
+        console.log("카카오 전송 데이터:", kakaoPayload);
+
+        // 비동기 호출, 결과 기다리지 않음
+        fetch("/api/post-to-kakao", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(kakaoPayload),
+        }).then(response => {
+            if (!response.ok) {
+                console.error("카카오톡 전송 API 호출 실패");
+            } else {
+                console.log("카카오톡 전송 API 호출 성공");
+            }
+        }).catch(error => {
+            console.error("카카오톡 전송 중 오류 발생:", error);
+        });
+    }
   
     try {
       const cafeResponse = await fetch("/api/post-to-naver-cafe", {
@@ -887,5 +948,3 @@ export default function Home() {
     </main>
   );
 }
-
-    

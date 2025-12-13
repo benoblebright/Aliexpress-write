@@ -17,11 +17,13 @@ interface BackendResponse {
     product_urls: string[];
     final_urls: string[];
     details: BackendDetail[];
+    kakao_urls?: string[];
 }
 
 interface FrontendInfo {
     original_url: string;
     final_url: string;
+    kakao_urls?: string[];
     product_title: string | null;
     product_main_image_url: string | null;
     sale_volume: string | number | null;
@@ -67,13 +69,14 @@ export async function POST(request: Request) {
         const combinedInfos: FrontendInfo[] = responseData.product_urls.map((originalUrl, index) => {
             const detail = responseData.details[index];
             const finalUrl = responseData.final_urls[index];
-            
-            // original_url is now taken from the details object if it exists, otherwise it falls back to the product_urls from the request.
+            const kakaoUrls = responseData.kakao_urls;
+
             const originalProductUrl = detail.original_url || originalUrl;
 
             return {
                 original_url: originalProductUrl,
                 final_url: finalUrl,
+                kakao_urls: kakaoUrls,
                 product_title: detail.product_title,
                 product_main_image_url: detail.product_main_image_url,
                 sale_volume: detail.sale_volume,
