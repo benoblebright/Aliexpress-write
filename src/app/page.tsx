@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -509,7 +508,6 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
-        form.setValue("productUrl", item.URL || "");
     }
   };
   
@@ -884,5 +882,3 @@ export default function Home() {
     </main>
   );
 }
-
-
