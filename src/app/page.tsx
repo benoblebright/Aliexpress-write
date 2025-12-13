@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -362,6 +363,8 @@ export default function Home() {
       club_id: "31609361",
       menu_id: "2"
     };
+
+    console.log("네이버 카페 전송 데이터:", cafePayload);
   
     try {
       const cafeResponse = await fetch("/api/post-to-naver-cafe", {
@@ -506,6 +509,7 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
+        form.setValue("productUrl", item.URL || "");
     }
   };
   
@@ -880,4 +884,5 @@ export default function Home() {
     </main>
   );
 }
+
 
