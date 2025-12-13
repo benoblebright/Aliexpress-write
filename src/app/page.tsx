@@ -197,7 +197,7 @@ export default function Home() {
     }
     
     if (coinDiscountRateNum > 0 && productPriceNum > 0) {
-      const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
+      const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountRateNum / 100));
       content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
       finalPrice -= coinDiscountValue;
     }
@@ -393,7 +393,7 @@ export default function Home() {
       
                   let finalPrice = productPriceNum;
                   if (coinDiscountRateNum > 0 && productPriceNum > 0) {
-                      const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
+                      const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountRateNum / 100));
                       finalPrice -= coinDiscountValue;
                   }
                   if (discountCodePriceNum > 0) finalPrice -= discountCodePriceNum;
@@ -887,3 +887,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
