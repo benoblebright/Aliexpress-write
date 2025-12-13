@@ -105,7 +105,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -197,8 +197,8 @@ export default function Home() {
     }
     
     if (coinDiscountRateNum > 0) {
-      content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
       const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
+      content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
       finalPrice -= coinDiscountValue;
     }
     if (discountCodePriceNum > 0 && product.discountCode) {
@@ -497,7 +497,7 @@ export default function Home() {
     }
   };
 
-  const toggleRowSelection = (item: SheetData) => {
+  const handleSelectSheetItem = (item: SheetData) => {
     if (selectedRowNumber === item.rowNumber) {
         setSelectedRowNumber(null);
         form.reset();
@@ -508,7 +508,6 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
-        form.setValue("productUrl", item.URL || "");
     }
   };
   
@@ -588,7 +587,6 @@ export default function Home() {
         const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
         if (selectedItem) {
             form.setValue("Subject_title", selectedItem.상품명 || "");
-            form.setValue("productUrl", selectedItem.URL || "");
         }
     }
   }, [selectedRowNumber, form, sheetData]);
@@ -673,7 +671,7 @@ export default function Home() {
                                 <Separator />
                                 <div className="flex flex-col sm:flex-row gap-2">
                                     <Button 
-                                        onClick={() => toggleRowSelection(item)} 
+                                        onClick={() => handleSelectSheetItem(item)} 
                                         variant={selectedRowNumber === item.rowNumber ? "default" : "outline"}
                                         className="w-full"
                                     >
@@ -889,5 +887,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
