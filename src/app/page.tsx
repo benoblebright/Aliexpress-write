@@ -105,7 +105,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -196,7 +196,7 @@ export default function Home() {
       content += `<p>할인판매가: ${formatPrice(productPriceNum)}</p>`;
     }
     
-    if (coinDiscountRateNum > 0) {
+    if (coinDiscountRateNum > 0 && productPriceNum > 0) {
       const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
       content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
       finalPrice -= coinDiscountValue;
@@ -392,7 +392,7 @@ export default function Home() {
                   const cardPriceNum = parsePrice(product.cardPrice);
       
                   let finalPrice = productPriceNum;
-                  if (coinDiscountRateNum > 0) {
+                  if (coinDiscountRateNum > 0 && productPriceNum > 0) {
                       const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
                       finalPrice -= coinDiscountValue;
                   }
@@ -887,3 +887,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
