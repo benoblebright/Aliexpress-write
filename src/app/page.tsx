@@ -199,7 +199,7 @@ export default function Home() {
     if (coinDiscountRateNum > 0) {
       content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
       const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
-      finalPrice -= Math.round(coinDiscountValue / 10) * 10;
+      finalPrice -= coinDiscountValue;
     }
     if (discountCodePriceNum > 0 && product.discountCode) {
         content += `<p>할인코드: -${formatPrice(discountCodePriceNum)} ( ${product.discountCode} )</p>`;
@@ -356,7 +356,7 @@ export default function Home() {
     setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
   
     const cafePayload = {
-      subject: form.getValues("Subject_title"),
+      subject: form.getValues("Subject_title") || combinedInfo.product_title,
       content: previewContent,
       image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
       club_id: "31609361",
@@ -394,7 +394,7 @@ export default function Home() {
                   let finalPrice = productPriceNum;
                   if (coinDiscountRateNum > 0) {
                       const coinDiscountValue = productPriceNum * (coinDiscountRateNum / 100);
-                      finalPrice -= Math.round(coinDiscountValue / 10) * 10;
+                      finalPrice -= coinDiscountValue;
                   }
                   if (discountCodePriceNum > 0) finalPrice -= discountCodePriceNum;
                   if (storeCouponPriceNum > 0) finalPrice -= storeCouponPriceNum;
@@ -508,6 +508,7 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
+        form.setValue("productUrl", item.URL || "");
     }
   };
   
@@ -583,8 +584,14 @@ export default function Home() {
   useEffect(() => {
     if (selectedRowNumber === null) {
       form.reset();
+    } else {
+        const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
+        if (selectedItem) {
+            form.setValue("Subject_title", selectedItem.상품명 || "");
+            form.setValue("productUrl", selectedItem.URL || "");
+        }
     }
-  }, [selectedRowNumber, form]);
+  }, [selectedRowNumber, form, sheetData]);
   
   useEffect(() => {
     if(combinedInfo) {
@@ -882,3 +889,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
