@@ -424,7 +424,7 @@ export default function Home() {
                       '총리뷰': combinedInfo.total_num,
                       '국내리뷰': combinedInfo.korean_local_count,
                       '고객리뷰': firstSelectedReview || '',
-                      '할인율': `${discountRate.toFixed(2)}%`,
+                      '할인율': `${Math.floor(discountRate)}%`,
                       '게시물URL': articleUrl,
                   };
       
@@ -887,5 +887,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
