@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Image as ImageIcon } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Image as ImageIcon, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -586,20 +586,53 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
+        form.setValue("productUrl", ""); // URL은 비워둠
     }
   };
   
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, isHtml: boolean = false) => {
     if (!text) {
         toast({ variant: "destructive", title: "복사 실패", description: "복사할 내용이 없습니다." });
         return;
     }
-    navigator.clipboard.writeText(text).then(() => {
+
+    let textToCopy = text;
+    if (isHtml) {
+        // HTML을 일반 텍스트로 변환
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = text;
+        textToCopy = tempDiv.textContent || tempDiv.innerText || "";
+    }
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
       toast({ title: "복사 완료", description: "클립보드에 복사되었습니다." });
     }, (err) => {
       toast({ variant: "destructive", title: "복사 실패", description: "클립보드 복사에 실패했습니다." });
     });
   };
+
+  const handleImageDownload = async () => {
+    if (!combinedInfo?.product_main_image_url) {
+      toast({ variant: "destructive", title: "다운로드 실패", description: "이미지 URL이 없습니다." });
+      return;
+    }
+    try {
+      const imageUrl = combinedInfo.product_main_image_url;
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      // 이미지 URL에서 파일 이름을 추출하거나 기본 이름을 지정합니다.
+      const fileName = imageUrl.split('/').pop()?.split('?')[0] || 'download.jpg';
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: "성공", description: "이미지 다운로드를 시작합니다." });
+    } catch (error) {
+      console.error("Image download failed:", error);
+      toast({ variant: "destructive", title: "다운로드 실패", description: "이미지를 다운로드하는 중 오류가 발생했습니다." });
+    }
+  };
+
 
   const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
     setReviewSelections(prev => {
@@ -627,7 +660,7 @@ export default function Home() {
         { name: "Subject_title", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 직접 입력", isRequired: false },
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
-        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원", isRequired: false },
+        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원 또는 $25", isRequired: false },
         { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10 또는 10%", isRequired: false },
         { name: "productTag", label: "상품태그", placeholder: "예: #캠핑 #가성비 (띄어쓰기로 구분)", isRequired: false },
     ],
@@ -872,13 +905,13 @@ export default function Home() {
                                 {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
                                 {isHtmlMode ? "미리보기" : "HTML 보기"}
                             </Button>
-                             <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(previewContent)} disabled={!previewContent}>
+                             <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(previewContent, true)} disabled={!previewContent}>
                                  <ClipboardCopy className="mr-2 h-4 w-4" />
                                  내용 복사하기
                              </Button>
-                             <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(combinedInfo?.product_main_image_url || '')} disabled={!combinedInfo?.product_main_image_url}>
-                                 <ImageIcon className="mr-2 h-4 w-4" />
-                                 이미지 URL 복사하기
+                             <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
+                                 <Download className="mr-2 h-4 w-4" />
+                                 이미지 다운로드
                              </Button>
                          </div>
                       </div>
@@ -977,3 +1010,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
