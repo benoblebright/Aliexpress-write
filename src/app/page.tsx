@@ -177,6 +177,8 @@ export default function Home() {
         return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
     }
 
+    const { ...product } = form.getValues();
+    
     const formatPrice = (price: number, originalInput?: string): string => {
         if (originalInput && originalInput.includes('$')) {
             return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -186,8 +188,6 @@ export default function Home() {
         }
         return new Intl.NumberFormat('ko-KR').format(price) + '원';
     };
-
-    const { ...product } = form.getValues();
 
     let content = `<p>${info.product_title}</p><br />`;
 
@@ -375,7 +375,7 @@ export default function Home() {
 
      if (combinedInfo.kakao_url) {
         const product = form.getValues();
-
+        
         const formatKakaoPrice = (price: number, originalInput?: string): string => {
             if (originalInput && originalInput.includes('$')) {
                 return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -617,15 +617,20 @@ export default function Home() {
       return;
     }
     try {
-      const imageUrl = combinedInfo.product_main_image_url;
+      const response = await fetch(combinedInfo.product_main_image_url);
+      if (!response.ok) {
+        throw new Error('Image fetch failed');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = imageUrl;
-      // 이미지 URL에서 파일 이름을 추출하거나 기본 이름을 지정합니다.
-      const fileName = imageUrl.split('/').pop()?.split('?')[0] || 'download.jpg';
+      link.href = url;
+      const fileName = combinedInfo.product_main_image_url.split('/').pop()?.split('?')[0] || 'download.jpg';
       link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       toast({ title: "성공", description: "이미지 다운로드를 시작합니다." });
     } catch (error) {
       console.error("Image download failed:", error);
@@ -894,43 +899,44 @@ export default function Home() {
                       </Button>
                 </div>
                 
-                {previewContent && (
+                {combinedInfo && (
                   <div className="space-y-4">
                     <Separator />
                     <div className="rounded-lg border p-4 space-y-4">
                       <div className="flex items-center justify-between">
-                         <CardTitle className="text-xl">미리보기 및 수정</CardTitle>
+                         <CardTitle className="text-xl">미리보기</CardTitle>
                          <div className="flex gap-2">
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
                                 {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
                                 {isHtmlMode ? "미리보기" : "HTML 보기"}
                             </Button>
-                             <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(previewContent, true)} disabled={!previewContent}>
-                                 <ClipboardCopy className="mr-2 h-4 w-4" />
-                                 내용 복사하기
-                             </Button>
                              <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
                                  <Download className="mr-2 h-4 w-4" />
                                  이미지 다운로드
                              </Button>
                          </div>
                       </div>
-
-                      {isHtmlMode ? (
-                         <Textarea
-                            id="preview-html"
-                            placeholder="HTML 소스..."
-                            value={previewContent}
-                            onChange={(e) => setPreviewContent(e.target.value)}
-                            className="min-h-[250px] text-sm font-mono bg-muted/30"
-                          />
-                      ) : (
-                         <div
-                            id="preview-display"
-                            className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ __html: previewContent }}
-                         />
+                      
+                      {previewContent && (
+                        <>
+                          {isHtmlMode ? (
+                             <Textarea
+                                id="preview-html"
+                                placeholder="HTML 소스..."
+                                value={previewContent}
+                                onChange={(e) => setPreviewContent(e.target.value)}
+                                className="min-h-[250px] text-sm font-mono bg-muted/30"
+                              />
+                          ) : (
+                             <div
+                                id="preview-display"
+                                className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none"
+                                dangerouslySetInnerHTML={{ __html: previewContent }}
+                             />
+                          )}
+                        </>
                       )}
+
                     </div>
                     
                     {reviews.length > 0 && (
