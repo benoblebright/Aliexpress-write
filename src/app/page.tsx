@@ -188,6 +188,11 @@ export default function Home() {
       setCalcD(0);
     }
   }, [calcA, calcB]);
+  
+  const handleResetCalculator = () => {
+    setCalcA('');
+    setCalcB('');
+  };
 
   const parsePrice = (price: string | number | undefined | null): number => {
       if (price === undefined || price === null || price === '') return 0;
@@ -565,6 +570,7 @@ export default function Home() {
               form.reset();
               setCombinedInfo(null);
               setPreviewContent("");
+              handleResetCalculator();
   
           } catch (sheetError) {
               console.error("Failed to update sheet after posting:", sheetError);
@@ -859,12 +865,18 @@ export default function Home() {
         </Card>
         
         <Card className="shadow-lg mb-8">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Calculator className="h-6 w-6" />
-                    계산기
-                </CardTitle>
-                <CardDescription>간단한 계산을 수행합니다.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1.5">
+                    <CardTitle className="flex items-center gap-2">
+                        <Calculator className="h-6 w-6" />
+                        계산기
+                    </CardTitle>
+                    <CardDescription>간단한 계산을 수행합니다.</CardDescription>
+                </div>
+                <Button variant="outline" size="icon" onClick={handleResetCalculator}>
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="sr-only">계산기 초기화</span>
+                </Button>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
