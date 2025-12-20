@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Image as ImageIcon, Download } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Image as ImageIcon, Download, Calculator } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -124,6 +124,12 @@ export default function Home() {
   const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>(
     Array(5).fill({ included: false, summarized: false })
   );
+  
+  const [calcA, setCalcA] = useState('');
+  const [calcB, setCalcB] = useState('');
+  const [calcC, setCalcC] = useState(0);
+  const [calcD, setCalcD] = useState(0);
+
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -168,6 +174,19 @@ export default function Home() {
   useEffect(() => {
     fetchSheetData();
   }, [fetchSheetData]);
+  
+  useEffect(() => {
+    const numA = parseFloat(calcA) || 0;
+    const numB = parseFloat(calcB) || 0;
+    const sumC = numA + numB;
+    setCalcC(sumC);
+    if (sumC !== 0) {
+      const percentageD = (numB / sumC) * 100;
+      setCalcD(percentageD);
+    } else {
+      setCalcD(0);
+    }
+  }, [calcA, calcB]);
 
   const parsePrice = (price: string | number | undefined | null): number => {
       if (price === undefined || price === null || price === '') return 0;
@@ -831,6 +850,39 @@ export default function Home() {
                   <CarouselNext className="hidden sm:flex" />
                 </Carousel>
               )}
+            </CardContent>
+        </Card>
+        
+        <Card className="shadow-lg mb-8">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Calculator className="h-6 w-6" />
+                    계산기
+                </CardTitle>
+                <CardDescription>간단한 계산을 수행합니다.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="calcA">값 A</Label>
+                        <Input id="calcA" type="number" placeholder="A 값을 입력하세요" value={calcA} onChange={(e) => setCalcA(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="calcB">값 B</Label>
+                        <Input id="calcB" type="number" placeholder="B 값을 입력하세요" value={calcB} onChange={(e) => setCalcB(e.target.value)} />
+                    </div>
+                </div>
+                <Separator className="my-4" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                        <p className="text-sm font-medium text-muted-foreground">C = A + B</p>
+                        <p className="text-2xl font-bold text-primary">{calcC.toLocaleString()}</p>
+                    </div>
+                     <div className="p-4 bg-muted/50 rounded-lg">
+                        <p className="text-sm font-medium text-muted-foreground">D = (B / C * 100)%</p>
+                        <p className="text-2xl font-bold text-primary">{calcD.toFixed(2)}%</p>
+                    </div>
+                </div>
             </CardContent>
         </Card>
 
