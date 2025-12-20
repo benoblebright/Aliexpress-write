@@ -47,12 +47,13 @@ export async function GET() {
         });
 
         const filteredAndSortedData = data
-            .filter(item => item.checkup === '0') 
+            .filter(item => item.checkup === '0' || !item.hasOwnProperty('checkup'))
             .sort((a, b) => {
                 const dateA = a.Runtime ? new Date(a.Runtime).getTime() : 0;
                 const dateB = b.Runtime ? new Date(b.Runtime).getTime() : 0;
                 return dateB - dateA;
             });
+
 
         return NextResponse.json({ data: filteredAndSortedData });
 
@@ -66,10 +67,10 @@ export async function POST(request: Request) {
     try {
         const { rowNumber, newValues } = await request.json();
 
-        if (!rowNumber || !newValues) {
-            return NextResponse.json({ error: 'Missing rowNumber or newValues' }, { status: 400 });
+        if (!newValues) {
+            return NextResponse.json({ error: 'Missing newValues' }, { status: 400 });
         }
-
+        
         const sheets = await getSheetsClient();
         
         const headerResponse = await sheets.spreadsheets.values.get({
@@ -82,55 +83,68 @@ export async function POST(request: Request) {
              return NextResponse.json({ error: 'Could not read sheet headers' }, { status: 500 });
         }
 
-        const updates = [];
-        const newColumns = [];
+        // If rowNumber is provided, update the row.
+        if (rowNumber) {
+            const updates = [];
+            const newColumns = [];
 
-        // Find columns for existing values
-        for (const key in newValues) {
-            const columnIndex = headers.indexOf(key);
-            if (columnIndex !== -1) {
-                const columnLetter = String.fromCharCode('A'.charCodeAt(0) + columnIndex);
-                updates.push({
-                    range: `${SHEET_NAME}!${columnLetter}${rowNumber}`,
-                    values: [[newValues[key]]],
-                });
-            } else {
-                newColumns.push(key);
+            // Find columns for existing values
+            for (const key in newValues) {
+                const columnIndex = headers.indexOf(key);
+                if (columnIndex !== -1) {
+                    const columnLetter = String.fromCharCode('A'.charCodeAt(0) + columnIndex);
+                    updates.push({
+                        range: `${SHEET_NAME}!${columnLetter}${rowNumber}`,
+                        values: [[newValues[key]]],
+                    });
+                } else {
+                    newColumns.push(key);
+                }
             }
-        }
-        
-        // Append new columns to the header if they don't exist
-        if (newColumns.length > 0) {
-            const lastColumnIndex = headers.length;
-            const lastColumnLetter = String.fromCharCode('A'.charCodeAt(0) + lastColumnIndex -1);
             
-            await sheets.spreadsheets.values.update({
+            // Append new columns to the header if they don't exist
+            if (newColumns.length > 0) {
+                const lastColumnIndex = headers.length;
+                
+                await sheets.spreadsheets.values.update({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: `${SHEET_NAME}!${String.fromCharCode('A'.charCodeAt(0) + lastColumnIndex)}1`,
+                    valueInputOption: 'USER_ENTERED',
+                    requestBody: {
+                        values: [newColumns],
+                    },
+                });
+                
+                // Add new values to the new columns for the specific row
+                newColumns.forEach((key, index) => {
+                     const newColumnIndex = lastColumnIndex + index;
+                     const columnLetter = String.fromCharCode('A'.charCodeAt(0) + newColumnIndex);
+                     updates.push({
+                        range: `${SHEET_NAME}!${columnLetter}${rowNumber}`,
+                        values: [[newValues[key]]],
+                    });
+                });
+            }
+
+            if (updates.length > 0) {
+                await sheets.spreadsheets.values.batchUpdate({
+                    spreadsheetId: SPREADSHEET_ID,
+                    requestBody: {
+                        valueInputOption: 'USER_ENTERED',
+                        data: updates,
+                    },
+                });
+            }
+        } else {
+            // If rowNumber is not provided, append a new row.
+            const newRow = headers.map(header => newValues[header] || '');
+
+            await sheets.spreadsheets.values.append({
                 spreadsheetId: SPREADSHEET_ID,
-                range: `${SHEET_NAME}!${String.fromCharCode(lastColumnLetter.charCodeAt(0) + 1)}1`,
+                range: `${SHEET_NAME}!A:A`,
                 valueInputOption: 'USER_ENTERED',
                 requestBody: {
-                    values: [newColumns],
-                },
-            });
-            
-            // Add new values to the new columns for the specific row
-            newColumns.forEach((key, index) => {
-                 const newColumnIndex = lastColumnIndex + index;
-                 const columnLetter = String.fromCharCode('A'.charCodeAt(0) + newColumnIndex);
-                 updates.push({
-                    range: `${SHEET_NAME}!${columnLetter}${rowNumber}`,
-                    values: [[newValues[key]]],
-                });
-            });
-        }
-
-
-        if (updates.length > 0) {
-            await sheets.spreadsheets.values.batchUpdate({
-                spreadsheetId: SPREADSHEET_ID,
-                requestBody: {
-                    valueInputOption: 'USER_ENTERED',
-                    data: updates,
+                    values: [newRow],
                 },
             });
         }

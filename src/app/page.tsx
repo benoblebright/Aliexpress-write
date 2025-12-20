@@ -493,77 +493,86 @@ export default function Home() {
               title: "성공!",
               description: `상품이 네이버 카페에 성공적으로 게시되었습니다.`,
           });
-
-          if (selectedRowNumber !== null) {
-              try {
-                  const product = form.getValues();
-                  const productPriceNum = parsePrice(product.productPrice);
-                  const coinDiscountNum = parsePrice(product.coinDiscountValue);
-                  const discountCodePriceNum = parsePrice(product.discountCodePrice);
-                  const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
-                  const cardPriceNum = parsePrice(product.cardPrice);
-      
-                  let finalPrice = productPriceNum;
-                  if (coinDiscountNum > 0 && productPriceNum > 0) {
-                    if (coinDiscountType === 'rate') {
-                        const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
-                        finalPrice -= coinDiscountValue;
-                    } else {
-                        finalPrice -= coinDiscountNum;
-                    }
-                  }
-                  if (discountCodePriceNum > 0) finalPrice -= discountCodePriceNum;
-                  if (storeCouponPriceNum > 0) finalPrice -= storeCouponPriceNum;
-                  if (cardPriceNum > 0) finalPrice -= cardPriceNum;
-                  finalPrice = Math.max(0, finalPrice);
-      
-                  const discountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
-      
-                  const reviews = [
-                      combinedInfo.korean_summary1,
-                      combinedInfo.korean_summary2,
-                      combinedInfo.korean_summary3,
-                      combinedInfo.korean_summary4,
-                      combinedInfo.korean_summary5,
-                  ];
-                  const firstSelectedReviewIndex = reviewSelections.findIndex(s => s.included);
-                  const firstSelectedReview = firstSelectedReviewIndex !== -1 ? reviews[firstSelectedReviewIndex] : "";
-      
-                  const newValues: { [key: string]: any } = {
-                      'checkup': '1',
-                      "글쓰기 시간": new Date().toISOString(),
-                      'Subject_title': form.getValues("Subject_title") || '',
-                      '할인판매가': productPriceNum,
-                      '할인구매가': finalPrice,
-                      '이미지URL': combinedInfo.product_main_image_url || '',
-                      '총판매': combinedInfo.sale_volume,
-                      '총리뷰': combinedInfo.total_num,
-                      '국내리뷰': combinedInfo.korean_local_count,
-                      '고객리뷰': firstSelectedReview || '',
-                      '할인율': `${Math.floor(discountRate)}%`,
-                      '게시물URL': articleUrl,
-                  };
-      
-                  await fetch('/api/sheets', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ rowNumber: selectedRowNumber, newValues }),
-                  });
-      
-                  setSheetData(prev => prev.filter(d => d.rowNumber !== selectedRowNumber));
-                  setSelectedRowNumber(null);
-                  form.reset();
-                  setCombinedInfo(null);
-                  setPreviewContent("");
-      
-              } catch (sheetError) {
-                  console.error("Failed to update sheet after posting:", sheetError);
-                  toast({
-                      variant: "destructive",
-                      title: "시트 업데이트 실패",
-                      description: "네이버 카페 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
-                  });
+          
+          try {
+              const product = form.getValues();
+              const productPriceNum = parsePrice(product.productPrice);
+              const coinDiscountNum = parsePrice(product.coinDiscountValue);
+              const discountCodePriceNum = parsePrice(product.discountCodePrice);
+              const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
+              const cardPriceNum = parsePrice(product.cardPrice);
+  
+              let finalPrice = productPriceNum;
+              if (coinDiscountNum > 0 && productPriceNum > 0) {
+                if (coinDiscountType === 'rate') {
+                    const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                    finalPrice -= coinDiscountValue;
+                } else {
+                    finalPrice -= coinDiscountNum;
+                }
               }
+              if (discountCodePriceNum > 0) finalPrice -= discountCodePriceNum;
+              if (storeCouponPriceNum > 0) finalPrice -= storeCouponPriceNum;
+              if (cardPriceNum > 0) finalPrice -= cardPriceNum;
+              finalPrice = Math.max(0, finalPrice);
+  
+              const discountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
+  
+              const reviews = [
+                  combinedInfo.korean_summary1,
+                  combinedInfo.korean_summary2,
+                  combinedInfo.korean_summary3,
+                  combinedInfo.korean_summary4,
+                  combinedInfo.korean_summary5,
+              ];
+              const firstSelectedReviewIndex = reviewSelections.findIndex(s => s.included);
+              const firstSelectedReview = firstSelectedReviewIndex !== -1 ? reviews[firstSelectedReviewIndex] : "";
+  
+              const newValues: { [key: string]: any } = {
+                  'checkup': '1',
+                  "글쓰기 시간": new Date().toISOString(),
+                  'Subject_title': form.getValues("Subject_title") || '',
+                  '할인판매가': productPriceNum,
+                  '할인구매가': finalPrice,
+                  '이미지URL': combinedInfo.product_main_image_url || '',
+                  '총판매': combinedInfo.sale_volume,
+                  '총리뷰': combinedInfo.total_num,
+                  '국내리뷰': combinedInfo.korean_local_count,
+                  '고객리뷰': firstSelectedReview || '',
+                  '할인율': `${Math.floor(discountRate)}%`,
+                  '게시물URL': articleUrl,
+                  'URL': combinedInfo.final_url,
+                  '상품명': combinedInfo.product_title,
+                  '가격': productPriceNum,
+                  '사이트': 'AliExpress'
+              };
+
+              const sheetPayload: { newValues: typeof newValues, rowNumber?: number } = { newValues };
+              if (selectedRowNumber !== null) {
+                  sheetPayload.rowNumber = selectedRowNumber;
+              }
+  
+              await fetch('/api/sheets', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(sheetPayload),
+              });
+  
+              if(selectedRowNumber !== null) {
+                setSheetData(prev => prev.filter(d => d.rowNumber !== selectedRowNumber));
+              }
+              setSelectedRowNumber(null);
+              form.reset();
+              setCombinedInfo(null);
+              setPreviewContent("");
+  
+          } catch (sheetError) {
+              console.error("Failed to update sheet after posting:", sheetError);
+              toast({
+                  variant: "destructive",
+                  title: "시트 업데이트 실패",
+                  description: "네이버 카페 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
+              });
           }
       } else {
           const cafeErrorMessage = result.error?.message || result.error || `게시물 URL을 찾을 수 없습니다. 응답: ${JSON.stringify(result)}`;
@@ -624,25 +633,18 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
-        form.setValue("productUrl", ""); // URL은 비워둠
+        form.setValue("productUrl", item.URL || "");
+        form.setValue("productPrice", item.가격?.toString() || "");
     }
   };
   
-  const copyToClipboard = (text: string, isHtml: boolean = false) => {
+  const copyToClipboard = (text: string) => {
     if (!text) {
         toast({ variant: "destructive", title: "복사 실패", description: "복사할 내용이 없습니다." });
         return;
     }
 
-    let textToCopy = text;
-    if (isHtml) {
-        // HTML을 일반 텍스트로 변환
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = text;
-        textToCopy = tempDiv.textContent || tempDiv.innerText || "";
-    }
-
-    navigator.clipboard.writeText(textToCopy).then(() => {
+    navigator.clipboard.writeText(text).then(() => {
       toast({ title: "복사 완료", description: "클립보드에 복사되었습니다." });
     }, (err) => {
       toast({ variant: "destructive", title: "복사 실패", description: "클립보드 복사에 실패했습니다." });
@@ -745,6 +747,8 @@ export default function Home() {
         const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
         if (selectedItem) {
             form.setValue("Subject_title", selectedItem.상품명 || "");
+            form.setValue("productUrl", selectedItem.URL || "");
+            form.setValue("productPrice", selectedItem.가격?.toString() || "");
         }
     }
   }, [selectedRowNumber, form, sheetData]);
