@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -48,7 +49,7 @@ const formSchema = z.object({
   productUrl: z.string().url({ message: "유효한 상품 URL을 입력해주세요." }),
   affShortKey: z.string().min(1, { message: "제휴 단축 키를 입력해주세요." }),
   productPrice: z.string().optional(),
-  coinDiscountRate: z.string().optional(),
+  coinDiscountValue: z.string().optional(),
   productTag: z.string().optional(),
   discountCode: z.string().optional(),
   discountCodePrice: z
@@ -101,6 +102,8 @@ interface ReviewSelection {
     summarized: boolean;
 }
 
+type CoinDiscountType = 'rate' | 'amount';
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -116,6 +119,7 @@ export default function Home() {
 
   const [combinedInfo, setCombinedInfo] = useState<CombinedInfo | null>(null);
   const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const [coinDiscountType, setCoinDiscountType] = useState<CoinDiscountType>('rate');
 
   const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>(
     Array(5).fill({ included: false, summarized: false })
@@ -128,7 +132,7 @@ export default function Home() {
         productUrl: "",
         affShortKey: "",
         productPrice: "",
-        coinDiscountRate: "",
+        coinDiscountValue: "",
         productTag: "",
         discountCode: "",
         discountCodePrice: "",
@@ -172,7 +176,7 @@ export default function Home() {
       return isNaN(parsed) ? 0 : parsed;
   };
 
-  const generateHtmlContent = useCallback((info: CombinedInfo | null, selections: ReviewSelection[]): string => {
+  const generateHtmlContent = useCallback((info: CombinedInfo | null, selections: ReviewSelection[], currentCoinDiscountType: CoinDiscountType): string => {
     if (!info?.product_title || !info?.final_url) {
         return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
     }
@@ -192,7 +196,7 @@ export default function Home() {
     let content = `<p>${info.product_title}</p><br />`;
 
     const productPriceNum = parsePrice(product.productPrice);
-    const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+    const coinDiscountNum = parsePrice(product.coinDiscountValue);
     const discountCodePriceNum = parsePrice(product.discountCodePrice);
     const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
     const cardPriceNum = parsePrice(product.cardPrice);
@@ -203,10 +207,15 @@ export default function Home() {
       content += `<p>할인판매가: ${formatPrice(productPriceNum, product.productPrice)}</p>`;
     }
     
-    if (coinDiscountRateNum > 0 && productPriceNum > 0) {
-      const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountRateNum / 100));
-      content += `<p>코인할인 ( ${coinDiscountRateNum}% )</p>`;
-      finalPrice -= coinDiscountValue;
+    if (coinDiscountNum > 0 && productPriceNum > 0) {
+      if (currentCoinDiscountType === 'rate') {
+        const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+        content += `<p>코인할인 ( ${coinDiscountNum}% )</p>`;
+        finalPrice -= coinDiscountValue;
+      } else { // amount
+        content += `<p>코인할인: -${formatPrice(coinDiscountNum, product.coinDiscountValue)}</p>`;
+        finalPrice -= coinDiscountNum;
+      }
     }
     if (discountCodePriceNum > 0 && product.discountCode) {
         content += `<p>할인코드: -${formatPrice(discountCodePriceNum, product.discountCodePrice)} ( ${product.discountCode} )</p>`;
@@ -345,7 +354,7 @@ export default function Home() {
         toast({ variant: "destructive", title: "오류", description: "먼저 미리보기를 생성해주세요." });
         return;
     }
-    const content = generateHtmlContent(combinedInfo, reviewSelections);
+    const content = generateHtmlContent(combinedInfo, reviewSelections, coinDiscountType);
     setPreviewContent(content);
     setIsHtmlMode(true);
     toast({
@@ -387,7 +396,7 @@ export default function Home() {
         };
 
         const productPriceNum = parsePrice(product.productPrice);
-        const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+        const coinDiscountNum = parsePrice(product.coinDiscountValue);
         const discountCodePriceNum = parsePrice(product.discountCodePrice);
         const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
         const cardPriceNum = parsePrice(product.cardPrice);
@@ -396,10 +405,15 @@ export default function Home() {
         let kakaoContent = `상품명 : ${product.Subject_title || combinedInfo.product_title}\n`;
         if (productPriceNum > 0) kakaoContent += `할인판매가 : ${formatKakaoPrice(productPriceNum, product.productPrice)}\n`;
 
-        if (coinDiscountRateNum > 0 && productPriceNum > 0) {
-            const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountRateNum / 100));
-            finalPrice -= coinDiscountValue;
-            kakaoContent += `코인할인율 : ${coinDiscountRateNum}%\n`;
+        if (coinDiscountNum > 0 && productPriceNum > 0) {
+            if (coinDiscountType === 'rate') {
+                const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                finalPrice -= coinDiscountValue;
+                kakaoContent += `코인할인율 : ${coinDiscountNum}%\n`;
+            } else {
+                finalPrice -= coinDiscountNum;
+                kakaoContent += `코인할인 : -${formatKakaoPrice(coinDiscountNum, product.coinDiscountValue)}\n`;
+            }
         }
         if (discountCodePriceNum > 0 && product.discountCode) {
             finalPrice -= discountCodePriceNum;
@@ -464,15 +478,19 @@ export default function Home() {
               try {
                   const product = form.getValues();
                   const productPriceNum = parsePrice(product.productPrice);
-                  const coinDiscountRateNum = parsePrice(product.coinDiscountRate);
+                  const coinDiscountNum = parsePrice(product.coinDiscountValue);
                   const discountCodePriceNum = parsePrice(product.discountCodePrice);
                   const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
                   const cardPriceNum = parsePrice(product.cardPrice);
       
                   let finalPrice = productPriceNum;
-                  if (coinDiscountRateNum > 0 && productPriceNum > 0) {
-                      const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountRateNum / 100));
-                      finalPrice -= coinDiscountValue;
+                  if (coinDiscountNum > 0 && productPriceNum > 0) {
+                    if (coinDiscountType === 'rate') {
+                        const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                        finalPrice -= coinDiscountValue;
+                    } else {
+                        finalPrice -= coinDiscountNum;
+                    }
                   }
                   if (discountCodePriceNum > 0) finalPrice -= discountCodePriceNum;
                   if (storeCouponPriceNum > 0) finalPrice -= storeCouponPriceNum;
@@ -666,7 +684,7 @@ export default function Home() {
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
         { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원 또는 $25", isRequired: false },
-        { name: "coinDiscountRate", label: "코인할인율", placeholder: "예: 10 또는 10%", isRequired: false },
+        { name: "coinDiscountValue", label: "코인할인", placeholder: coinDiscountType === 'rate' ? "예: 10 또는 10%" : "예: 2000 또는 $2", isRequired: false },
         { name: "productTag", label: "상품태그", placeholder: "예: #캠핑 #가성비 (띄어쓰기로 구분)", isRequired: false },
     ],
     collapsible: [
@@ -713,10 +731,10 @@ export default function Home() {
   
   useEffect(() => {
     if(combinedInfo) {
-      const content = generateHtmlContent(combinedInfo, reviewSelections);
+      const content = generateHtmlContent(combinedInfo, reviewSelections, coinDiscountType);
       setPreviewContent(content);
     }
-  }, [reviewSelections, combinedInfo, generateHtmlContent]);
+  }, [reviewSelections, combinedInfo, generateHtmlContent, coinDiscountType]);
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
@@ -843,13 +861,33 @@ export default function Home() {
                               {fieldInfo.label}
                               {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
                             </FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder={fieldInfo.placeholder}
-                                {...field}
-                                value={field.value ?? ""}
-                              />
-                            </FormControl>
+                            {fieldInfo.name === 'coinDiscountValue' ? (
+                                <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input
+                                    placeholder={fieldInfo.placeholder}
+                                    {...field}
+                                    value={field.value ?? ""}
+                                    />
+                                </FormControl>
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={() => setCoinDiscountType(prev => prev === 'rate' ? 'amount' : 'rate')}
+                                    className="w-16 flex-shrink-0"
+                                >
+                                    {coinDiscountType === 'rate' ? '%' : '원'}
+                                </Button>
+                                </div>
+                            ) : (
+                                <FormControl>
+                                <Input
+                                    placeholder={fieldInfo.placeholder}
+                                    {...field}
+                                    value={field.value ?? ""}
+                                />
+                                </FormControl>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1016,5 +1054,7 @@ export default function Home() {
     </main>
   );
 }
+
+    
 
     
