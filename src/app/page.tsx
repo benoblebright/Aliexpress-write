@@ -749,6 +749,7 @@ export default function Home() {
   useEffect(() => {
     if (selectedRowNumber === null) {
       form.reset();
+      handleResetCalculator();
     } else {
         const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
         if (selectedItem) {
@@ -932,6 +933,14 @@ export default function Home() {
                             </FormLabel>
                             {fieldInfo.name === 'coinDiscountValue' ? (
                                 <div className="flex items-center gap-2">
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={() => setCoinDiscountType(prev => prev === 'rate' ? 'amount' : 'rate')}
+                                    className="w-16 flex-shrink-0"
+                                >
+                                    {coinDiscountType === 'rate' ? '%' : '액'}
+                                </Button>
                                 <FormControl>
                                     <Input
                                     placeholder={fieldInfo.placeholder}
@@ -939,14 +948,6 @@ export default function Home() {
                                     value={field.value ?? ""}
                                     />
                                 </FormControl>
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    onClick={() => setCoinDiscountType(prev => prev === 'rate' ? 'amount' : 'rate')}
-                                    className="w-16 flex-shrink-0"
-                                >
-                                    {coinDiscountType === 'rate' ? '%' : '원'}
-                                </Button>
                                 </div>
                             ) : (
                                 <FormControl>
