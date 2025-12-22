@@ -533,10 +533,7 @@ export default function Home() {
               const firstSelectedReview = firstSelectedReviewIndex !== -1 ? reviews[firstSelectedReviewIndex] : "";
               
               const formatSheetPrice = (price: number, originalInput?: string): string => {
-                if (originalInput && originalInput.includes('$')) {
-                    return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                }
-                if (price < 1000 && !originalInput) { // Heuristic for dollar if no input string
+                if ((originalInput && originalInput.includes('$')) || price < 1000) {
                     return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 }
                 return new Intl.NumberFormat('ko-KR').format(price) + '원';
@@ -1132,5 +1129,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
