@@ -532,13 +532,23 @@ export default function Home() {
               ];
               const firstSelectedReviewIndex = reviewSelections.findIndex(s => s.included);
               const firstSelectedReview = firstSelectedReviewIndex !== -1 ? reviews[firstSelectedReviewIndex] : "";
+              
+              const formatSheetPrice = (price: number, originalInput?: string): string => {
+                if (originalInput && originalInput.includes('$')) {
+                    return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+                if (price < 1000 && !originalInput) { // Heuristic for dollar if no input string
+                    return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+                return new Intl.NumberFormat('ko-KR').format(price) + '원';
+              };
   
               const newValues: { [key: string]: any } = {
                   'checkup': '1',
                   "글쓰기 시간": new Date().toISOString(),
                   'Subject_title': form.getValues("Subject_title") || '',
-                  '할인판매가': productPriceNum,
-                  '할인구매가': finalPrice,
+                  '할인판매가': formatSheetPrice(productPriceNum, product.productPrice),
+                  '할인구매가': formatSheetPrice(finalPrice, product.productPrice),
                   '이미지URL': combinedInfo.product_main_image_url || '',
                   '총판매': combinedInfo.sale_volume,
                   '총리뷰': combinedInfo.total_num,
@@ -548,7 +558,7 @@ export default function Home() {
                   '게시물URL': articleUrl,
                   'URL': combinedInfo.final_url,
                   '상품명': combinedInfo.product_title,
-                  '가격': productPriceNum,
+                  '가격': formatSheetPrice(productPriceNum, product.productPrice),
                   '사이트': 'AliExpress'
               };
 
