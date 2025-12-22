@@ -446,7 +446,7 @@ export default function Home() {
         }
         if (storeCouponPriceNum > 0 && product.storeCouponCode) {
             finalPrice -= storeCouponPriceNum;
-            kakaoContent += `스토어쿠폰 : -${formatKakaoPrice(storeCouponPriceNum, product.storeCouponPrice)} (${product.storeCouponCode})\n`;
+            kakaoContent += `스토어쿠폰 : -${formatKakaoPrice(storeCouponPriceNum, product.storeCouponCode)} (${product.storeCouponCode})\n`;
         }
         if (cardPriceNum > 0 && product.cardCompanyName) {
             finalPrice -= cardPriceNum;
@@ -649,8 +649,6 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
-        form.setValue("productUrl", item.URL || "");
-        form.setValue("productPrice", item.가격?.toString() || "");
     }
   };
   
@@ -764,8 +762,6 @@ export default function Home() {
         const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
         if (selectedItem) {
             form.setValue("Subject_title", selectedItem.상품명 || "");
-            form.setValue("productUrl", selectedItem.URL || "");
-            form.setValue("productPrice", selectedItem.가격?.toString() || "");
         }
     }
   }, [selectedRowNumber, form, sheetData]);
@@ -1026,7 +1022,7 @@ export default function Home() {
                          <div className="flex gap-2">
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
                                 {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
-                                {isHtmlMode ? "미리보기" : "HTML 보기"}
+                                {isHtmlMode ? "HTML 보기" : "미리보기"}
                             </Button>
                              <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
                                  <Download className="mr-2 h-4 w-4" />
