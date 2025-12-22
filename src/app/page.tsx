@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -119,7 +118,7 @@ export default function Home() {
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
   const [combinedInfo, setCombinedInfo] = useState<CombinedInfo | null>(null);
-  const [isHtmlMode, setIsHtmlMode] = useState(true);
+  const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [coinDiscountType, setCoinDiscountType] = useState<CoinDiscountType>('rate');
 
   const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>(
@@ -316,7 +315,7 @@ export default function Home() {
     setCombinedInfo(null);
     setPreviewContent("");
     setReviewSelections(Array(5).fill({ included: false, summarized: false }));
-    setIsHtmlMode(true);
+    setIsHtmlMode(false);
 
     try {
         const [infoResponse, reviewsResponse] = await Promise.all([
@@ -368,7 +367,7 @@ export default function Home() {
         const errorMessage = `미리보기 생성 오류: ${e.message}`;
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
         setPreviewContent(`<p>${errorMessage}</p>`);
-        setIsHtmlMode(true);
+        setIsHtmlMode(false);
     } finally {
       setIsGeneratingPreview(false);
     }
@@ -381,7 +380,7 @@ export default function Home() {
     }
     const content = generateHtmlContent(combinedInfo, reviewSelections, coinDiscountType);
     setPreviewContent(content);
-    setIsHtmlMode(true);
+    setIsHtmlMode(false);
     toast({
         title: "미리보기 업데이트 완료",
         description: "선택한 후기 설정이 HTML 소스에 반영되었습니다.",
@@ -701,13 +700,29 @@ export default function Home() {
     });
 };
   
+  const handleCopyHtml = () => {
+    if (!previewContent) {
+      toast({
+        variant: "destructive",
+        title: "복사 실패",
+        description: "복사할 HTML 내용이 없습니다.",
+      });
+      return;
+    }
+    navigator.clipboard.writeText(previewContent);
+    toast({
+      title: "복사 완료",
+      description: "HTML 소스가 클립보드에 복사되었습니다.",
+    });
+  };
+
   const formFields = {
     required: [
         { name: "Subject_title", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 직접 입력", isRequired: false },
         { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
         { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
         { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원 또는 $25", isRequired: false },
-        { name: "coinDiscountValue", label: "코인할인", placeholder: coinDiscountType === 'rate' ? "예: 10 또는 10%" : "예: 2000 또는 $2", isRequired: false },
+        { name: "coinDiscountValue", label: "코인할인", placeholder: coinDiscountType === 'rate' ? "예: 10" : "예: 2000", isRequired: false },
         { name: "productTag", label: "상품태그", placeholder: "예: #캠핑 #가성비 (띄어쓰기로 구분)", isRequired: false },
     ],
     collapsible: [
@@ -1004,9 +1019,13 @@ export default function Home() {
                          <CardTitle className="text-xl">미리보기</CardTitle>
                          <div className="flex gap-2">
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
-                                {isHtmlMode ? <Code className="mr-2 h-4 w-4" /> : <Pilcrow className="mr-2 h-4 w-4" />}
-                                {isHtmlMode ? "HTML 보기" : "미리보기"}
+                                {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
+                                {isHtmlMode ? "미리보기" : "HTML 보기"}
                             </Button>
+                             <Button type="button" variant="outline" size="sm" onClick={handleCopyHtml} disabled={!previewContent}>
+                                 <ClipboardCopy className="mr-2 h-4 w-4" />
+                                 HTML 복사
+                             </Button>
                              <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
                                  <Download className="mr-2 h-4 w-4" />
                                  이미지 다운로드
