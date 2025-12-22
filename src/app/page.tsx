@@ -68,8 +68,8 @@ interface SheetData {
   rowNumber: number;
   상품명?: string;
   사이트?: string;
-  가격?: string;
-  URL?: string;
+  게시가격?: string;
+  게시URL?: string;
   Runtime?: string;
   [key: string]: any;
 }
@@ -119,7 +119,7 @@ export default function Home() {
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
   const [combinedInfo, setCombinedInfo] = useState<CombinedInfo | null>(null);
-  const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const [isHtmlMode, setIsHtmlMode] = useState(true);
   const [coinDiscountType, setCoinDiscountType] = useState<CoinDiscountType>('rate');
 
   const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>(
@@ -316,7 +316,7 @@ export default function Home() {
     setCombinedInfo(null);
     setPreviewContent("");
     setReviewSelections(Array(5).fill({ included: false, summarized: false }));
-    setIsHtmlMode(false);
+    setIsHtmlMode(true);
 
     try {
         const [infoResponse, reviewsResponse] = await Promise.all([
@@ -446,7 +446,7 @@ export default function Home() {
         }
         if (storeCouponPriceNum > 0 && product.storeCouponCode) {
             finalPrice -= storeCouponPriceNum;
-            kakaoContent += `스토어쿠폰 : -${formatKakaoPrice(storeCouponPriceNum, product.storeCouponCode)} (${product.storeCouponCode})\n`;
+            kakaoContent += `스토어쿠폰 : -${formatKakaoPrice(storeCouponPriceNum, product.storeCouponPrice)} (${product.storeCouponCode})\n`;
         }
         if (cardPriceNum > 0 && product.cardCompanyName) {
             finalPrice -= cardPriceNum;
@@ -556,9 +556,9 @@ export default function Home() {
                   '고객리뷰': firstSelectedReview || '',
                   '할인율': `${Math.floor(discountRate)}%`,
                   '게시물URL': articleUrl,
-                  'URL': combinedInfo.final_url,
+                  '게시URL': combinedInfo.final_url,
                   '상품명': combinedInfo.product_title,
-                  '가격': formatSheetPrice(productPriceNum, product.productPrice),
+                  '게시가격': formatSheetPrice(productPriceNum, product.productPrice),
                   '사이트': 'AliExpress'
               };
 
@@ -650,19 +650,6 @@ export default function Home() {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
     }
-  };
-  
-  const copyToClipboard = (text: string) => {
-    if (!text) {
-        toast({ variant: "destructive", title: "복사 실패", description: "복사할 내용이 없습니다." });
-        return;
-    }
-
-    navigator.clipboard.writeText(text).then(() => {
-      toast({ title: "복사 완료", description: "클립보드에 복사되었습니다." });
-    }, (err) => {
-      toast({ variant: "destructive", title: "복사 실패", description: "클립보드 복사에 실패했습니다." });
-    });
   };
 
   const handleImageDownload = async () => {
@@ -828,7 +815,7 @@ export default function Home() {
                               <CardDescription>{item.사이트 || "사이트 정보 없음"}</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <p className="text-2xl font-bold text-primary">{item.가격 || "가격 정보 없음"}</p>
+                                <p className="text-2xl font-bold text-primary">{item.게시가격 || "가격 정보 없음"}</p>
                                 {item.Runtime && (
                                     <p className="text-xs text-muted-foreground">
                                         확인일시: {new Date(item.Runtime).toLocaleString('ko-KR')}
@@ -836,11 +823,7 @@ export default function Home() {
                                 )}
                                 <div className="flex flex-col sm:flex-row gap-2">
                                      <Button asChild variant="outline" className="w-full">
-                                        <a href={item.URL} target="_blank" rel="noopener noreferrer">URL 가서 확인하기</a>
-                                    </Button>
-                                    <Button variant="outline" className="w-full" onClick={() => item.URL && copyToClipboard(item.URL)}>
-                                        <ClipboardCopy className="mr-2 h-4 w-4" />
-                                        URL 복사하기
+                                        <a href={item.게시URL} target="_blank" rel="noopener noreferrer">URL 가서 확인하기</a>
                                     </Button>
                                 </div>
                                 <Separator />
@@ -1021,7 +1004,7 @@ export default function Home() {
                          <CardTitle className="text-xl">미리보기</CardTitle>
                          <div className="flex gap-2">
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
-                                {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
+                                {isHtmlMode ? <Code className="mr-2 h-4 w-4" /> : <Pilcrow className="mr-2 h-4 w-4" />}
                                 {isHtmlMode ? "HTML 보기" : "미리보기"}
                             </Button>
                              <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
@@ -1130,3 +1113,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
