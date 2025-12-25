@@ -208,10 +208,7 @@ export default function Home() {
     const { ...product } = form.getValues();
     
     const formatPrice = (price: number, originalInput?: string): string => {
-        if (originalInput && originalInput.includes('$')) {
-            return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-        if (price < 1000) {
+        if ((originalInput && originalInput.includes('$')) || price < 1000) {
             return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         return new Intl.NumberFormat('ko-KR').format(price) + '원';
@@ -367,7 +364,6 @@ export default function Home() {
         const errorMessage = `미리보기 생성 오류: ${e.message}`;
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
         setPreviewContent(`<p>${errorMessage}</p>`);
-        setIsHtmlMode(false);
     } finally {
       setIsGeneratingPreview(false);
     }
@@ -380,7 +376,6 @@ export default function Home() {
     }
     const content = generateHtmlContent(combinedInfo, reviewSelections, coinDiscountType);
     setPreviewContent(content);
-    setIsHtmlMode(false);
     toast({
         title: "미리보기 업데이트 완료",
         description: "선택한 후기 설정이 HTML 소스에 반영되었습니다.",
@@ -540,7 +535,6 @@ export default function Home() {
               };
   
               const newValues: { [key: string]: any } = {
-                  'checkup': '1',
                   "글쓰기 시간": new Date().toISOString(),
                   'Subject_title': form.getValues("Subject_title") || '',
                   '할인판매가': formatSheetPrice(productPriceNum, product.productPrice),
@@ -552,21 +546,28 @@ export default function Home() {
                   '고객리뷰': firstSelectedReview || '',
                   '할인율': `${Math.floor(discountRate)}%`,
                   '게시물URL': articleUrl,
-                  '게시URL': combinedInfo.final_url,
-                  '상품명': combinedInfo.product_title,
-                  '게시가격': formatSheetPrice(productPriceNum, product.productPrice),
-                  '사이트': 'AliExpress'
               };
 
-              const sheetPayload: { newValues: typeof newValues, rowNumber?: number } = { newValues };
+              // 'data' 시트에서 해당 항목을 'checkup: 1'로 업데이트
               if (selectedRowNumber !== null) {
-                  sheetPayload.rowNumber = selectedRowNumber;
+                  await fetch('/api/sheets', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          rowNumber: selectedRowNumber,
+                          newValues: { checkup: '1' }
+                      }),
+                  });
               }
-  
+
+              // 'sns_upload' 시트에 새 행으로 데이터 추가
               await fetch('/api/sheets', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(sheetPayload),
+                  body: JSON.stringify({
+                      sheetName: 'sns_upload',
+                      newValues
+                  }),
               });
   
               if(selectedRowNumber !== null) {
@@ -1030,7 +1031,11 @@ export default function Home() {
                          </div>
                       </div>
                       
-                      {previewContent && (
+                      {isGeneratingPreview ? (
+                         <div className="flex items-center justify-center min-h-[250px]">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                         </div>
+                      ) : previewContent && (
                         <>
                           {isHtmlMode ? (
                              <Textarea
