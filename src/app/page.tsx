@@ -230,7 +230,7 @@ export default function Home() {
     
     if (coinDiscountNum > 0 && productPriceNum > 0) {
       if (currentCoinDiscountType === 'rate') {
-        const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+        const coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
         content += `<p>코인할인 ( ${coinDiscountNum}% )</p>`;
         finalPrice -= coinDiscountValue;
       } else { // amount
@@ -426,7 +426,7 @@ export default function Home() {
 
         if (coinDiscountNum > 0 && productPriceNum > 0) {
             if (coinDiscountType === 'rate') {
-                const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                const coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
                 finalPrice -= coinDiscountValue;
                 kakaoContent += `코인할인율 : ${coinDiscountNum}%\n`;
             } else {
@@ -504,7 +504,7 @@ export default function Home() {
               let finalPrice = productPriceNum;
               if (coinDiscountNum > 0 && productPriceNum > 0) {
                 if (coinDiscountType === 'rate') {
-                    const coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                    const coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
                     finalPrice -= coinDiscountValue;
                 } else {
                     finalPrice -= coinDiscountNum;
