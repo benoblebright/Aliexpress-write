@@ -109,7 +109,7 @@ export default function Home() {
   const { toast } = useToast();
   const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(isGeneratingPreview);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
@@ -546,6 +546,7 @@ export default function Home() {
                   '고객리뷰': firstSelectedReview || '',
                   '할인율': `${Math.floor(discountRate)}%`,
                   '게시물URL': articleUrl,
+                  'af_link': combinedInfo.final_url || '',
               };
 
               // 'data' 시트에서 해당 항목을 'checkup: 1'로 업데이트
@@ -1134,3 +1135,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
