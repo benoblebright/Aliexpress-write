@@ -648,6 +648,8 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
+        form.setValue("productUrl", item.게시URL || "");
+        form.setValue("productPrice", item.게시가격 || "");
     }
   };
 
@@ -764,6 +766,8 @@ export default function Home() {
         const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
         if (selectedItem) {
             form.setValue("Subject_title", selectedItem.상품명 || "");
+            form.setValue("productUrl", selectedItem.게시URL || "");
+            form.setValue("productPrice", selectedItem.게시가격 || "");
         }
     }
   }, [selectedRowNumber, form, sheetData]);
@@ -948,8 +952,8 @@ export default function Home() {
                               {fieldInfo.label}
                               {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
                             </FormLabel>
-                            {fieldInfo.name === 'coinDiscountValue' ? (
-                                <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              {fieldInfo.name === 'coinDiscountValue' && (
                                 <Button 
                                     type="button" 
                                     variant="outline" 
@@ -958,22 +962,24 @@ export default function Home() {
                                 >
                                     {coinDiscountType === 'rate' ? '%' : '액'}
                                 </Button>
-                                <FormControl>
-                                    <Input
-                                    placeholder={fieldInfo.placeholder}
-                                    {...field}
-                                    value={field.value ?? ""}
-                                    />
-                                </FormControl>
-                                </div>
-                            ) : (
-                                <FormControl>
+                              )}
+                              <FormControl className="flex-grow">
                                 <Input
-                                    placeholder={fieldInfo.placeholder}
-                                    {...field}
-                                    value={field.value ?? ""}
+                                  placeholder={fieldInfo.placeholder}
+                                  {...field}
+                                  value={field.value ?? ""}
                                 />
-                                </FormControl>
+                              </FormControl>
+                            </div>
+                            {fieldInfo.name === 'affShortKey' && (
+                                <div className="flex gap-2 pt-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c2R7VbXB')}>
+                                    엄마
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c3Xja9WB')}>
+                                    마피아
+                                </Button>
+                                </div>
                             )}
                             <FormMessage />
                           </FormItem>
@@ -1149,7 +1155,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
-
-    
