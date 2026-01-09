@@ -345,8 +345,7 @@ export default function Home() {
                 body: JSON.stringify({ target_urls: [productUrl] }),
             }),
         ]);
-        console.log("[LOG] 3. API 응답 받음");
-
+        
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
         console.log("[LOG] 4. API 응답 JSON 파싱 완료", { infoResult, reviewsResult });
@@ -610,7 +609,7 @@ export default function Home() {
                   '할인율': `${Math.floor(sheetDiscountRate)}%`,
                   '게시물URL': articleUrl,
                   'af_link': combinedInfo.final_url || '',
-                  'final_url': combinedInfo.final_url || '',
+                  'kakao_url': combinedInfo.kakao_url || '',
               };
 
               // 'data' 시트에서 해당 항목을 'checkup: 1'로 업데이트
@@ -1219,5 +1218,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
