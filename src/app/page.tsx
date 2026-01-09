@@ -5,7 +5,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Image as ImageIcon, Download, Calculator } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Download, Calculator, PanelLeft, PanelRight } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +44,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 const formSchema = z.object({
   Subject_title: z.string().optional(),
@@ -130,6 +133,7 @@ export default function Home() {
   const [calcC, setCalcC] = useState(0);
   const [calcD, setCalcD] = useState(0);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(true);
+  const isMobile = useIsMobile();
 
 
   const form = useForm<FormData>({
@@ -682,8 +686,6 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
-        form.setValue("productUrl", item.게시URL || "");
-        form.setValue("productPrice", item.게시가격 || "");
     }
   };
 
@@ -800,8 +802,6 @@ export default function Home() {
         const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
         if (selectedItem) {
             form.setValue("Subject_title", selectedItem.상품명 || "");
-            form.setValue("productUrl", selectedItem.게시URL || "");
-            form.setValue("productPrice", selectedItem.게시가격 || "");
         }
     }
   }, [selectedRowNumber, form, sheetData]);
@@ -1068,23 +1068,23 @@ export default function Home() {
                   <div className="space-y-4">
                     <Separator />
                     <div className="rounded-lg border p-4 space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                         <CardTitle className="text-xl">미리보기</CardTitle>
-                         <div className="flex flex-wrap gap-2 justify-end">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
-                                {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
-                                {isHtmlMode ? "미리보기" : "HTML 보기"}
-                            </Button>
-                             <Button type="button" variant="outline" size="sm" onClick={handleCopyHtml} disabled={!previewContent}>
-                                 <ClipboardCopy className="mr-2 h-4 w-4" />
-                                 HTML 복사
-                             </Button>
-                             <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
-                                 <Download className="mr-2 h-4 w-4" />
-                                 이미지 다운로드
-                             </Button>
-                         </div>
-                      </div>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <CardTitle className="text-xl">미리보기</CardTitle>
+                            <div className="flex flex-wrap gap-2 justify-end">
+                                <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
+                                    {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
+                                    {isHtmlMode ? "미리보기" : "HTML 보기"}
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={handleCopyHtml} disabled={!previewContent}>
+                                    <ClipboardCopy className="mr-2 h-4 w-4" />
+                                    HTML 복사
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    이미지 다운로드
+                                </Button>
+                            </div>
+                        </div>
                       
                       {isGeneratingPreview ? (
                          <div className="flex items-center justify-center min-h-[250px]">
@@ -1121,39 +1121,89 @@ export default function Home() {
                                     후기 반영하기
                                 </Button>
                             </div>
-                            <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
-                                {reviews.map((review, index) => (
-                                    <div key={index} className="flex flex-col gap-3 p-3 rounded-md border bg-muted/40">
-                                        <label htmlFor={`include-${index}`} className="text-sm text-muted-foreground cursor-pointer leading-relaxed">
-                                            {review as string}
-                                        </label>
-                                        <Separator />
-                                        <div className="flex items-center justify-end gap-4">
-                                            <div className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`include-${index}`}
-                                                    checked={reviewSelections[index].included}
-                                                    onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
-                                                />
-                                                <label htmlFor={`include-${index}`} className="text-xs font-medium leading-none cursor-pointer">
-                                                    본문에 포함
-                                                </label>
+                           {isMobile ? (
+                                <Carousel className="w-full">
+                                    <CarouselContent>
+                                        {reviews.map((review, index) => (
+                                            <CarouselItem key={index} className="p-1">
+                                                <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
+                                                    <ScrollArea className="flex-grow h-32">
+                                                        <p className="text-sm text-muted-foreground leading-relaxed">
+                                                            {review as string}
+                                                        </p>
+                                                    </ScrollArea>
+                                                    <Separator />
+                                                    <div className="flex items-center justify-end gap-4 pt-2">
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`include-mobile-${index}`}
+                                                                checked={reviewSelections[index].included}
+                                                                onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
+                                                            />
+                                                            <label htmlFor={`include-mobile-${index}`} className="text-xs font-medium leading-none cursor-pointer">
+                                                                포함
+                                                            </label>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`summarize-mobile-${index}`}
+                                                                checked={reviewSelections[index].summarized}
+                                                                onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
+                                                                disabled={!reviewSelections[index].included}
+                                                            />
+                                                            <label htmlFor={`summarize-mobile-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                                줄임
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CarouselItem>
+                                        ))}
+                                    </CarouselContent>
+                                    <CarouselPrevious className="absolute left-[-8px] top-1/2 -translate-y-1/2">
+                                        <PanelLeft />
+                                    </CarouselPrevious>
+                                    <CarouselNext className="absolute right-[-8px] top-1/2 -translate-y-1/2">
+                                        <PanelRight />
+                                    </CarouselNext>
+                                </Carousel>
+                            ) : (
+                                <ScrollArea className="max-h-72 w-full pr-4">
+                                    <div className="space-y-4">
+                                        {reviews.map((review, index) => (
+                                            <div key={index} className="flex flex-col gap-3 p-3 rounded-md border bg-muted/40">
+                                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                                    {review as string}
+                                                </p>
+                                                <Separator />
+                                                <div className="flex items-center justify-end gap-4">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`include-${index}`}
+                                                            checked={reviewSelections[index].included}
+                                                            onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
+                                                        />
+                                                        <label htmlFor={`include-${index}`} className="text-xs font-medium leading-none cursor-pointer">
+                                                            본문에 포함
+                                                        </label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`summarize-${index}`}
+                                                            checked={reviewSelections[index].summarized}
+                                                            onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
+                                                            disabled={!reviewSelections[index].included}
+                                                        />
+                                                        <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                            줄임 선택
+                                                        </label>
+                                                    </div>
+                                                </div>
                                             </div>
-                                             <div className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`summarize-${index}`}
-                                                    checked={reviewSelections[index].summarized}
-                                                    onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
-                                                    disabled={!reviewSelections[index].included}
-                                                />
-                                                <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                    줄임 선택
-                                                </label>
-                                            </div>
-                                        </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
+                                </ScrollArea>
+                            )}
                         </div>
                     )}
                   </div>
@@ -1188,5 +1238,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
