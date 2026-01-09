@@ -320,7 +320,7 @@ export default function Home() {
     console.log("[LOG] 1. handleGeneratePreview 시작");
     const { productUrl, affShortKey } = form.getValues();
     const isFormValid = await form.trigger(["productUrl", "affShortKey"]);
-    
+
     if (!isFormValid) {
         toast({ variant: "destructive", title: "입력 오류", description: "상품 URL과 제휴 단축 키를 올바르게 입력해주세요." });
         console.error("[LOG] 1-1. 폼 유효성 검사 실패");
@@ -352,10 +352,26 @@ export default function Home() {
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
         console.log("[LOG] 4. API 응답 JSON 파싱 완료", { infoResult, reviewsResult });
+
+        if (!infoResponse.ok) {
+            const errorMessage = infoResult.error || '상품 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
+            console.error("[LOG] 4-1. 상품 정보 API 에러", errorMessage);
+            throw new Error(`상품 정보 API 오류: ${errorMessage}`);
+        }
+        if (!infoResult.allInfos || infoResult.allInfos.length === 0) {
+             console.error("[LOG] 4-2. 상품 정보 데이터 없음", infoResult);
+             throw new Error('API에서 상품 정보를 반환하지 않았습니다.');
+        }
         
-        if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
-            console.error("[LOG] 4-1. 상품 정보 API 에러", infoResult.error);
-            throw new Error(infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.');
+        if (!reviewsResponse.ok) {
+            const errorMessage = reviewsResult.error || '리뷰 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
+            console.error("[LOG] 4-3. 리뷰 정보 API 에러", errorMessage);
+            // 리뷰 에러는 치명적이지 않으므로 경고만 하고 진행
+            toast({
+                variant: "destructive",
+                title: "리뷰 정보 로딩 실패",
+                description: errorMessage,
+            });
         }
 
         const productInfo = infoResult.allInfos[0];
@@ -374,8 +390,8 @@ export default function Home() {
             product_main_image_url: productInfo.product_main_image_url,
             sale_volume: parseInt(productInfo.sale_volume || '0', 10),
             product_id: productInfo.original_url.split('/item/')[1]?.split('.html')[0] || '',
-            total_num: parseInt(reviewData?.total_num || '0', 10),
-            korean_local_count: parseInt(reviewData?.korean_local_count || '0', 10),
+            total_num: reviewData ? parseInt(reviewData.total_num || '0', 10) : 0,
+            korean_local_count: reviewData ? parseInt(reviewData.korean_local_count || '0', 10) : 0,
             korean_summary1: koreanReviews[0] || '',
             korean_summary2: koreanReviews[1] || '',
             korean_summary3: koreanReviews[2] || '',
@@ -397,6 +413,7 @@ export default function Home() {
       setIsGeneratingPreview(false);
     }
 };
+
 
   const handlePostToNaverCafe = async () => {
     if (!combinedInfo || !previewContent) {
