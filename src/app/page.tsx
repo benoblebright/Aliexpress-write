@@ -356,6 +356,11 @@ export default function Home() {
         if (!infoResponse.ok) {
             const errorMessage = infoResult.error || '상품 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
             console.error("[LOG] 4-1. 상품 정보 API 에러", errorMessage);
+            toast({
+                variant: "destructive",
+                title: "상품 정보 API 오류",
+                description: `오류: ${errorMessage}`,
+            });
             throw new Error(`상품 정보 API 오류: ${errorMessage}`);
         }
         if (!infoResult.allInfos || infoResult.allInfos.length === 0) {
@@ -366,7 +371,6 @@ export default function Home() {
         if (!reviewsResponse.ok) {
             const errorMessage = reviewsResult.error || '리뷰 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
             console.error("[LOG] 4-3. 리뷰 정보 API 에러", errorMessage);
-            // 리뷰 에러는 치명적이지 않으므로 경고만 하고 진행
             toast({
                 variant: "destructive",
                 title: "리뷰 정보 로딩 실패",
