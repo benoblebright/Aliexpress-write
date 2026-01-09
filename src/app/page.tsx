@@ -132,7 +132,7 @@ export default function Home() {
   const [calcB, setCalcB] = useState('');
   const [calcC, setCalcC] = useState(0);
   const [calcD, setCalcD] = useState(0);
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState(true);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const isMobile = useIsMobile();
 
 
@@ -386,19 +386,6 @@ export default function Home() {
     }
 };
 
-  const handleUpdatePreviewWithReviews = () => {
-    if (!combinedInfo) {
-        toast({ variant: "destructive", title: "오류", description: "먼저 미리보기를 생성해주세요." });
-        return;
-    }
-    const content = generateHtmlContent(combinedInfo, reviewSelections, coinDiscountType);
-    setPreviewContent(content);
-    toast({
-        title: "미리보기 업데이트 완료",
-        description: "선택한 후기 설정이 HTML 소스에 반영되었습니다.",
-    });
-  };
-
   const handlePostToNaverCafe = async () => {
     if (!combinedInfo || !previewContent) {
       toast({ variant: "destructive", title: "게시 불가", description: "먼저 미리보기를 생성해주세요." });
@@ -445,8 +432,8 @@ export default function Home() {
         if (productPriceNum > 0) kakaoContent += `할인판매가 : ${formatKakaoPrice(productPriceNum, product.productPrice)}\n`;
 
         if (coinDiscountNum > 0 && productPriceNum > 0) {
+            const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
             if (coinDiscountType === 'rate') {
-                const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
                 let coinDiscountValue;
                 if (isPriceInDollar) {
                     coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
@@ -1116,10 +1103,6 @@ export default function Home() {
                         <div className="space-y-4 rounded-lg border p-4">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
-                                <Button type="button" size="sm" onClick={handleUpdatePreviewWithReviews}>
-                                    <MessageSquareText className="mr-2 h-4 w-4" />
-                                    후기 반영하기
-                                </Button>
                             </div>
                            {isMobile ? (
                                 <Carousel className="w-full">
