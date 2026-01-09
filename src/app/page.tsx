@@ -395,8 +395,45 @@ export default function Home() {
     setIsLoading(true);
     setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
   
+    // Calculate discount rate for subject
+    const product = form.getValues();
+    const isDollar = (originalInput?: string, price?: number): boolean => {
+      if (originalInput && originalInput.includes('$')) return true;
+      if (price !== undefined && price < 1000) return true;
+      return false;
+    }
+    const productPriceNum = parsePrice(product.productPrice);
+    const coinDiscountNum = parsePrice(product.coinDiscountValue);
+    const discountCodePriceNum = parsePrice(product.discountCodePrice);
+    const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
+    const cardPriceNum = parsePrice(product.cardPrice);
+
+    let finalPriceForRate = productPriceNum;
+    if (coinDiscountNum > 0 && productPriceNum > 0) {
+      const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
+      if (coinDiscountType === 'rate') {
+          let coinDiscountValue;
+          if (isPriceInDollar) {
+              coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+          } else {
+              coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+          }
+          finalPriceForRate -= coinDiscountValue;
+      } else {
+          finalPriceForRate -= coinDiscountNum;
+      }
+    }
+    if (discountCodePriceNum > 0) finalPriceForRate -= discountCodePriceNum;
+    if (storeCouponPriceNum > 0) finalPriceForRate -= storeCouponPriceNum;
+    if (cardPriceNum > 0) finalPriceForRate -= cardPriceNum;
+    finalPriceForRate = Math.max(0, finalPriceForRate);
+
+    const discountRate = productPriceNum > 0 ? ((productPriceNum - finalPriceForRate) / productPriceNum) * 100 : 0;
+    const originalTitle = form.getValues("Subject_title") || combinedInfo.product_title;
+    const finalSubject = discountRate > 0 ? `(${Math.floor(discountRate)}%) ${originalTitle}` : originalTitle;
+
     const cafePayload = {
-      subject: form.getValues("Subject_title") || combinedInfo.product_title,
+      subject: finalSubject,
       content: previewContent,
       image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
       club_id: "31609361",
@@ -406,26 +443,12 @@ export default function Home() {
     console.log("네이버 카페 전송 데이터:", cafePayload);
 
      if (combinedInfo.kakao_url) {
-        const product = form.getValues();
-
-        const isDollar = (originalInput?: string, price?: number): boolean => {
-            if (originalInput && originalInput.includes('$')) return true;
-            if (price !== undefined && price < 1000) return true;
-            return false;
-        }
-
         const formatKakaoPrice = (price: number, originalInput?: string): string => {
             if (isDollar(originalInput, price)) {
                 return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
             return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
         };
-
-        const productPriceNum = parsePrice(product.productPrice);
-        const coinDiscountNum = parsePrice(product.coinDiscountValue);
-        const discountCodePriceNum = parsePrice(product.discountCodePrice);
-        const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
-        const cardPriceNum = parsePrice(product.cardPrice);
 
         let finalPrice = productPriceNum;
         let kakaoContent = `상품명 : ${product.Subject_title || combinedInfo.product_title}\n`;
@@ -507,20 +530,6 @@ export default function Home() {
           });
           
           try {
-              const product = form.getValues();
-
-              const isDollar = (originalInput?: string, price?: number): boolean => {
-                if (originalInput && originalInput.includes('$')) return true;
-                if (price !== undefined && price < 1000) return true;
-                return false;
-              }
-
-              const productPriceNum = parsePrice(product.productPrice);
-              const coinDiscountNum = parsePrice(product.coinDiscountValue);
-              const discountCodePriceNum = parsePrice(product.discountCodePrice);
-              const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
-              const cardPriceNum = parsePrice(product.cardPrice);
-  
               let finalPrice = productPriceNum;
               if (coinDiscountNum > 0 && productPriceNum > 0) {
                 const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
@@ -541,7 +550,7 @@ export default function Home() {
               if (cardPriceNum > 0) finalPrice -= cardPriceNum;
               finalPrice = Math.max(0, finalPrice);
   
-              const discountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
+              const sheetDiscountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
   
               const reviews = [
                   combinedInfo.korean_summary1,
@@ -570,7 +579,7 @@ export default function Home() {
                   '총리뷰': combinedInfo.total_num,
                   '국내리뷰': combinedInfo.korean_local_count,
                   '고객리뷰': firstSelectedReview || '',
-                  '할인율': `${Math.floor(discountRate)}%`,
+                  '할인율': `${Math.floor(sheetDiscountRate)}%`,
                   '게시물URL': articleUrl,
                   'af_link': combinedInfo.final_url || '',
               };
@@ -1143,10 +1152,10 @@ export default function Home() {
                                             </CarouselItem>
                                         ))}
                                     </CarouselContent>
-                                    <CarouselPrevious className="absolute left-[-8px] top-1/2 -translate-y-1/2">
+                                    <CarouselPrevious type="button" className="absolute left-[-8px] top-1/2 -translate-y-1/2">
                                         <PanelLeft />
                                     </CarouselPrevious>
-                                    <CarouselNext className="absolute right-[-8px] top-1/2 -translate-y-1/2">
+                                    <CarouselNext type="button" className="absolute right-[-8px] top-1/2 -translate-y-1/2">
                                         <PanelRight />
                                     </CarouselNext>
                                 </Carousel>
@@ -1221,5 +1230,7 @@ export default function Home() {
     </main>
   );
 }
+
+    
 
     
