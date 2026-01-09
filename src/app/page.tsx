@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Download, Calculator, PanelLeft, PanelRight } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -133,7 +132,6 @@ export default function Home() {
   const [calcC, setCalcC] = useState(0);
   const [calcD, setCalcD] = useState(0);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
-  const isMobile = useIsMobile();
 
 
   const form = useForm<FormData>({
@@ -929,8 +927,8 @@ export default function Home() {
                       </CarouselItem>
                     ))}
                   </CarouselContent>
-                  <CarouselPrevious className="hidden sm:flex" />
-                  <CarouselNext className="hidden sm:flex" />
+                  <CarouselPrevious className="flex" />
+                  <CarouselNext className="flex" />
                 </Carousel>
               )}
             </CardContent>
@@ -1146,89 +1144,51 @@ export default function Home() {
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
                             </div>
-                           {isMobile ? (
-                                <Carousel className="w-full">
-                                    <CarouselContent>
-                                        {reviews.map((review, index) => (
-                                            <CarouselItem key={index} className="p-1">
-                                                <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
-                                                    <ScrollArea className="flex-grow h-32">
-                                                        <p className="text-sm text-muted-foreground leading-relaxed">
-                                                            {review as string}
-                                                        </p>
-                                                    </ScrollArea>
-                                                    <Separator />
-                                                    <div className="flex items-center justify-end gap-4 pt-2">
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={`include-mobile-${index}`}
-                                                                checked={reviewSelections[index].included}
-                                                                onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
-                                                            />
-                                                            <label htmlFor={`include-mobile-${index}`} className="text-xs font-medium leading-none cursor-pointer">
-                                                                포함
-                                                            </label>
-                                                        </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={`summarize-mobile-${index}`}
-                                                                checked={reviewSelections[index].summarized}
-                                                                onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
-                                                                disabled={!reviewSelections[index].included}
-                                                            />
-                                                            <label htmlFor={`summarize-mobile-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                                줄임
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </CarouselItem>
-                                        ))}
-                                    </CarouselContent>
-                                    <CarouselPrevious type="button" className="absolute left-[-8px] top-1/2 -translate-y-1/2">
-                                        <PanelLeft />
-                                    </CarouselPrevious>
-                                    <CarouselNext type="button" className="absolute right-[-8px] top-1/2 -translate-y-1/2">
-                                        <PanelRight />
-                                    </CarouselNext>
-                                </Carousel>
-                            ) : (
-                                <ScrollArea className="max-h-72 w-full pr-4">
-                                    <div className="space-y-4">
-                                        {reviews.map((review, index) => (
-                                            <div key={index} className="flex flex-col gap-3 p-3 rounded-md border bg-muted/40">
-                                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                                    {review as string}
-                                                </p>
+                            <Carousel className="w-full">
+                                <CarouselContent>
+                                    {reviews.map((review, index) => (
+                                        <CarouselItem key={index} className="p-1">
+                                            <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
+                                                <ScrollArea className="flex-grow h-32">
+                                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                                        {review as string}
+                                                    </p>
+                                                </ScrollArea>
                                                 <Separator />
-                                                <div className="flex items-center justify-end gap-4">
+                                                <div className="flex items-center justify-end gap-4 pt-2">
                                                     <div className="flex items-center space-x-2">
                                                         <Checkbox
-                                                            id={`include-${index}`}
+                                                            id={`include-review-${index}`}
                                                             checked={reviewSelections[index].included}
                                                             onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
                                                         />
-                                                        <label htmlFor={`include-${index}`} className="text-xs font-medium leading-none cursor-pointer">
-                                                            본문에 포함
+                                                        <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
+                                                            포함
                                                         </label>
                                                     </div>
                                                     <div className="flex items-center space-x-2">
                                                         <Checkbox
-                                                            id={`summarize-${index}`}
+                                                            id={`summarize-review-${index}`}
                                                             checked={reviewSelections[index].summarized}
                                                             onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
                                                             disabled={!reviewSelections[index].included}
                                                         />
-                                                        <label htmlFor={`summarize-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                            줄임 선택
+                                                        <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                            줄임
                                                         </label>
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </ScrollArea>
-                            )}
+                                        </CarouselItem>
+                                    ))}
+                                </CarouselContent>
+                                <CarouselPrevious type="button" className="absolute left-[-8px] top-1/2 -translate-y-1/2">
+                                    <PanelLeft />
+                                </CarouselPrevious>
+                                <CarouselNext type="button" className="absolute right-[-8px] top-1/2 -translate-y-1/2">
+                                    <PanelRight />
+                                </CarouselNext>
+                            </Carousel>
                         </div>
                     )}
                   </div>
@@ -1263,3 +1223,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
