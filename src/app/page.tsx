@@ -132,6 +132,7 @@ export default function Home() {
   const [calcC, setCalcC] = useState(0);
   const [calcD, setCalcD] = useState(0);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [pasteAndGoValue, setPasteAndGoValue] = useState('');
 
 
   const form = useForm<FormData>({
@@ -151,6 +152,16 @@ export default function Home() {
         cardPrice: "",
     },
   });
+
+  useEffect(() => {
+    if (pasteAndGoValue) {
+        const parts = pasteAndGoValue.split('|');
+        if (parts.length >= 3) {
+            form.setValue('Subject_title', parts[1].trim());
+            form.setValue('productUrl', parts[2].trim());
+        }
+    }
+  }, [pasteAndGoValue, form]);
   
   const fetchSheetData = useCallback(async () => {
     setIsSheetLoading(true);
@@ -346,6 +357,7 @@ export default function Home() {
             }),
         ]);
         
+        console.log("[LOG] 3. API 응답 수신", { infoStatus: infoResponse.status, reviewsStatus: reviewsResponse.status });
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
         console.log("[LOG] 4. API 응답 JSON 파싱 완료", { infoResult, reviewsResult });
@@ -644,6 +656,7 @@ export default function Home() {
               setPreviewContent("");
               handleResetCalculator();
               setReviewSelections(Array(5).fill({ included: false, summarized: false }));
+              setPasteAndGoValue('');
   
           } catch (sheetError) {
               console.error("Failed to update sheet after posting:", sheetError);
@@ -708,6 +721,7 @@ export default function Home() {
         setCombinedInfo(null);
         setPreviewContent("");
         setReviewSelections(Array(5).fill({ included: false, summarized: false }));
+        setPasteAndGoValue('');
     } 
     else {
         setSelectedRowNumber(item.rowNumber);
@@ -824,6 +838,7 @@ export default function Home() {
     if (selectedRowNumber === null) {
       form.reset();
       handleResetCalculator();
+      setPasteAndGoValue('');
     } else {
         const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
         if (selectedItem) {
@@ -999,6 +1014,22 @@ export default function Home() {
                 onSubmit={form.handleSubmit(handlePostToNaverCafe)}
                 className="space-y-8"
               >
+                <div className="space-y-4 rounded-lg border p-4">
+                    <CardTitle className="text-xl mb-4">URL 복사붙여넣기</CardTitle>
+                    <div className="space-y-2">
+                        <Label htmlFor="paste-and-go">데이터 붙여넣기</Label>
+                        <Input 
+                            id="paste-and-go" 
+                            placeholder="...|제목|https://..."
+                            value={pasteAndGoValue} 
+                            onChange={(e) => setPasteAndGoValue(e.target.value)}
+                        />
+                         <p className="text-xs text-muted-foreground">
+                            `|`로 구분된 텍스트를 붙여넣으면 제목과 URL이 자동 입력됩니다.
+                        </p>
+                    </div>
+                </div>
+
                 <div className="space-y-4 rounded-lg border p-4">
                     <CardTitle className="text-xl mb-4">필수 정보</CardTitle>
                     {formFields.required.map((fieldInfo) => (
@@ -1218,3 +1249,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
