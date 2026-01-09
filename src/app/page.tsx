@@ -836,13 +836,13 @@ export default function Home() {
                                         확인일시: {new Date(item.Runtime).toLocaleString('ko-KR')}
                                     </p>
                                 )}
-                                <div className="flex flex-col sm:flex-row gap-2">
+                                <div className="grid grid-cols-1 gap-2">
                                      <Button asChild variant="outline" className="w-full">
                                         <a href={item.게시URL} target="_blank" rel="noopener noreferrer">URL 가서 확인하기</a>
                                     </Button>
                                 </div>
                                 <Separator />
-                                <div className="flex flex-col sm:flex-row gap-2">
+                                <div className="grid grid-cols-2 gap-2">
                                     <Button 
                                         onClick={() => handleSelectSheetItem(item)}
                                         variant={selectedRowNumber === item.rowNumber ? "default" : "outline"}
@@ -1149,5 +1149,7 @@ export default function Home() {
     </main>
   );
 }
+
+    
 
     
