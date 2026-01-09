@@ -129,6 +129,7 @@ export default function Home() {
   const [calcB, setCalcB] = useState('');
   const [calcC, setCalcC] = useState(0);
   const [calcD, setCalcD] = useState(0);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(true);
 
 
   const form = useForm<FormData>({
@@ -868,44 +869,57 @@ export default function Home() {
             </CardContent>
         </Card>
         
-        <Card className="shadow-lg mb-8">
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div className="space-y-1.5">
-                    <CardTitle className="flex items-center gap-2">
-                        <Calculator className="h-6 w-6" />
-                        계산기
-                    </CardTitle>
-                    <CardDescription>간단한 계산을 수행합니다.</CardDescription>
-                </div>
-                <Button variant="outline" size="icon" onClick={handleResetCalculator}>
-                    <RefreshCw className="h-4 w-4" />
-                    <span className="sr-only">계산기 초기화</span>
-                </Button>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="calcA">값 A</Label>
-                        <Input id="calcA" type="number" placeholder="A 값을 입력하세요" value={calcA} onChange={(e) => setCalcA(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="calcB">값 B</Label>
-                        <Input id="calcB" type="number" placeholder="B 값을 입력하세요" value={calcB} onChange={(e) => setCalcB(e.target.value)} />
-                    </div>
-                </div>
-                <Separator className="my-4" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                        <p className="text-sm font-medium text-muted-foreground">C = A + B</p>
-                        <p className="text-2xl font-bold text-primary">{calcC.toLocaleString()}</p>
-                    </div>
-                     <div className="p-4 bg-muted/50 rounded-lg">
-                        <p className="text-sm font-medium text-muted-foreground">D = (B / C * 100)%</p>
-                        <p className="text-2xl font-bold text-primary">{calcD.toFixed(2)}%</p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+        <Collapsible
+            open={isCalculatorOpen}
+            onOpenChange={setIsCalculatorOpen}
+            className="mb-8"
+        >
+            <Card className="shadow-lg">
+                <CollapsibleTrigger asChild>
+                    <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
+                        <div className="space-y-1.5">
+                            <CardTitle className="flex items-center gap-2">
+                                <Calculator className="h-6 w-6" />
+                                계산기
+                            </CardTitle>
+                            <CardDescription>간단한 계산을 수행합니다.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); handleResetCalculator(); }}>
+                                <RefreshCw className="h-4 w-4" />
+                                <span className="sr-only">계산기 초기화</span>
+                            </Button>
+                             <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${isCalculatorOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                    </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <CardContent>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="calcA">값 A</Label>
+                                <Input id="calcA" type="number" placeholder="A 값을 입력하세요" value={calcA} onChange={(e) => setCalcA(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="calcB">값 B</Label>
+                                <Input id="calcB" type="number" placeholder="B 값을 입력하세요" value={calcB} onChange={(e) => setCalcB(e.target.value)} />
+                            </div>
+                        </div>
+                        <Separator className="my-4" />
+                        <div className="grid grid-cols-2 gap-4 text-center">
+                            <div className="p-4 bg-muted/50 rounded-lg">
+                                <p className="text-sm font-medium text-muted-foreground">C = A + B</p>
+                                <p className="text-2xl font-bold text-primary">{calcC.toLocaleString()}</p>
+                            </div>
+                            <div className="p-4 bg-muted/50 rounded-lg">
+                                <p className="text-sm font-medium text-muted-foreground">D = (B / C * 100)%</p>
+                                <p className="text-2xl font-bold text-primary">{calcD.toFixed(2)}%</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </CollapsibleContent>
+            </Card>
+        </Collapsible>
 
 
         <Card className="shadow-lg">
