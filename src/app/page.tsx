@@ -208,11 +208,17 @@ export default function Home() {
 
     const { ...product } = form.getValues();
     
+    const isDollar = (originalInput?: string, price?: number): boolean => {
+      if (originalInput && originalInput.includes('$')) return true;
+      if (price !== undefined && price < 1000) return true;
+      return false;
+    }
+    
     const formatPrice = (price: number, originalInput?: string): string => {
-        if ((originalInput && originalInput.includes('$')) || price < 1000) {
+        if (isDollar(originalInput, price)) {
             return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
-        return new Intl.NumberFormat('ko-KR').format(price) + '원';
+        return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
     };
 
     let content = `<p>${info.product_title}</p><br />`;
@@ -230,8 +236,14 @@ export default function Home() {
     }
     
     if (coinDiscountNum > 0 && productPriceNum > 0) {
+      const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
       if (currentCoinDiscountType === 'rate') {
-        const coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+        let coinDiscountValue;
+        if (isPriceInDollar) {
+            coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+        } else {
+            coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+        }
         content += `<p>코인할인 ( ${coinDiscountNum}% )</p>`;
         finalPrice -= coinDiscountValue;
       } else { // amount
@@ -404,15 +416,18 @@ export default function Home() {
 
      if (combinedInfo.kakao_url) {
         const product = form.getValues();
-        
+
+        const isDollar = (originalInput?: string, price?: number): boolean => {
+            if (originalInput && originalInput.includes('$')) return true;
+            if (price !== undefined && price < 1000) return true;
+            return false;
+        }
+
         const formatKakaoPrice = (price: number, originalInput?: string): string => {
-            if (originalInput && originalInput.includes('$')) {
+            if (isDollar(originalInput, price)) {
                 return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
-            if (price < 1000) {
-                return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-            return new Intl.NumberFormat('ko-KR').format(price) + '원';
+            return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
         };
 
         const productPriceNum = parsePrice(product.productPrice);
@@ -427,7 +442,13 @@ export default function Home() {
 
         if (coinDiscountNum > 0 && productPriceNum > 0) {
             if (coinDiscountType === 'rate') {
-                const coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+                const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
+                let coinDiscountValue;
+                if (isPriceInDollar) {
+                    coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+                } else {
+                    coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                }
                 finalPrice -= coinDiscountValue;
                 kakaoContent += `코인할인율 : ${coinDiscountNum}%\n`;
             } else {
@@ -496,6 +517,13 @@ export default function Home() {
           
           try {
               const product = form.getValues();
+
+              const isDollar = (originalInput?: string, price?: number): boolean => {
+                if (originalInput && originalInput.includes('$')) return true;
+                if (price !== undefined && price < 1000) return true;
+                return false;
+              }
+
               const productPriceNum = parsePrice(product.productPrice);
               const coinDiscountNum = parsePrice(product.coinDiscountValue);
               const discountCodePriceNum = parsePrice(product.discountCodePrice);
@@ -504,8 +532,14 @@ export default function Home() {
   
               let finalPrice = productPriceNum;
               if (coinDiscountNum > 0 && productPriceNum > 0) {
+                const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
                 if (coinDiscountType === 'rate') {
-                    const coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+                    let coinDiscountValue;
+                    if (isPriceInDollar) {
+                        coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+                    } else {
+                        coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                    }
                     finalPrice -= coinDiscountValue;
                 } else {
                     finalPrice -= coinDiscountNum;
@@ -529,10 +563,10 @@ export default function Home() {
               const firstSelectedReview = firstSelectedReviewIndex !== -1 ? reviews[firstSelectedReviewIndex] : "";
               
               const formatSheetPrice = (price: number, originalInput?: string): string => {
-                if ((originalInput && originalInput.includes('$')) || price < 1000) {
+                if (isDollar(originalInput, price)) {
                     return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 }
-                return new Intl.NumberFormat('ko-KR').format(price) + '원';
+                return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
               };
   
               const newValues: { [key: string]: any } = {
@@ -648,6 +682,8 @@ export default function Home() {
     else {
         setSelectedRowNumber(item.rowNumber);
         form.setValue("Subject_title", item.상품명 || "");
+        form.setValue("productUrl", item.게시URL || "");
+        form.setValue("productPrice", item.게시가격 || "");
     }
   };
 
@@ -764,6 +800,8 @@ export default function Home() {
         const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
         if (selectedItem) {
             form.setValue("Subject_title", selectedItem.상품명 || "");
+            form.setValue("productUrl", selectedItem.게시URL || "");
+            form.setValue("productPrice", selectedItem.게시가격 || "");
         }
     }
   }, [selectedRowNumber, form, sheetData]);
@@ -1030,9 +1068,9 @@ export default function Home() {
                   <div className="space-y-4">
                     <Separator />
                     <div className="rounded-lg border p-4 space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                          <CardTitle className="text-xl">미리보기</CardTitle>
-                         <div className="flex gap-2">
+                         <div className="flex flex-wrap gap-2 justify-end">
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
                                 {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
                                 {isHtmlMode ? "미리보기" : "HTML 보기"}
@@ -1085,13 +1123,12 @@ export default function Home() {
                             </div>
                             <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
                                 {reviews.map((review, index) => (
-                                    <div key={index} className="flex items-start gap-4 p-3 rounded-md border bg-muted/40">
-                                        <div className="flex-grow">
-                                           <label htmlFor={`review-${index}`} className="text-sm text-muted-foreground cursor-pointer leading-relaxed">
-                                                {review as string}
-                                            </label>
-                                        </div>
-                                        <div className="flex flex-col gap-2 items-end shrink-0">
+                                    <div key={index} className="flex flex-col gap-3 p-3 rounded-md border bg-muted/40">
+                                        <label htmlFor={`include-${index}`} className="text-sm text-muted-foreground cursor-pointer leading-relaxed">
+                                            {review as string}
+                                        </label>
+                                        <Separator />
+                                        <div className="flex items-center justify-end gap-4">
                                             <div className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id={`include-${index}`}
@@ -1151,3 +1188,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
