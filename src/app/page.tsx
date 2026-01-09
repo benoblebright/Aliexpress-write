@@ -317,11 +317,13 @@ export default function Home() {
   }, [form]);
   
   const handleGeneratePreview = async () => {
+    console.log("[LOG] 1. handleGeneratePreview 시작");
     const { productUrl, affShortKey } = form.getValues();
     const isFormValid = await form.trigger(["productUrl", "affShortKey"]);
     
     if (!isFormValid) {
         toast({ variant: "destructive", title: "입력 오류", description: "상품 URL과 제휴 단축 키를 올바르게 입력해주세요." });
+        console.error("[LOG] 1-1. 폼 유효성 검사 실패");
         return;
     }
 
@@ -332,6 +334,7 @@ export default function Home() {
     setIsHtmlMode(false);
 
     try {
+        console.log("[LOG] 2. API 호출 시작 (generate-all, generate-reviews)");
         const [infoResponse, reviewsResponse] = await Promise.all([
             fetch("/api/generate-all", {
                 method: "POST",
@@ -344,16 +347,22 @@ export default function Home() {
                 body: JSON.stringify({ target_urls: [productUrl] }),
             }),
         ]);
+        console.log("[LOG] 3. API 응답 받음");
 
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
+        console.log("[LOG] 4. API 응답 JSON 파싱 완료", { infoResult, reviewsResult });
         
         if (!infoResponse.ok || !infoResult.allInfos || infoResult.allInfos.length === 0) {
+            console.error("[LOG] 4-1. 상품 정보 API 에러", infoResult.error);
             throw new Error(infoResult.error || '상품 정보를 가져오는 중 오류가 발생했습니다.');
         }
 
         const productInfo = infoResult.allInfos[0];
+        console.log("[LOG] 5. productInfo 추출", productInfo);
+        
         const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : null;
+        console.log("[LOG] 6. reviewData 추출", reviewData);
 
         const koreanReviews = (reviewData?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
@@ -374,14 +383,17 @@ export default function Home() {
             korean_summary5: koreanReviews[4] || '',
             source_url: productInfo.original_url
         };
+        console.log("[LOG] 7. 최종 newCombinedInfo 객체 생성", newCombinedInfo);
         
         setCombinedInfo(newCombinedInfo);
         
     } catch (e: any) {
+        console.error("[LOG] 최종 에러 캐치", e);
         const errorMessage = `미리보기 생성 오류: ${e.message}`;
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
         setPreviewContent(`<p>${errorMessage}</p>`);
     } finally {
+      console.log("[LOG] 8. handleGeneratePreview 종료");
       setIsGeneratingPreview(false);
     }
 };
@@ -1230,7 +1242,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
-
-    
