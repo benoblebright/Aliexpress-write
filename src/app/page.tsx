@@ -350,10 +350,9 @@ export default function Home() {
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
         console.log("[LOG] 4. API 응답 JSON 파싱 완료", { infoResult, reviewsResult });
-
+        
         if (!infoResponse.ok) {
             const errorMessage = infoResult.error || '상품 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
-            console.error("[LOG] 4-1. 상품 정보 API 에러", errorMessage);
             toast({
                 variant: "destructive",
                 title: "상품 정보 API 오류",
@@ -361,15 +360,14 @@ export default function Home() {
             });
             throw new Error(`상품 정보 API 오류: ${errorMessage}`);
         }
+
         if (!infoResult.allInfos || infoResult.allInfos.length === 0) {
-             console.error("[LOG] 4-2. 상품 정보 데이터 없음", infoResult);
              throw new Error('API에서 상품 정보를 반환하지 않았습니다.');
         }
         
         if (!reviewsResponse.ok) {
             const errorMessage = reviewsResult.error || '리뷰 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
-            console.error("[LOG] 4-3. 리뷰 정보 API 에러", errorMessage);
-            toast({
+             toast({
                 variant: "destructive",
                 title: "리뷰 정보 로딩 실패",
                 description: errorMessage,
@@ -426,7 +424,6 @@ export default function Home() {
     setIsLoading(true);
     setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
   
-    // Calculate discount rate for subject
     const product = form.getValues();
     const isDollar = (originalInput?: string, price?: number): boolean => {
       if (originalInput && originalInput.includes('$')) return true;
@@ -613,6 +610,7 @@ export default function Home() {
                   '할인율': `${Math.floor(sheetDiscountRate)}%`,
                   '게시물URL': articleUrl,
                   'af_link': combinedInfo.final_url || '',
+                  'final_url': combinedInfo.final_url || '',
               };
 
               // 'data' 시트에서 해당 항목을 'checkup: 1'로 업데이트
@@ -637,6 +635,7 @@ export default function Home() {
                   }),
               });
   
+              // Reset state for next operation
               if(selectedRowNumber !== null) {
                 setSheetData(prev => prev.filter(d => d.rowNumber !== selectedRowNumber));
               }
@@ -645,6 +644,7 @@ export default function Home() {
               setCombinedInfo(null);
               setPreviewContent("");
               handleResetCalculator();
+              setReviewSelections(Array(5).fill({ included: false, summarized: false }));
   
           } catch (sheetError) {
               console.error("Failed to update sheet after posting:", sheetError);
@@ -1182,12 +1182,8 @@ export default function Home() {
                                         </CarouselItem>
                                     ))}
                                 </CarouselContent>
-                                <CarouselPrevious type="button" className="absolute left-[-8px] top-1/2 -translate-y-1/2">
-                                    <PanelLeft />
-                                </CarouselPrevious>
-                                <CarouselNext type="button" className="absolute right-[-8px] top-1/2 -translate-y-1/2">
-                                    <PanelRight />
-                                </CarouselNext>
+                                <CarouselPrevious className="flex" />
+                                <CarouselNext className="flex" />
                             </Carousel>
                         </div>
                     )}
