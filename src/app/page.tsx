@@ -156,9 +156,15 @@ export default function Home() {
   useEffect(() => {
     if (pasteAndGoValue) {
         const parts = pasteAndGoValue.split('|');
-        if (parts.length >= 3) {
-            form.setValue('Subject_title', parts[1].trim());
-            form.setValue('productUrl', parts[2].trim());
+        if (parts.length > 1) {
+            const titleAndUrlPart = parts[1];
+            const titleAndUrl = titleAndUrlPart.split('\n');
+            if (titleAndUrl.length > 1) {
+                const title = titleAndUrl[0].trim();
+                const url = titleAndUrl[1].trim();
+                form.setValue('Subject_title', title);
+                form.setValue('productUrl', url);
+            }
         }
     }
   }, [pasteAndGoValue, form]);
@@ -1025,7 +1031,7 @@ export default function Home() {
                             onChange={(e) => setPasteAndGoValue(e.target.value)}
                         />
                          <p className="text-xs text-muted-foreground">
-                            `|`로 구분된 텍스트를 붙여넣으면 제목과 URL이 자동 입력됩니다.
+                            붙여넣기 하면 제목과 URL이 자동 입력됩니다.
                         </p>
                     </div>
                 </div>
