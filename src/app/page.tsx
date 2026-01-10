@@ -173,24 +173,23 @@ export default function Home() {
       }
 
       // 제목 및 URL 파싱
-      const parts = pasteAndGoValue.split('|');
-      if (parts.length > 1) {
-        const contentPart = parts.slice(1).join('|').trim();
-        
-        // URL을 먼저 찾습니다 (http로 시작하고 공백으로 끝날 수 있음)
-        const urlMatch = contentPart.match(/(https?:\/\/\S+)/);
-        if (urlMatch) {
-          const url = urlMatch[0];
-          form.setValue('productUrl', url);
+       const urlMatch = pasteAndGoValue.match(/(https?:\/\/\S+)/);
+       if (urlMatch) {
+            const url = urlMatch[0];
+            form.setValue('productUrl', url);
+            
+            const contentWithoutUrl = pasteAndGoValue.replace(url, '');
+            const titleMatch = contentWithoutUrl.match(/\|(.*?)(https?:|$)/);
 
-          // URL을 제외한 나머지를 제목으로 설정
-          const title = contentPart.replace(url, '').trim();
-          form.setValue('Subject_title', title);
-        } else {
-            // URL이 없는 경우, '|' 뒤 전체를 제목으로
-            form.setValue('Subject_title', contentPart);
-        }
-      }
+            if(titleMatch && titleMatch[1]) {
+                 form.setValue('Subject_title', titleMatch[1].trim());
+            }
+       } else {
+            const parts = pasteAndGoValue.split('|');
+            if (parts.length > 1) {
+                form.setValue('Subject_title', parts[1].trim());
+            }
+       }
       toast({ title: '성공', description: '데이터가 자동으로 입력되었습니다.' });
     } catch (e) {
         console.error("Paste and Go parsing error:", e);
@@ -1203,46 +1202,48 @@ export default function Home() {
                     {reviews.length > 0 && (
                        <div className="space-y-4 rounded-lg border p-4">
                             <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
-                            <Carousel className="w-full">
+                             <Carousel className="w-full relative px-8">
                                 <CarouselContent>
                                     {reviews.map((review, index) => (
-                                        <CarouselItem key={index} className="p-1 md:basis-1/2">
-                                            <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
-                                                <ScrollArea className="flex-grow h-32">
-                                                    <p className="text-sm text-muted-foreground leading-relaxed">
-                                                        {review as string}
-                                                    </p>
-                                                </ScrollArea>
-                                                <Separator />
-                                                <div className="flex items-center justify-end gap-4 pt-2">
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={`include-review-${index}`}
-                                                            checked={reviewSelections[index].included}
-                                                            onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
-                                                        />
-                                                        <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
-                                                            포함
-                                                        </label>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={`summarize-review-${index}`}
-                                                            checked={reviewSelections[index].summarized}
-                                                            onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
-                                                            disabled={!reviewSelections[index].included}
-                                                        />
-                                                        <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                            줄임
-                                                        </label>
+                                        <CarouselItem key={index}>
+                                            <div className="p-1">
+                                                <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
+                                                    <ScrollArea className="flex-grow h-32">
+                                                        <p className="text-sm text-muted-foreground leading-relaxed">
+                                                            {review as string}
+                                                        </p>
+                                                    </ScrollArea>
+                                                    <Separator />
+                                                    <div className="flex items-center justify-end gap-4 pt-2">
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`include-review-${index}`}
+                                                                checked={reviewSelections[index].included}
+                                                                onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
+                                                            />
+                                                            <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
+                                                                포함
+                                                            </label>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`summarize-review-${index}`}
+                                                                checked={reviewSelections[index].summarized}
+                                                                onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
+                                                                disabled={!reviewSelections[index].included}
+                                                            />
+                                                            <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                                줄임
+                                                            </label>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </CarouselItem>
                                     ))}
                                 </CarouselContent>
-                                <CarouselPrevious className="flex" />
-                                <CarouselNext className="flex" />
+                                <CarouselPrevious className="flex -left-2 z-10" />
+                                <CarouselNext className="flex -right-2 z-10" />
                             </Carousel>
                         </div>
                     )}
@@ -1278,5 +1279,7 @@ export default function Home() {
     </main>
   );
 }
+
+    
 
     
