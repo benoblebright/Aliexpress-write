@@ -78,7 +78,7 @@ interface SheetData {
 interface CombinedInfo {
     original_url: string;
     final_url: string;
-    kakao_url: string;
+    kakao_urls: string[];
     product_title: string;
     product_main_image_url: string | null;
     sale_volume: number;
@@ -423,7 +423,7 @@ export default function Home() {
         const newCombinedInfo: CombinedInfo = {
             original_url: productInfo.original_url,
             final_url: productInfo.final_url,
-            kakao_url: (productInfo.kakao_urls && productInfo.kakao_urls.length > 0) ? productInfo.kakao_urls[0] : '',
+            kakao_urls: (productInfo.kakao_urls && Array.isArray(productInfo.kakao_urls)) ? productInfo.kakao_urls : [],
             product_title: productInfo.product_title,
             product_main_image_url: productInfo.product_main_image_url,
             sale_volume: parseInt(productInfo.sale_volume || '0', 10),
@@ -506,7 +506,7 @@ export default function Home() {
 
     console.log("네이버 카페 전송 데이터:", cafePayload);
 
-     if (combinedInfo.kakao_url) {
+     if (combinedInfo.kakao_urls && combinedInfo.kakao_urls.length > 0) {
         const formatKakaoPrice = (price: number, originalInput?: string): string => {
             if (isDollar(originalInput, price)) {
                 return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -555,7 +555,7 @@ export default function Home() {
 
         const kakaoPayload = {
             kakao_content: kakaoContent,
-            kakao_url: combinedInfo.kakao_url,
+            kakao_url: combinedInfo.kakao_urls[0],
         };
 
         console.log("카카오 전송 데이터:", kakaoPayload);
@@ -616,16 +616,17 @@ export default function Home() {
   
               const sheetDiscountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
   
-              const reviews = [
+              const allReviews = [
                   combinedInfo.korean_summary1,
                   combinedInfo.korean_summary2,
                   combinedInfo.korean_summary3,
                   combinedInfo.korean_summary4,
                   combinedInfo.korean_summary5,
               ];
-              const firstSelectedReviewIndex = reviewSelections.findIndex(s => s.included);
-              const firstSelectedReview = firstSelectedReviewIndex !== -1 ? reviews[firstSelectedReviewIndex] : "";
-              
+              const selectedReviews = allReviews
+                .filter((review, index) => review && reviewSelections[index].included)
+                .join(' | ');
+
               const formatSheetPrice = (price: number, originalInput?: string): string => {
                 if (isDollar(originalInput, price)) {
                     return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -642,12 +643,12 @@ export default function Home() {
                   '총판매': combinedInfo.sale_volume,
                   '총리뷰': combinedInfo.total_num,
                   '국내리뷰': combinedInfo.korean_local_count,
-                  '고객리뷰': firstSelectedReview || '',
                   '고객리뷰요약': combinedInfo.korean_summary || '',
                   '할인율': `${Math.floor(sheetDiscountRate)}%`,
                   '게시물URL': articleUrl,
                   'af_link': combinedInfo.final_url || '',
-                  'kakao_url': combinedInfo.kakao_url || '',
+                  'kakao_urls': combinedInfo.kakao_urls.join(', ') || '',
+                  'review_all': selectedReviews || ''
               };
 
               // 'data' 시트에서 해당 항목을 'checkup: 1'로 업데이트
@@ -1161,105 +1162,107 @@ export default function Home() {
                 </div>
                 
                 {combinedInfo && (
-                  <div className="space-y-4">
-                    <Separator />
-                    <div className="rounded-lg border p-4 space-y-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <CardTitle className="text-xl">미리보기</CardTitle>
-                            <div className="flex flex-wrap gap-2 justify-end">
-                                <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
-                                    {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
-                                    {isHtmlMode ? "미리보기" : "HTML 보기"}
-                                </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={handleCopyHtml} disabled={!previewContent}>
-                                    <ClipboardCopy className="mr-2 h-4 w-4" />
-                                    HTML 복사
-                                </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    이미지 다운로드
-                                </Button>
+                  <div>
+                    <Separator className="my-8" />
+                    <div className="space-y-6">
+                        <div className="rounded-lg border p-4 space-y-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <CardTitle className="text-xl">미리보기</CardTitle>
+                                <div className="flex flex-wrap gap-2 justify-end">
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
+                                        {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
+                                        {isHtmlMode ? "미리보기" : "HTML 보기"}
+                                    </Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={handleCopyHtml} disabled={!previewContent}>
+                                        <ClipboardCopy className="mr-2 h-4 w-4" />
+                                        HTML 복사
+                                    </Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        이미지 다운로드
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                      
-                      {isGeneratingPreview ? (
-                         <div className="flex items-center justify-center min-h-[250px]">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                         </div>
-                      ) : previewContent && (
-                        <>
-                          {isHtmlMode ? (
-                             <Textarea
-                                id="preview-html"
-                                placeholder="HTML 소스..."
-                                value={previewContent}
-                                onChange={(e) => setPreviewContent(e.target.value)}
-                                className="min-h-[250px] text-sm font-mono bg-muted/30"
-                              />
-                          ) : (
-                             <div
-                                id="preview-display"
-                                className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none"
-                                dangerouslySetInnerHTML={{ __html: previewContent }}
-                             />
+                          
+                          {isGeneratingPreview ? (
+                             <div className="flex items-center justify-center min-h-[250px]">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                             </div>
+                          ) : previewContent && (
+                            <>
+                              {isHtmlMode ? (
+                                 <Textarea
+                                    id="preview-html"
+                                    placeholder="HTML 소스..."
+                                    value={previewContent}
+                                    onChange={(e) => setPreviewContent(e.target.value)}
+                                    className="min-h-[250px] text-sm font-mono bg-muted/30"
+                                  />
+                              ) : (
+                                 <div
+                                    id="preview-display"
+                                    className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: previewContent }}
+                                 />
+                              )}
+                            </>
                           )}
-                        </>
-                      )}
 
-                    </div>
-                    
-                    {reviews.length > 0 && (
-                       <div className="rounded-lg border p-4">
-                            <CardTitle className="text-xl mb-4">AI 리뷰 선택</CardTitle>
-                             <Carousel className="w-full relative px-6">
-                                <CarouselContent>
-                                    {reviews.map((review, index) => (
-                                        <CarouselItem key={index}>
-                                            <div 
-                                                className="p-1" 
-                                                ref={el => reviewCardRefs.current[index] = el}
-                                                data-review-card
-                                            >
-                                                <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
-                                                    <ScrollArea className="flex-grow h-32">
-                                                        <p className="text-sm text-muted-foreground leading-relaxed">
-                                                            {review as string}
-                                                        </p>
-                                                    </ScrollArea>
-                                                    <Separator />
-                                                    <div className="flex items-center justify-end gap-4 pt-2">
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={`include-review-${index}`}
-                                                                checked={reviewSelections[index].included}
-                                                                onClick={(e) => handleReviewSelectionChange(index, 'included', e as any)}
-                                                            />
-                                                            <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
-                                                                포함
-                                                            </label>
-                                                        </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={`summarize-review-${index}`}
-                                                                checked={reviewSelections[index].summarized}
-                                                                onClick={(e) => handleReviewSelectionChange(index, 'summarized', e as any)}
-                                                                disabled={!reviewSelections[index].included}
-                                                            />
-                                                            <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                                줄임
-                                                            </label>
+                        </div>
+                        
+                        {reviews.length > 0 && (
+                           <div className="rounded-lg border p-4">
+                                <CardTitle className="text-xl mb-4">AI 리뷰 선택</CardTitle>
+                                 <Carousel className="w-full relative px-8">
+                                    <CarouselContent>
+                                        {reviews.map((review, index) => (
+                                            <CarouselItem key={index}>
+                                                <div 
+                                                    className="p-1" 
+                                                    ref={el => reviewCardRefs.current[index] = el}
+                                                    data-review-card
+                                                >
+                                                    <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
+                                                        <ScrollArea className="flex-grow h-32">
+                                                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                                                {review as string}
+                                                            </p>
+                                                        </ScrollArea>
+                                                        <Separator />
+                                                        <div className="flex items-center justify-end gap-4 pt-2">
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`include-review-${index}`}
+                                                                    checked={reviewSelections[index].included}
+                                                                    onClick={(e) => handleReviewSelectionChange(index, 'included', e as any)}
+                                                                />
+                                                                <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
+                                                                    포함
+                                                                </label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`summarize-review-${index}`}
+                                                                    checked={reviewSelections[index].summarized}
+                                                                    onClick={(e) => handleReviewSelectionChange(index, 'summarized', e as any)}
+                                                                    disabled={!reviewSelections[index].included}
+                                                                />
+                                                                <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                                    줄임
+                                                                </label>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </CarouselItem>
-                                    ))}
-                                </CarouselContent>
-                                <CarouselPrevious className="flex -left-2 z-10" />
-                                <CarouselNext className="flex -right-2 z-10" />
-                            </Carousel>
-                        </div>
-                    )}
+                                            </CarouselItem>
+                                        ))}
+                                    </CarouselContent>
+                                    <CarouselPrevious className="flex -left-2 z-10" />
+                                    <CarouselNext className="flex -right-2 z-10" />
+                                </Carousel>
+                            </div>
+                        )}
+                    </div>
                   </div>
                 )}
 
@@ -1292,3 +1295,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
