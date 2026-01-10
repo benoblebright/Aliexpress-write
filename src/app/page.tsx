@@ -153,18 +153,23 @@ export default function Home() {
     },
   });
 
-  const handlePasteAndGo = () => {
+ const handlePasteAndGo = () => {
     if (!pasteAndGoValue) {
       toast({ variant: 'destructive', title: '입력 오류', description: '붙여넣을 데이터가 없습니다.' });
       return;
     }
 
     try {
-      // 가격 파싱 (예: "₩10,965")
-      const priceMatch = pasteAndGoValue.match(/₩([\d,]+)/);
-      if (priceMatch && priceMatch[1]) {
-        const price = priceMatch[1].replace(/,/g, '');
+      // 가격 파싱 (₩ 또는 $)
+      const wonPriceMatch = pasteAndGoValue.match(/₩([\d,]+)/);
+      const dollarPriceMatch = pasteAndGoValue.match(/\$([\d,]+\.?\d*)/);
+
+      if (wonPriceMatch && wonPriceMatch[1]) {
+        const price = wonPriceMatch[1].replace(/,/g, '');
         form.setValue('productPrice', price);
+      } else if (dollarPriceMatch && dollarPriceMatch[1]) {
+        const price = dollarPriceMatch[1].replace(/,/g, '');
+        form.setValue('productPrice', `$${price}`);
       }
 
       // 제목 및 URL 파싱
@@ -172,7 +177,7 @@ export default function Home() {
       if (parts.length > 1) {
         const contentPart = parts.slice(1).join('|').trim();
         
-        // URL을 먼저 찾습니다 (http로 시작하고 공백으로 끝남)
+        // URL을 먼저 찾습니다 (http로 시작하고 공백으로 끝날 수 있음)
         const urlMatch = contentPart.match(/(https?:\/\/\S+)/);
         if (urlMatch) {
           const url = urlMatch[0];
@@ -356,13 +361,11 @@ export default function Home() {
   }, [form]);
   
   const handleGeneratePreview = async () => {
-    console.log("[LOG] 1. handleGeneratePreview 시작");
     const { productUrl, affShortKey } = form.getValues();
     const isFormValid = await form.trigger(["productUrl", "affShortKey"]);
 
     if (!isFormValid) {
         toast({ variant: "destructive", title: "입력 오류", description: "상품 URL과 제휴 단축 키를 올바르게 입력해주세요." });
-        console.error("[LOG] 1-1. 폼 유효성 검사 실패");
         return;
     }
 
@@ -373,7 +376,6 @@ export default function Home() {
     setIsHtmlMode(false);
 
     try {
-        console.log("[LOG] 2. API 호출 시작 (generate-all, generate-reviews)");
         const [infoResponse, reviewsResponse] = await Promise.all([
             fetch("/api/generate-all", {
                 method: "POST",
@@ -387,10 +389,8 @@ export default function Home() {
             }),
         ]);
         
-        console.log("[LOG] 3. API 응답 수신", { infoStatus: infoResponse.status, reviewsStatus: reviewsResponse.status });
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
-        console.log("[LOG] 4. API 응답 JSON 파싱 완료", { infoResult, reviewsResult });
         
         if (!infoResponse.ok) {
             const errorMessage = infoResult.error || '상품 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
@@ -416,10 +416,8 @@ export default function Home() {
         }
 
         const productInfo = infoResult.allInfos[0];
-        console.log("[LOG] 5. productInfo 추출", productInfo);
         
         const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : null;
-        console.log("[LOG] 6. reviewData 추출", reviewData);
 
         const koreanReviews = (reviewData?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
@@ -440,17 +438,14 @@ export default function Home() {
             korean_summary5: koreanReviews[4] || '',
             source_url: productInfo.original_url
         };
-        console.log("[LOG] 7. 최종 newCombinedInfo 객체 생성", newCombinedInfo);
         
         setCombinedInfo(newCombinedInfo);
         
     } catch (e: any) {
-        console.error("[LOG] 최종 에러 캐치", e);
         const errorMessage = `미리보기 생성 오류: ${e.message}`;
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
         setPreviewContent(`<p>${errorMessage}</p>`);
     } finally {
-      console.log("[LOG] 8. handleGeneratePreview 종료");
       setIsGeneratingPreview(false);
     }
 };
