@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Download, Calculator, PanelLeft, PanelRight } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Download, Calculator, PanelLeft, PanelRight, Zap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -153,21 +153,45 @@ export default function Home() {
     },
   });
 
-  useEffect(() => {
-    if (pasteAndGoValue) {
-        const parts = pasteAndGoValue.split('|');
-        if (parts.length > 1) {
-            const titleAndUrlPart = parts[1];
-            const titleAndUrl = titleAndUrlPart.split('\n');
-            if (titleAndUrl.length > 1) {
-                const title = titleAndUrl[0].trim();
-                const url = titleAndUrl[1].trim();
-                form.setValue('Subject_title', title);
-                form.setValue('productUrl', url);
-            }
-        }
+  const handlePasteAndGo = () => {
+    if (!pasteAndGoValue) {
+      toast({ variant: 'destructive', title: '입력 오류', description: '붙여넣을 데이터가 없습니다.' });
+      return;
     }
-  }, [pasteAndGoValue, form]);
+
+    try {
+      // 가격 파싱 (예: "₩10,965")
+      const priceMatch = pasteAndGoValue.match(/₩([\d,]+)/);
+      if (priceMatch && priceMatch[1]) {
+        const price = priceMatch[1].replace(/,/g, '');
+        form.setValue('productPrice', price);
+      }
+
+      // 제목 및 URL 파싱
+      const parts = pasteAndGoValue.split('|');
+      if (parts.length > 1) {
+        const contentPart = parts.slice(1).join('|').trim();
+        
+        // URL을 먼저 찾습니다 (http로 시작하고 공백으로 끝남)
+        const urlMatch = contentPart.match(/(https?:\/\/\S+)/);
+        if (urlMatch) {
+          const url = urlMatch[0];
+          form.setValue('productUrl', url);
+
+          // URL을 제외한 나머지를 제목으로 설정
+          const title = contentPart.replace(url, '').trim();
+          form.setValue('Subject_title', title);
+        } else {
+            // URL이 없는 경우, '|' 뒤 전체를 제목으로
+            form.setValue('Subject_title', contentPart);
+        }
+      }
+      toast({ title: '성공', description: '데이터가 자동으로 입력되었습니다.' });
+    } catch (e) {
+        console.error("Paste and Go parsing error:", e);
+        toast({ variant: 'destructive', title: '파싱 오류', description: '데이터를 분석하는 중 오류가 발생했습니다.' });
+    }
+  };
   
   const fetchSheetData = useCallback(async () => {
     setIsSheetLoading(true);
@@ -1024,14 +1048,20 @@ export default function Home() {
                     <CardTitle className="text-xl mb-4">URL 복사붙여넣기</CardTitle>
                     <div className="space-y-2">
                         <Label htmlFor="paste-and-go">데이터 붙여넣기</Label>
-                        <Input 
-                            id="paste-and-go" 
-                            placeholder="...|제목|https://..."
-                            value={pasteAndGoValue} 
-                            onChange={(e) => setPasteAndGoValue(e.target.value)}
-                        />
+                        <div className="flex gap-2">
+                          <Input 
+                              id="paste-and-go" 
+                              placeholder="...|제목|https://..."
+                              value={pasteAndGoValue} 
+                              onChange={(e) => setPasteAndGoValue(e.target.value)}
+                          />
+                          <Button type="button" onClick={handlePasteAndGo}>
+                            <Zap className="mr-2 h-4 w-4" />
+                            적용하기
+                          </Button>
+                        </div>
                          <p className="text-xs text-muted-foreground">
-                            붙여넣기 하면 제목과 URL이 자동 입력됩니다.
+                            붙여넣기 후 '적용하기'를 누르면 가격, 제목, URL이 자동 입력됩니다.
                         </p>
                     </div>
                 </div>
@@ -1176,14 +1206,12 @@ export default function Home() {
                     </div>
                     
                     {reviews.length > 0 && (
-                        <div className="space-y-4 rounded-lg border p-4">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
-                            </div>
+                       <div className="space-y-4 rounded-lg border p-4">
+                            <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
                             <Carousel className="w-full">
                                 <CarouselContent>
                                     {reviews.map((review, index) => (
-                                        <CarouselItem key={index} className="p-1">
+                                        <CarouselItem key={index} className="p-1 md:basis-1/2">
                                             <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
                                                 <ScrollArea className="flex-grow h-32">
                                                     <p className="text-sm text-muted-foreground leading-relaxed">
