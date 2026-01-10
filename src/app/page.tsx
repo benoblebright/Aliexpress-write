@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -133,6 +133,7 @@ export default function Home() {
   const [calcD, setCalcD] = useState(0);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [pasteAndGoValue, setPasteAndGoValue] = useState('');
+  const reviewCardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
 
   const form = useForm<FormData>({
@@ -160,7 +161,6 @@ export default function Home() {
     }
 
     try {
-      // 가격 파싱 (₩ 또는 $)
       const wonPriceMatch = pasteAndGoValue.match(/₩([\d,]+)/);
       const dollarPriceMatch = pasteAndGoValue.match(/\$([\d,]+\.?\d*)/);
 
@@ -172,24 +172,23 @@ export default function Home() {
         form.setValue('productPrice', `$${price}`);
       }
 
-      // 제목 및 URL 파싱
-       const urlMatch = pasteAndGoValue.match(/(https?:\/\/\S+)/);
-       if (urlMatch) {
-            const url = urlMatch[0];
-            form.setValue('productUrl', url);
-            
-            const contentWithoutUrl = pasteAndGoValue.replace(url, '');
-            const titleMatch = contentWithoutUrl.match(/\|(.*?)(https?:|$)/);
+      const urlMatch = pasteAndGoValue.match(/(https?:\/\/\S+)/);
+      if (urlMatch) {
+        const url = urlMatch[0];
+        form.setValue('productUrl', url);
+        
+        const contentWithoutUrl = pasteAndGoValue.replace(url, '').trim();
+        const titleMatch = contentWithoutUrl.match(/\|(.*?)$/);
 
-            if(titleMatch && titleMatch[1]) {
-                 form.setValue('Subject_title', titleMatch[1].trim());
-            }
-       } else {
-            const parts = pasteAndGoValue.split('|');
-            if (parts.length > 1) {
-                form.setValue('Subject_title', parts[1].trim());
-            }
-       }
+        if(titleMatch && titleMatch[1]) {
+          form.setValue('Subject_title', titleMatch[1].trim());
+        }
+      } else {
+        const parts = pasteAndGoValue.split('|');
+        if (parts.length > 1) {
+            form.setValue('Subject_title', parts[1].trim());
+        }
+      }
       toast({ title: '성공', description: '데이터가 자동으로 입력되었습니다.' });
     } catch (e) {
         console.error("Paste and Go parsing error:", e);
@@ -423,7 +422,7 @@ export default function Home() {
         const newCombinedInfo: CombinedInfo = {
             original_url: productInfo.original_url,
             final_url: productInfo.final_url,
-            kakao_url: productInfo.kakao_urls && productInfo.kakao_urls[0] ? productInfo.kakao_urls[0] : '',
+            kakao_url: productInfo.kakao_urls && productInfo.kakao_urls.length > 0 ? productInfo.kakao_urls[0] : '',
             product_title: productInfo.product_title,
             product_main_image_url: productInfo.product_main_image_url,
             sale_volume: parseInt(productInfo.sale_volume || '0', 10),
@@ -781,7 +780,13 @@ export default function Home() {
   };
 
 
-  const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
+  const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized', e: React.MouseEvent<HTMLButtonElement>) => {
+    const target = e.currentTarget as HTMLElement | null;
+    if (target) {
+        const card = target.closest('[data-review-card]');
+        card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    
     setReviewSelections(prev => {
         const newSelections = [...prev];
         const currentSelection = { ...newSelections[index] };
@@ -1200,13 +1205,17 @@ export default function Home() {
                     </div>
                     
                     {reviews.length > 0 && (
-                       <div className="space-y-4 rounded-lg border p-4">
-                            <CardTitle className="text-xl">AI 리뷰 선택</CardTitle>
-                             <Carousel className="w-full relative px-8">
+                       <div className="rounded-lg border p-4">
+                            <CardTitle className="text-xl mb-4">AI 리뷰 선택</CardTitle>
+                             <Carousel className="w-full relative px-6">
                                 <CarouselContent>
                                     {reviews.map((review, index) => (
                                         <CarouselItem key={index}>
-                                            <div className="p-1">
+                                            <div 
+                                                className="p-1" 
+                                                ref={el => reviewCardRefs.current[index] = el}
+                                                data-review-card
+                                            >
                                                 <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
                                                     <ScrollArea className="flex-grow h-32">
                                                         <p className="text-sm text-muted-foreground leading-relaxed">
@@ -1219,7 +1228,7 @@ export default function Home() {
                                                             <Checkbox
                                                                 id={`include-review-${index}`}
                                                                 checked={reviewSelections[index].included}
-                                                                onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
+                                                                onCheckedChange={(e) => handleReviewSelectionChange(index, 'included', e as any)}
                                                             />
                                                             <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
                                                                 포함
@@ -1229,7 +1238,7 @@ export default function Home() {
                                                             <Checkbox
                                                                 id={`summarize-review-${index}`}
                                                                 checked={reviewSelections[index].summarized}
-                                                                onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
+                                                                onCheckedChange={(e) => handleReviewSelectionChange(index, 'summarized', e as any)}
                                                                 disabled={!reviewSelections[index].included}
                                                             />
                                                             <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -1283,3 +1292,4 @@ export default function Home() {
     
 
     
+
