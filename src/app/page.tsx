@@ -85,6 +85,7 @@ interface CombinedInfo {
     product_id: string;
     total_num: number;
     korean_local_count: number;
+    korean_summary: string;
     korean_summary1?: string;
     korean_summary2?: string;
     korean_summary3?: string;
@@ -422,13 +423,14 @@ export default function Home() {
         const newCombinedInfo: CombinedInfo = {
             original_url: productInfo.original_url,
             final_url: productInfo.final_url,
-            kakao_url: productInfo.kakao_urls && productInfo.kakao_urls.length > 0 ? productInfo.kakao_urls[0] : '',
+            kakao_url: (productInfo.kakao_urls && productInfo.kakao_urls.length > 0) ? productInfo.kakao_urls[0] : '',
             product_title: productInfo.product_title,
             product_main_image_url: productInfo.product_main_image_url,
             sale_volume: parseInt(productInfo.sale_volume || '0', 10),
             product_id: productInfo.original_url.split('/item/')[1]?.split('.html')[0] || '',
             total_num: reviewData ? parseInt(reviewData.total_num || '0', 10) : 0,
             korean_local_count: reviewData ? parseInt(reviewData.korean_local_count || '0', 10) : 0,
+            korean_summary: reviewData?.korean_summary || '',
             korean_summary1: koreanReviews[0] || '',
             korean_summary2: koreanReviews[1] || '',
             korean_summary3: koreanReviews[2] || '',
@@ -641,6 +643,7 @@ export default function Home() {
                   '총리뷰': combinedInfo.total_num,
                   '국내리뷰': combinedInfo.korean_local_count,
                   '고객리뷰': firstSelectedReview || '',
+                  '고객리뷰요약': combinedInfo.korean_summary || '',
                   '할인율': `${Math.floor(sheetDiscountRate)}%`,
                   '게시물URL': articleUrl,
                   'af_link': combinedInfo.final_url || '',
@@ -781,6 +784,7 @@ export default function Home() {
 
 
   const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized', e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     const target = e.currentTarget as HTMLElement | null;
     if (target) {
         const card = target.closest('[data-review-card]');
@@ -1228,7 +1232,7 @@ export default function Home() {
                                                             <Checkbox
                                                                 id={`include-review-${index}`}
                                                                 checked={reviewSelections[index].included}
-                                                                onCheckedChange={(e) => handleReviewSelectionChange(index, 'included', e as any)}
+                                                                onClick={(e) => handleReviewSelectionChange(index, 'included', e as any)}
                                                             />
                                                             <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
                                                                 포함
@@ -1238,7 +1242,7 @@ export default function Home() {
                                                             <Checkbox
                                                                 id={`summarize-review-${index}`}
                                                                 checked={reviewSelections[index].summarized}
-                                                                onCheckedChange={(e) => handleReviewSelectionChange(index, 'summarized', e as any)}
+                                                                onClick={(e) => handleReviewSelectionChange(index, 'summarized', e as any)}
                                                                 disabled={!reviewSelections[index].included}
                                                             />
                                                             <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -1288,8 +1292,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
-
-    
-
