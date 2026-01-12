@@ -790,6 +790,11 @@ export default function Home() {
     e.preventDefault();
     e.stopPropagation(); 
     
+    const cardElement = reviewCardRefs.current[index];
+    if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
     setReviewSelections(prev => {
         const newSelections = [...prev];
         const currentSelection = { ...newSelections[index] };
@@ -1081,7 +1086,16 @@ export default function Home() {
                               {fieldInfo.label}
                               {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
                             </FormLabel>
-                            
+                             {fieldInfo.name === 'affShortKey' && (
+                                <div className="flex gap-2 pb-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c2R7VbXB')}>
+                                    엄마
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c3Xja9WB')}>
+                                    상희
+                                </Button>
+                                </div>
+                            )}
                             <div className="flex items-center gap-2">
                               {fieldInfo.name === 'coinDiscountValue' ? (
                                 <>
@@ -1111,16 +1125,6 @@ export default function Home() {
                                 </FormControl>
                               )}
                             </div>
-                            {fieldInfo.name === 'affShortKey' && (
-                                <div className="flex gap-2 pt-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c2R7VbXB')}>
-                                    엄마
-                                </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c3Xja9WB')}>
-                                    상희
-                                </Button>
-                                </div>
-                            )}
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1221,7 +1225,7 @@ export default function Home() {
                         
                         {reviews.length > 0 && (
                            <div className="rounded-lg border p-4">
-                                <CardTitle className="text-xl mb-4">AI 리뷰 선택</CardTitle>
+                                <CardTitle className="text-xl mb-2">AI 리뷰 선택</CardTitle>
                                  <Carousel className="w-full relative px-8">
                                     <CarouselContent>
                                         {reviews.map((review, index) => (
@@ -1229,7 +1233,6 @@ export default function Home() {
                                                 <div 
                                                     className="p-1" 
                                                     ref={el => reviewCardRefs.current[index] = el}
-                                                    data-review-card
                                                 >
                                                     <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
                                                         <ScrollArea className="flex-grow h-32">
