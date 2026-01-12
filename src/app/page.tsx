@@ -786,15 +786,7 @@ export default function Home() {
   };
 
 
-  const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized', e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation(); 
-    
-    const cardElement = reviewCardRefs.current[index];
-    if (cardElement) {
-        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
+  const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
     setReviewSelections(prev => {
         const newSelections = [...prev];
         const currentSelection = { ...newSelections[index] };
@@ -1209,12 +1201,12 @@ export default function Home() {
                                     placeholder="HTML 소스..."
                                     value={previewContent}
                                     onChange={(e) => setPreviewContent(e.target.value)}
-                                    className="min-h-[250px] text-sm font-mono bg-muted/30"
+                                    className="h-96 text-sm font-mono bg-muted/30"
                                   />
                               ) : (
                                  <div
                                     id="preview-display"
-                                    className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none max-h-96 overflow-y-auto"
+                                    className="h-96 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none overflow-y-auto"
                                     dangerouslySetInnerHTML={{ __html: previewContent }}
                                  />
                               )}
@@ -1246,7 +1238,7 @@ export default function Home() {
                                                                 <Checkbox
                                                                     id={`include-review-${index}`}
                                                                     checked={reviewSelections[index].included}
-                                                                    onClick={(e) => handleReviewSelectionChange(index, 'included', e as any)}
+                                                                    onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
                                                                 />
                                                                 <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
                                                                     포함
@@ -1256,7 +1248,7 @@ export default function Home() {
                                                                 <Checkbox
                                                                     id={`summarize-review-${index}`}
                                                                     checked={reviewSelections[index].summarized}
-                                                                    onClick={(e) => handleReviewSelectionChange(index, 'summarized', e as any)}
+                                                                    onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
                                                                     disabled={!reviewSelections[index].included}
                                                                 />
                                                                 <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -1307,5 +1299,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
