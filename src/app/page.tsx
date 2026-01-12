@@ -180,16 +180,17 @@ export default function Home() {
           form.setValue('productUrl', url);
           
           const parts = pasteAndGoValue.split('|');
-          if (parts.length > 1) {
-              const titleAndUrlPart = parts[1];
-              const urlIndex = titleAndUrlPart.indexOf(url);
-              const title = urlIndex !== -1 ? titleAndUrlPart.substring(0, urlIndex).trim() : titleAndUrlPart.trim();
-              form.setValue('Subject_title', title);
-          }
+           if (parts.length > 1) {
+                const titleAndUrlPart = parts[1].split('\n')[0].trim();
+                const urlIndex = titleAndUrlPart.indexOf(url);
+                const title = urlIndex !== -1 ? titleAndUrlPart.substring(0, urlIndex).trim() : titleAndUrlPart.trim();
+                form.setValue('Subject_title', title);
+           }
       } else {
           const parts = pasteAndGoValue.split('|');
           if (parts.length > 1) {
-              form.setValue('Subject_title', parts[1].trim());
+              const title = parts[1].split('\n')[0].trim();
+              form.setValue('Subject_title', title);
           }
       }
       toast({ title: '성공', description: '데이터가 자동으로 입력되었습니다.' });
@@ -625,9 +626,11 @@ export default function Home() {
                   combinedInfo.korean_summary4,
                   combinedInfo.korean_summary5,
               ];
-              const selectedReviews = allReviews
-                .filter((review, index) => review && reviewSelections[index].included)
-                .join(' | ');
+              const selectedReviewTexts = allReviews
+                .filter((review, index) => review && reviewSelections[index].included);
+
+              const firstSelectedReview = selectedReviewTexts[0] || '';
+              const allSelectedReviews = selectedReviewTexts.join(' | ');
 
               const formatSheetPrice = (price: number, originalInput?: string): string => {
                 if (isDollar(originalInput, price)) {
@@ -650,7 +653,8 @@ export default function Home() {
                   '게시물URL': articleUrl,
                   'af_link': combinedInfo.final_url || '',
                   'kakao_urls': combinedInfo.kakao_urls.join(', ') || '',
-                  'review_all': selectedReviews || ''
+                  'review_all': allSelectedReviews || '',
+                  '고객리뷰': firstSelectedReview
               };
 
               // 'data' 시트에서 해당 항목을 'checkup: 1'로 업데이트
@@ -787,6 +791,8 @@ export default function Home() {
 
 
   const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
+    const cardRef = reviewCardRefs.current[index];
+    
     setReviewSelections(prev => {
         const newSelections = [...prev];
         const currentSelection = { ...newSelections[index] };
@@ -805,6 +811,10 @@ export default function Home() {
         newSelections[index] = currentSelection;
         return newSelections;
     });
+
+    if (cardRef) {
+        cardRef.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 };
   
   const handleCopyHtml = () => {
@@ -1079,7 +1089,7 @@ export default function Home() {
                               {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
                             </FormLabel>
                              {fieldInfo.name === 'affShortKey' && (
-                                <div className="flex gap-2 pb-2">
+                                <div className="flex gap-2 pt-2 pb-2">
                                 <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c2R7VbXB')}>
                                     엄마
                                 </Button>
@@ -1170,7 +1180,7 @@ export default function Home() {
                   <div>
                     <Separator className="my-8" />
                     <div className="space-y-6">
-                        <div className="rounded-lg border p-4 space-y-4">
+                        <div className="space-y-4 rounded-lg border p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <CardTitle className="text-xl">미리보기</CardTitle>
                                 <div className="flex flex-wrap gap-2 justify-end">
@@ -1190,7 +1200,7 @@ export default function Home() {
                             </div>
                           
                           {isGeneratingPreview ? (
-                             <div className="flex items-center justify-center min-h-[250px]">
+                             <div className="flex items-center justify-center h-96">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                              </div>
                           ) : previewContent && (
