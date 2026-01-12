@@ -175,20 +175,21 @@ export default function Home() {
 
       const urlMatch = pasteAndGoValue.match(/(https?:\/\/\S+)/);
       if (urlMatch) {
-        const url = urlMatch[0];
-        form.setValue('productUrl', url);
-        
-        const contentWithoutUrl = pasteAndGoValue.replace(url, '').trim();
-        const titleMatch = contentWithoutUrl.match(/\|(.*?)$/);
-
-        if(titleMatch && titleMatch[1]) {
-          form.setValue('Subject_title', titleMatch[1].trim());
-        }
+          const url = urlMatch[0];
+          form.setValue('productUrl', url);
+          
+          const parts = pasteAndGoValue.split('|');
+          if (parts.length > 1) {
+              const titleAndUrlPart = parts[1];
+              const urlIndex = titleAndUrlPart.indexOf(url);
+              const title = urlIndex !== -1 ? titleAndUrlPart.substring(0, urlIndex).trim() : titleAndUrlPart.trim();
+              form.setValue('Subject_title', title);
+          }
       } else {
-        const parts = pasteAndGoValue.split('|');
-        if (parts.length > 1) {
-            form.setValue('Subject_title', parts[1].trim());
-        }
+          const parts = pasteAndGoValue.split('|');
+          if (parts.length > 1) {
+              form.setValue('Subject_title', parts[1].trim());
+          }
       }
       toast({ title: '성공', description: '데이터가 자동으로 입력되었습니다.' });
     } catch (e) {
@@ -1083,6 +1084,36 @@ export default function Home() {
                               {fieldInfo.label}
                               {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
                             </FormLabel>
+                            
+                            <div className="flex items-center gap-2">
+                              {fieldInfo.name === 'coinDiscountValue' ? (
+                                <>
+                                  <Button 
+                                      type="button" 
+                                      variant="outline" 
+                                      onClick={() => setCoinDiscountType(prev => prev === 'rate' ? 'amount' : 'rate')}
+                                      className="w-16 flex-shrink-0"
+                                  >
+                                      {coinDiscountType === 'rate' ? '%' : '액'}
+                                  </Button>
+                                  <FormControl className="flex-grow">
+                                    <Input
+                                      placeholder={fieldInfo.placeholder}
+                                      {...field}
+                                      value={field.value ?? ""}
+                                    />
+                                  </FormControl>
+                                </>
+                              ) : (
+                                <FormControl>
+                                  <Input
+                                    placeholder={fieldInfo.placeholder}
+                                    {...field}
+                                    value={field.value ?? ""}
+                                  />
+                                </FormControl>
+                              )}
+                            </div>
                              {fieldInfo.name === 'affShortKey' && (
                                 <div className="flex gap-2 pt-2">
                                 <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c2R7VbXB')}>
@@ -1093,25 +1124,6 @@ export default function Home() {
                                 </Button>
                                 </div>
                             )}
-                            <div className="flex items-center gap-2">
-                              {fieldInfo.name === 'coinDiscountValue' && (
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    onClick={() => setCoinDiscountType(prev => prev === 'rate' ? 'amount' : 'rate')}
-                                    className="w-16 flex-shrink-0"
-                                >
-                                    {coinDiscountType === 'rate' ? '%' : '액'}
-                                </Button>
-                              )}
-                              <FormControl className="flex-grow">
-                                <Input
-                                  placeholder={fieldInfo.placeholder}
-                                  {...field}
-                                  value={field.value ?? ""}
-                                />
-                              </FormControl>
-                            </div>
                             <FormMessage />
                           </FormItem>
                         )}
