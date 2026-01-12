@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -787,11 +788,7 @@ export default function Home() {
 
   const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized', e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const target = e.currentTarget as HTMLElement | null;
-    if (target) {
-        const card = target.closest('[data-review-card]');
-        card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    e.stopPropagation(); 
     
     setReviewSelections(prev => {
         const newSelections = [...prev];
@@ -1114,7 +1111,7 @@ export default function Home() {
                                 </FormControl>
                               )}
                             </div>
-                             {fieldInfo.name === 'affShortKey' && (
+                            {fieldInfo.name === 'affShortKey' && (
                                 <div className="flex gap-2 pt-2">
                                 <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c2R7VbXB')}>
                                     엄마
@@ -1213,7 +1210,7 @@ export default function Home() {
                               ) : (
                                  <div
                                     id="preview-display"
-                                    className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none"
+                                    className="min-h-[250px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none max-h-96 overflow-y-auto"
                                     dangerouslySetInnerHTML={{ __html: previewContent }}
                                  />
                               )}
