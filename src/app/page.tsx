@@ -638,6 +638,15 @@ export default function Home() {
                   }
                   return new Intl.NumberFormat('ko-KR').format(Math.floor(priceNum)) + '원';
               };
+              
+              let coinDiscountSheetValue = '';
+                if (product.coinDiscountValue) {
+                    if (coinDiscountType === 'rate') {
+                        coinDiscountSheetValue = `${product.coinDiscountValue}%`;
+                    } else {
+                        coinDiscountSheetValue = formatSheetPrice(coinDiscountNum, product.coinDiscountValue);
+                    }
+                }
 
               const newValues: { [key: string]: any } = {
                   "글쓰기 시간": new Date().toISOString(),
@@ -655,8 +664,9 @@ export default function Home() {
                   'kakao_urls': combinedInfo.kakao_urls.join(', ') || '',
                   'review_all': allSelectedReviews || '',
                   '고객리뷰': firstSelectedReview,
+                  '코인할인': coinDiscountSheetValue,
                   '할인코드': product.discountCode || '',
-                  '할인가': formatSheetPrice(discountCodePriceNum, product.discountCodePrice),
+                  '할인코드 할인가': formatSheetPrice(discountCodePriceNum, product.discountCodePrice),
                   '스토어쿠폰 코드': product.storeCouponCode || '',
                   '스토어쿠폰 코드 할인가': formatSheetPrice(storeCouponPriceNum, product.storeCouponPrice),
                   '카드사명': product.cardCompanyName || '',
