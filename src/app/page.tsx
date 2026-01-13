@@ -1096,6 +1096,9 @@ export default function Home() {
                                 <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c3Xja9WB')}>
                                     상희
                                 </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_Dcj12VJ')}>
+                                    지희
+                                </Button>
                                 </div>
                             )}
                             <div className="flex items-center gap-2">
