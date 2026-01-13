@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -632,13 +631,14 @@ export default function Home() {
               const firstSelectedReview = selectedReviewTexts[0] || '';
               const allSelectedReviews = selectedReviewTexts.join(' | ');
 
-              const formatSheetPrice = (price: number, originalInput?: string): string => {
-                if (isDollar(originalInput, price)) {
-                    return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                }
-                return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
+              const formatSheetPrice = (priceNum: number, originalInput?: string): string => {
+                  if (!originalInput && priceNum === 0) return '';
+                  if (isDollar(originalInput, priceNum)) {
+                      return '$' + priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  }
+                  return new Intl.NumberFormat('ko-KR').format(Math.floor(priceNum)) + '원';
               };
-  
+
               const newValues: { [key: string]: any } = {
                   "글쓰기 시간": new Date().toISOString(),
                   'Subject_title': form.getValues("Subject_title") || '',
@@ -654,7 +654,14 @@ export default function Home() {
                   'af_link': combinedInfo.final_url || '',
                   'kakao_urls': combinedInfo.kakao_urls.join(', ') || '',
                   'review_all': allSelectedReviews || '',
-                  '고객리뷰': firstSelectedReview
+                  '고객리뷰': firstSelectedReview,
+                  '할인코드': product.discountCode || '',
+                  '할인가': formatSheetPrice(discountCodePriceNum, product.discountCodePrice),
+                  '스토어쿠폰 코드': product.storeCouponCode || '',
+                  '스토어쿠폰 코드 할인가': formatSheetPrice(storeCouponPriceNum, product.storeCouponPrice),
+                  '카드사명': product.cardCompanyName || '',
+                  '카드할인가': formatSheetPrice(cardPriceNum, product.cardPrice),
+                  '상품태그': product.productTag || '',
               };
 
               // 'data' 시트에서 해당 항목을 'checkup: 1'로 업데이트
@@ -1312,3 +1319,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
