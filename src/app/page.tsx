@@ -651,6 +651,7 @@ export default function Home() {
               const newValues: { [key: string]: any } = {
                   "글쓰기 시간": new Date().toISOString(),
                   'Subject_title': form.getValues("Subject_title") || '',
+                  'full_product_name': combinedInfo.product_title || '',
                   '할인판매가': formatSheetPrice(productPriceNum, product.productPrice),
                   '할인구매가': formatSheetPrice(finalPrice, product.productPrice),
                   '이미지URL': combinedInfo.product_main_image_url || '',
@@ -1101,9 +1102,9 @@ export default function Home() {
                         name={fieldInfo.name as keyof FormData}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>
-                              {fieldInfo.label}
-                              {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
+                             <FormLabel>
+                                {fieldInfo.label}
+                                {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
                             </FormLabel>
                              {fieldInfo.name === 'affShortKey' && (
                                 <div className="flex gap-2 pt-2 pb-2">
