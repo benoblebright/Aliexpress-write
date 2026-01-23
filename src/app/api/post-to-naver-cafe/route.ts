@@ -18,6 +18,8 @@ export async function POST(request: Request) {
     const client = await auth.getIdTokenClient(CLOUD_RUN_URL);
     
     const payload = { subject, content, image_urls, club_id, menu_id };
+    
+    console.log('[PROXY-NAVER-CAFE] Forwarding payload:', payload);
 
     const response = await client.request({
       url: CLOUD_RUN_URL,
