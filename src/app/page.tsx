@@ -503,7 +503,7 @@ export default function Home() {
       content: previewContent,
       image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
       club_id: "31609361",
-      menu_id: "2"
+      menu_id: product.discountCode ? "8" : "2"
     };
 
     console.log("네이버 카페 전송 데이터:", cafePayload);
@@ -1117,6 +1117,9 @@ export default function Home() {
                                 <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_Dcj12VJ')}>
                                     지희
                                 </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c40nbXCX')}>
+                                    현성
+                                </Button>
                                 </div>
                             )}
                             <div className="flex items-center gap-2">
@@ -1330,5 +1333,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
