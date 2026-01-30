@@ -498,12 +498,20 @@ export default function Home() {
     const originalTitle = form.getValues("Subject_title") || combinedInfo.product_title;
     const finalSubject = discountRate > 0 ? `(${Math.floor(discountRate)}%) ${originalTitle}` : originalTitle;
 
+    const productTag = product.productTag || '';
+    let menu_id = "2";
+    if (productTag.includes('#패션') || productTag.includes('패션')) {
+        menu_id = "26";
+    } else if (product.discountCode) {
+        menu_id = "8";
+    }
+
     const cafePayload = {
       subject: finalSubject,
       content: previewContent,
       image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
       club_id: "31609361",
-      menu_id: product.discountCode ? "8" : "2"
+      menu_id: menu_id
     };
 
     console.log("네이버 카페 전송 데이터:", cafePayload);
@@ -1333,3 +1341,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
