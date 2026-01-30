@@ -500,7 +500,7 @@ export default function Home() {
 
     const productTag = product.productTag || '';
     let menu_id = "2";
-    if (productTag.includes('#패션') || productTag.includes('패션')) {
+    if (productTag.includes('패션') || productTag.includes('#패션')) {
         menu_id = "26";
     } else if (product.discountCode) {
         menu_id = "8";
@@ -1114,8 +1114,8 @@ export default function Home() {
                                 {fieldInfo.label}
                                 {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
                             </FormLabel>
-                             {fieldInfo.name === 'affShortKey' && (
-                                <div className="flex gap-2 pt-2 pb-2">
+                            {fieldInfo.name === 'affShortKey' && (
+                                <div className="flex flex-wrap gap-2 pt-2 pb-2">
                                 <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c2R7VbXB')}>
                                     엄마
                                 </Button>
@@ -1148,6 +1148,24 @@ export default function Home() {
                                       value={field.value ?? ""}
                                     />
                                   </FormControl>
+                                </>
+                              ) : fieldInfo.name === 'productTag' ? (
+                                <>
+                                    <FormControl>
+                                        <Input
+                                        placeholder={fieldInfo.placeholder}
+                                        {...field}
+                                        value={field.value ?? ""}
+                                        />
+                                    </FormControl>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => form.setValue('productTag', '#패션 - 3개 담으면 20%할인 행사 바로가기 → https://saletem.page.link/eknz')}
+                                    >
+                                        패션
+                                    </Button>
                                 </>
                               ) : (
                                 <FormControl>
@@ -1341,5 +1359,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
