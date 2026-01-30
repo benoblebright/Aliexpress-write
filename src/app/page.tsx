@@ -1130,6 +1130,18 @@ export default function Home() {
                                 </Button>
                                 </div>
                             )}
+                            {fieldInfo.name === 'productTag' && (
+                                <div className="pt-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => form.setValue('productTag', '#패션 - 3개 담으면 20%할인 행사 바로가기 → https://saletem.page.link/eknz')}
+                                    >
+                                        패션
+                                    </Button>
+                                </div>
+                            )}
                             <div className="flex items-center gap-2">
                               {fieldInfo.name === 'coinDiscountValue' ? (
                                 <>
@@ -1148,24 +1160,6 @@ export default function Home() {
                                       value={field.value ?? ""}
                                     />
                                   </FormControl>
-                                </>
-                              ) : fieldInfo.name === 'productTag' ? (
-                                <>
-                                    <FormControl>
-                                        <Input
-                                        placeholder={fieldInfo.placeholder}
-                                        {...field}
-                                        value={field.value ?? ""}
-                                        />
-                                    </FormControl>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => form.setValue('productTag', '#패션 - 3개 담으면 20%할인 행사 바로가기 → https://saletem.page.link/eknz')}
-                                    >
-                                        패션
-                                    </Button>
                                 </>
                               ) : (
                                 <FormControl>
@@ -1359,3 +1353,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
