@@ -61,7 +61,6 @@ const formSchema = z.object({
   storeCouponPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
   cardPrice: z.string().optional(),
-  menuId: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -153,7 +152,6 @@ export default function Home() {
         storeCouponPrice: "",
         cardCompanyName: "",
         cardPrice: "",
-        menuId: "",
     },
   });
 
@@ -340,6 +338,7 @@ export default function Home() {
     .filter(({ review, selection }) => review && selection.included)
     .map(({ review, selection }) => {
         let reviewContent = review!.replace(/<[^>]*>?/gm, ''); // Basic HTML tag removal
+        reviewContent = reviewContent.replace(/\*/g, ''); // Remove asterisks
         if (selection.summarized && reviewContent.length > 50) {
             reviewContent = `<p>- ${reviewContent.substring(0, 50)}... <a href='${info.final_url}'>더보기</a></p>`;
         } else {
@@ -498,19 +497,12 @@ export default function Home() {
     const finalSubject = discountRate > 0 ? `(${Math.floor(discountRate)}%) ${originalTitle}` : originalTitle;
 
     const productTag = product.productTag || '';
-    const customMenuId = product.menuId;
     
-    let menu_id: string;
-
-    if (customMenuId) {
-        menu_id = customMenuId;
-    } else {
-        menu_id = "2"; // 기본값
-        if (productTag.includes('패션') || productTag.includes('#패션')) {
-            menu_id = "26";
-        } else if (product.discountCode) {
-            menu_id = "8";
-        }
+    let menu_id = "2"; // 기본값
+    if (productTag.includes('패션') || productTag.includes('#패션')) {
+        menu_id = "26";
+    } else if (product.discountCode) {
+        menu_id = "8";
     }
 
     const cafePayload = {
@@ -876,7 +868,6 @@ export default function Home() {
         { name: "productTag", label: "상품태그", placeholder: "예: #캠핑 #가성비", isRequired: false },
     ],
     collapsible: [
-        { name: "menuId", label: "네이버 카페 메뉴 ID", placeholder: "게시판 ID (비워두면 자동 선택)", type: "text" },
         { name: "discountCode", label: "할인코드", placeholder: "예: KR1234", type: "text" },
         { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" },
         { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000", type: "text" },
@@ -1365,7 +1356,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
-
-    
