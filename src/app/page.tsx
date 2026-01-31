@@ -352,10 +352,7 @@ export default function Home() {
     }
 
     if (product.productTag) {
-        const tags = product.productTag.split(' ').map(tag => tag.trim()).filter(tag => tag).map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
-        if (tags) {
-            content += `<p>${tags}</p>`;
-        }
+      content += `<p>${product.productTag}</p>`;
     }
     
     return content;
@@ -514,7 +511,7 @@ export default function Home() {
       menu_id: menu_id
     };
 
-    console.log("네이버 카페 전송 데이터:", cafePayload);
+    console.log("[PROXY-NAVER-CAFE] Forwarding payload:", cafePayload);
 
      if (combinedInfo.kakao_urls && combinedInfo.kakao_urls.length > 0) {
         const formatKakaoPrice = (price: number, originalInput?: string): string => {
@@ -1130,13 +1127,17 @@ export default function Home() {
                                 </Button>
                                 </div>
                             )}
-                            {fieldInfo.name === 'productTag' && (
+                             {fieldInfo.name === 'productTag' && (
                                 <div className="pt-2">
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => form.setValue('productTag', '#패션 - 3개 담으면 20%할인 행사 바로가기 → https://saletem.page.link/eknz')}
+                                        onClick={() => {
+                                            const currentValue = form.getValues("productTag") || "";
+                                            const textToAppend = '#패션 - 3개 담으면 20%할인 행사 바로가기 → https://saletem.page.link/eknz';
+                                            form.setValue('productTag', currentValue ? `${currentValue} ${textToAppend}` : textToAppend);
+                                        }}
                                     >
                                         패션
                                     </Button>
