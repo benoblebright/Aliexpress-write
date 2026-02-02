@@ -502,8 +502,13 @@ export default function Home() {
 
     const productTag = product.productTag || '';
     
+    let club_id = "31609361";
     let menu_id = "2"; // 기본값
-    if (productTag.includes('패션') || productTag.includes('#패션')) {
+
+    if (productTag.includes('#샤오미스토리')) {
+        club_id = "30078835";
+        menu_id = "103";
+    } else if (productTag.includes('패션') || productTag.includes('#패션')) {
         menu_id = "26";
     } else if (product.discountCode) {
         menu_id = "8";
@@ -513,7 +518,7 @@ export default function Home() {
       subject: finalSubject,
       content: previewContent,
       image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
-      club_id: "31609361",
+      club_id: club_id,
       menu_id: menu_id
     };
 
@@ -1134,7 +1139,7 @@ export default function Home() {
                                 </div>
                             )}
                              {fieldInfo.name === 'productTag' && (
-                                <div className="pt-2">
+                                <div className="pt-2 flex gap-2">
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -1146,6 +1151,18 @@ export default function Home() {
                                         }}
                                     >
                                         패션
+                                    </Button>
+                                     <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            const currentValue = form.getValues("productTag") || "";
+                                            const textToAppend = '#샤오미 #샤오미스토리';
+                                            form.setValue('productTag', currentValue ? `${currentValue} ${textToAppend}` : textToAppend);
+                                        }}
+                                    >
+                                        샤오미카페
                                     </Button>
                                 </div>
                             )}
@@ -1360,3 +1377,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
