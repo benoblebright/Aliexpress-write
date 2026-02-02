@@ -270,7 +270,8 @@ export default function Home() {
         return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
     };
 
-    let content = `<p>${info.product_title}</p><br />`;
+    let content = `<p>링크를 통해 구매가 발생할 시, 일정 수수료를 제공받습니다.</p><br />`;
+    content += `<p>${info.product_title}</p><br />`;
 
     const productPriceNum = parsePrice(product.productPrice);
     const coinDiscountNum = parsePrice(product.coinDiscountValue);
@@ -353,7 +354,10 @@ export default function Home() {
     }
 
     if (product.productTag) {
-      content += `<p>${product.productTag}</p>`;
+      const tagContent = product.productTag.trim();
+      if(tagContent) {
+          content += `<p>${tagContent}</p>`;
+      }
     }
     
     return content;
