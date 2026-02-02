@@ -506,8 +506,8 @@ export default function Home() {
     let menu_id = "2"; // 기본값
 
     if (productTag.includes('#샤오미스토리')) {
-        club_id = "30078835";
-        menu_id = "103";
+        club_id = "27738104";
+        menu_id = "649";
     } else if (productTag.includes('패션') || productTag.includes('#패션')) {
         menu_id = "26";
     } else if (product.discountCode) {
@@ -1377,5 +1377,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
