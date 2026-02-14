@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, RefreshCw, Eye, Tag, DollarSign, Percent, CreditCard, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Loader2, Rocket, Trash2, ChevronDown, CheckCircle, XCircle, RefreshCw, ClipboardCopy, Eye, Code, Pilcrow, MessageSquareText, Download, Calculator, PanelLeft, PanelRight, Zap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,8 +14,8 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -25,16 +25,26 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 const formSchema = z.object({
   Subject_title: z.string().optional(),
@@ -44,7 +54,9 @@ const formSchema = z.object({
   coinDiscountValue: z.string().optional(),
   productTag: z.string().optional(),
   discountCode: z.string().optional(),
-  discountCodePrice: z.string().optional(),
+  discountCodePrice: z
+    .string()
+    .optional(),
   storeCouponCode: z.string().optional(),
   storeCouponPrice: z.string().optional(),
   cardCompanyName: z.string().optional(),
@@ -60,7 +72,6 @@ interface SheetData {
   게시가격?: string;
   게시URL?: string;
   Runtime?: string;
-  checkup?: string;
   [key: string]: any;
 }
 
@@ -83,6 +94,12 @@ interface CombinedInfo {
     source_url: string;
 }
 
+type CafePostStatus = 'idle' | 'success' | 'error' | 'loading';
+interface CafePostResult {
+    status: CafePostStatus;
+    message: string;
+}
+
 interface ReviewSelection {
     included: boolean;
     summarized: boolean;
@@ -93,19 +110,32 @@ type CoinDiscountType = 'rate' | 'amount';
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [cafePostResult, setCafePostResult] = useState<CafePostResult | null>(null);
   const [previewContent, setPreviewContent] = useState("");
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   
   const [isSheetLoading, setIsSheetLoading] = useState(true);
   const [sheetData, setSheetData] = useState<SheetData[]>([]);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [selectedRowNumber, setSelectedRowNumber] = useState<number | null>(null);
 
   const [combinedInfo, setCombinedInfo] = useState<CombinedInfo | null>(null);
+  const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [coinDiscountType, setCoinDiscountType] = useState<CoinDiscountType>('rate');
 
   const [reviewSelections, setReviewSelections] = useState<ReviewSelection[]>(
-    Array(5).fill({ included: true, summarized: false })
+    Array(5).fill({ included: false, summarized: false })
   );
+  
+  const [calcA, setCalcA] = useState('');
+  const [calcB, setCalcB] = useState('');
+  const [calcC, setCalcC] = useState(0);
+  const [calcD, setCalcD] = useState(0);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [pasteAndGoValue, setPasteAndGoValue] = useState('');
+  const reviewCardRefs = useRef<(HTMLDivElement | null)[]>([]);
+
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -125,15 +155,67 @@ export default function Home() {
     },
   });
 
+ const handlePasteAndGo = () => {
+    if (!pasteAndGoValue) {
+      toast({ variant: 'destructive', title: '입력 오류', description: '붙여넣을 데이터가 없습니다.' });
+      return;
+    }
+
+    try {
+      const wonPriceMatch = pasteAndGoValue.match(/₩([\d,]+)/);
+      const dollarPriceMatch = pasteAndGoValue.match(/\$([\d,]+\.?\d*)/);
+
+      if (wonPriceMatch && wonPriceMatch[1]) {
+        const price = wonPriceMatch[1].replace(/,/g, '');
+        form.setValue('productPrice', price);
+      } else if (dollarPriceMatch && dollarPriceMatch[1]) {
+        const price = dollarPriceMatch[1].replace(/,/g, '');
+        form.setValue('productPrice', `$${price}`);
+      }
+
+      const urlMatch = pasteAndGoValue.match(/(https?:\/\/\S+)/);
+      if (urlMatch) {
+          const url = urlMatch[0];
+          form.setValue('productUrl', url);
+          
+          const parts = pasteAndGoValue.split('|');
+           if (parts.length > 1) {
+                const titleAndUrlPart = parts[1].split('\n')[0].trim();
+                const urlIndex = titleAndUrlPart.indexOf(url);
+                const title = urlIndex !== -1 ? titleAndUrlPart.substring(0, urlIndex).trim() : titleAndUrlPart.trim();
+                form.setValue('Subject_title', title);
+           }
+      } else {
+          const parts = pasteAndGoValue.split('|');
+          if (parts.length > 1) {
+              const title = parts[1].split('\n')[0].trim();
+              form.setValue('Subject_title', title);
+          }
+      }
+      toast({ title: '성공', description: '데이터가 자동으로 입력되었습니다.' });
+    } catch (e) {
+        console.error("Paste and Go parsing error:", e);
+        toast({ variant: 'destructive', title: '파싱 오류', description: '데이터를 분석하는 중 오류가 발생했습니다.' });
+    }
+  };
+  
   const fetchSheetData = useCallback(async () => {
     setIsSheetLoading(true);
+    setSheetError(null);
     try {
       const response = await fetch('/api/sheets');
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed');
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch sheet data');
+      }
       setSheetData(result.data || []);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "로딩 오류", description: error.message });
+      setSheetError(error.message);
+      toast({
+        variant: "destructive",
+        title: "시트 데이터 로딩 오류",
+        description: error.message,
+      });
     } finally {
       setIsSheetLoading(false);
     }
@@ -142,35 +224,54 @@ export default function Home() {
   useEffect(() => {
     fetchSheetData();
   }, [fetchSheetData]);
+  
+  useEffect(() => {
+    const numA = parseFloat(calcA) || 0;
+    const numB = parseFloat(calcB) || 0;
+    const sumC = numA + numB;
+    setCalcC(sumC);
+    if (sumC !== 0) {
+      const percentageD = (numB / sumC) * 100;
+      setCalcD(percentageD);
+    } else {
+      setCalcD(0);
+    }
+  }, [calcA, calcB]);
+  
+  const handleResetCalculator = () => {
+    setCalcA('');
+    setCalcB('');
+  };
 
   const parsePrice = (price: string | number | undefined | null): number => {
-      if (!price) return 0;
+      if (price === undefined || price === null || price === '') return 0;
       if (typeof price === 'number') return price;
       const parsed = parseFloat(String(price).replace(/[^0-9.-]+/g, ''));
       return isNaN(parsed) ? 0 : parsed;
   };
 
   const generateHtmlContent = useCallback((info: CombinedInfo | null, selections: ReviewSelection[], currentCoinDiscountType: CoinDiscountType): string => {
-    if (!info?.product_title || !info?.final_url) return "";
+    if (!info?.product_title || !info?.final_url) {
+        return "<p>조회된 상품 정보가 올바르지 않습니다.</p>";
+    }
 
-    const product = form.getValues();
+    const { ...product } = form.getValues();
+    
     const isDollar = (originalInput?: string, price?: number): boolean => {
       if (originalInput && originalInput.includes('$')) return true;
-      if (price !== undefined && price < 1000 && price > 0) return true;
+      if (price !== undefined && price < 1000) return true;
       return false;
-    };
+    }
     
     const formatPrice = (price: number, originalInput?: string): string => {
-        if (isDollar(originalInput, price)) return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (isDollar(originalInput, price)) {
+            return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
         return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
     };
 
-    let content = `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">`;
-    content += `<p style="font-size: 20px; font-weight: bold; color: #111; margin-bottom: 15px;">${info.product_title}</p>`;
-
-    if (info.product_main_image_url) {
-        content += `<div style="text-align: center; margin-bottom: 25px;"><img src="${info.product_main_image_url}" style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" /></div>`;
-    }
+    let content = `<p>링크를 통해 구매가 발생할 시, 일정 수수료를 제공받습니다.</p><br />`;
+    content += `<p>${info.product_title}</p><br />`;
 
     const productPriceNum = parsePrice(product.productPrice);
     const coinDiscountNum = parsePrice(product.coinDiscountValue);
@@ -180,113 +281,154 @@ export default function Home() {
 
     let finalPrice = productPriceNum;
     
-    let priceDetails = "";
     if (productPriceNum > 0) {
-      priceDetails += `<p style="margin: 5px 0;">할인판매가: <span style="text-decoration: line-through; color: #888;">${formatPrice(productPriceNum, product.productPrice)}</span></p>`;
+      content += `<p>할인판매가: ${formatPrice(productPriceNum, product.productPrice)}</p>`;
     }
     
     if (coinDiscountNum > 0 && productPriceNum > 0) {
+      const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
       if (currentCoinDiscountType === 'rate') {
-        const coinValue = isDollar(product.productPrice, productPriceNum) 
-            ? Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100
-            : Math.floor(productPriceNum * (coinDiscountNum / 100));
-        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">코인할인: -${formatPrice(coinValue, product.productPrice)} ( ${coinDiscountNum}% )</p>`;
-        finalPrice -= coinValue;
-      } else {
-        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">코인할인: -${formatPrice(coinDiscountNum, product.coinDiscountValue)}</p>`;
+        let coinDiscountValue;
+        if (isPriceInDollar) {
+            coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+        } else {
+            coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+        }
+        content += `<p>코인할인 ( ${coinDiscountNum}% )</p>`;
+        finalPrice -= coinDiscountValue;
+      } else { // amount
+        content += `<p>코인할인: -${formatPrice(coinDiscountNum, product.coinDiscountValue)}</p>`;
         finalPrice -= coinDiscountNum;
       }
     }
     if (discountCodePriceNum > 0 && product.discountCode) {
-        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">할인코드: -${formatPrice(discountCodePriceNum, product.discountCodePrice)} ( ${product.discountCode} )</p>`;
+        content += `<p>할인코드: -${formatPrice(discountCodePriceNum, product.discountCodePrice)} ( ${product.discountCode} )</p>`;
         finalPrice -= discountCodePriceNum;
     }
-    if (storeCouponPriceNum > 0 && product.storeCouponCode) {
-        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">스토어쿠폰: -${formatPrice(storeCouponPriceNum, product.storeCouponPrice)} ( ${product.storeCouponCode} )</p>`;
+     if (storeCouponPriceNum > 0 && product.storeCouponCode) {
+        content += `<p>스토어쿠폰: -${formatPrice(storeCouponPriceNum, product.storeCouponPrice)} ( ${product.storeCouponCode} )</p>`;
         finalPrice -= storeCouponPriceNum;
     }
     if (cardPriceNum > 0 && product.cardCompanyName) {
-        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">카드할인: -${formatPrice(cardPriceNum, product.cardPrice)} ( ${product.cardCompanyName} )</p>`;
+        content += `<p>카드할인: -${formatPrice(cardPriceNum, product.cardPrice)} ( ${product.cardCompanyName} )</p>`;
         finalPrice -= cardPriceNum;
     }
     
-    if (priceDetails) {
-        content += `<div style="background: #fff9f5; padding: 15px; border-left: 4px solid #ff5000; border-radius: 4px; margin-bottom: 20px;">${priceDetails}</div>`;
+    if(finalPrice < productPriceNum && productPriceNum > 0) {
+        content += `<br /><p>할인구매가: ${formatPrice(Math.max(0, finalPrice), product.productPrice)}</p>`;
+    }
+    
+    content += `<br /><p>할인상품 : <a href='${info.final_url}'>특가상품 바로가기</a></p><br />`;
+    
+    const saleVolume = info.sale_volume || 0;
+    const totalNum = info.total_num || 0;
+    const koreanLocalCount = info.korean_local_count || 0;
+
+    if (saleVolume > 0 || totalNum > 0 || koreanLocalCount > 0) {
+      content += `<p>리뷰 요약: 총판매 ${saleVolume}개, 총리뷰 ${totalNum}개, 국내리뷰 ${koreanLocalCount}개</p><br />`;
     }
 
-    if(finalPrice > 0) {
-        content += `<p style="font-size: 24px; color: #ff5000; margin-bottom: 25px;"><b>최종구매가: ${formatPrice(Math.max(0, finalPrice), product.productPrice)}</b></p>`;
-    }
-    
-    content += `<div style="text-align: center; margin: 30px 0;">`;
-    content += `<a href='${info.final_url}' style="background-color: #ff5000; color: #fff; text-decoration: none; padding: 15px 30px; border-radius: 30px; font-weight: bold; font-size: 18px; display: inline-block;">🔥 특가상품 바로가기 🔥</a>`;
-    content += `</div>`;
-    
-    const reviewsToAdd = [info.korean_summary1, info.korean_summary2, info.korean_summary3, info.korean_summary4, info.korean_summary5]
+    const reviewsToAdd = [
+        info.korean_summary1,
+        info.korean_summary2,
+        info.korean_summary3,
+        info.korean_summary4,
+        info.korean_summary5,
+    ]
     .map((review, index) => ({ review, selection: selections[index] }))
     .filter(({ review, selection }) => review && selection.included)
     .map(({ review, selection }) => {
-        let reviewContent = review!.replace(/<[^>]*>?/gm, '').replace(/\*/g, '').trim();
+        let reviewContent = review!.replace(/<[^>]*>?/gm, ''); // Basic HTML tag removal
+        reviewContent = reviewContent.replace(/\*/g, ''); // Remove asterisks
         if (selection.summarized && reviewContent.length > 50) {
-            reviewContent = `${reviewContent.substring(0, 50)}...`;
+            reviewContent = `<p>- ${reviewContent.substring(0, 50)}... <a href='${info.final_url}'>더보기</a></p>`;
+        } else {
+            reviewContent = `<p>- ${reviewContent}</p>`;
         }
-        return `<li style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">${reviewContent}</li>`;
-    }).join('');
+        return reviewContent;
+    })
+    .join('<br />');
 
     if(reviewsToAdd) {
-        content += `<div style="background-color: #fcfcfc; padding: 20px; border: 1px solid #eee; border-radius: 12px; margin-top: 30px;">`;
-        content += `<p style="font-weight: bold; margin-top: 0; color: #111; font-size: 16px;">⭐ 실제 구매자 리뷰 요약:</p>`;
-        content += `<ul style="padding-left: 15px; margin-bottom: 0; list-style-type: none;">${reviewsToAdd}</ul>`;
-        content += `</div>`;
+        content += reviewsToAdd + '<br />';
     }
 
     if (product.productTag) {
-        content += `<p style="color: #888; font-size: 13px; margin-top: 25px;">${product.productTag.trim()}</p>`;
+      const tagContent = product.productTag.trim();
+      if(tagContent) {
+          content += `<p>${tagContent}</p>`;
+      }
     }
     
-    content += `<hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />`;
-    content += `<p style="color: #999; font-size: 12px;">* 해당 링크를 통해 구매가 발생할 시, 제휴 마케팅 활동의 일환으로 일정액의 수수료를 제공받을 수 있습니다.</p>`;
-    content += `</div>`;
-
     return content;
   }, [form]);
   
   const handleGeneratePreview = async () => {
-    const values = form.getValues();
-    if (!values.productUrl || !values.affShortKey) {
-        toast({ variant: "destructive", title: "입력 오류", description: "URL과 단축 키를 입력해주세요." });
+    const { productUrl, affShortKey } = form.getValues();
+    const isFormValid = await form.trigger(["productUrl", "affShortKey"]);
+
+    if (!isFormValid) {
+        toast({ variant: "destructive", title: "입력 오류", description: "상품 URL과 제휴 단축 키를 올바르게 입력해주세요." });
         return;
     }
 
     setIsGeneratingPreview(true);
+    setCombinedInfo(null);
+    setPreviewContent("");
+    setReviewSelections(Array(5).fill({ included: false, summarized: false }));
+    setIsHtmlMode(false);
+
     try {
         const [infoResponse, reviewsResponse] = await Promise.all([
             fetch("/api/generate-all", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ target_urls: [values.productUrl], aff_short_key: [values.affShortKey] }),
+                body: JSON.stringify({ target_urls: [productUrl], aff_short_key: [affShortKey] }),
             }),
             fetch("/api/generate-reviews", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ target_urls: [values.productUrl] }),
+                body: JSON.stringify({ target_urls: [productUrl] }),
             }),
         ]);
         
         const infoResult = await infoResponse.json();
         const reviewsResult = await reviewsResponse.json();
         
-        if (!infoResponse.ok) throw new Error(infoResult.error || '정보를 가져오는데 실패했습니다.');
+        if (!infoResponse.ok) {
+            const errorMessage = infoResult.error || '상품 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
+            toast({
+                variant: "destructive",
+                title: "상품 정보 API 오류",
+                description: `오류: ${errorMessage}`,
+            });
+            throw new Error(`상품 정보 API 오류: ${errorMessage}`);
+        }
+
+        if (!infoResult.allInfos || infoResult.allInfos.length === 0) {
+             throw new Error('API에서 상품 정보를 반환하지 않았습니다.');
+        }
+        
+        if (!reviewsResponse.ok) {
+            const errorMessage = reviewsResult.error || '리뷰 정보를 가져오는 중 알 수 없는 오류가 발생했습니다.';
+             toast({
+                variant: "destructive",
+                title: "리뷰 정보 로딩 실패",
+                description: errorMessage,
+            });
+        }
 
         const productInfo = infoResult.allInfos[0];
+        
         const reviewData = (Array.isArray(reviewsResult) && reviewsResult.length > 0) ? reviewsResult[0] : null;
+
         const koreanReviews = (reviewData?.korean_summary || '').split('|').map((s: string) => s.trim()).filter(Boolean);
 
         const newCombinedInfo: CombinedInfo = {
             original_url: productInfo.original_url,
             final_url: productInfo.final_url,
-            kakao_urls: productInfo.kakao_urls || [],
-            product_title: productInfo.product_title || values.Subject_title || "알리익스프레스 추천 상품",
+            kakao_urls: (productInfo.kakao_urls && Array.isArray(productInfo.kakao_urls)) ? productInfo.kakao_urls : [],
+            product_title: productInfo.product_title,
             product_main_image_url: productInfo.product_main_image_url,
             sale_volume: parseInt(productInfo.sale_volume || '0', 10),
             product_id: productInfo.original_url.split('/item/')[1]?.split('.html')[0] || '',
@@ -302,362 +444,936 @@ export default function Home() {
         };
         
         setCombinedInfo(newCombinedInfo);
-        if (!values.Subject_title) {
-            form.setValue("Subject_title", newCombinedInfo.product_title);
-        }
         
-        setPreviewContent(generateHtmlContent(newCombinedInfo, reviewSelections, coinDiscountType));
-        toast({ title: "데이터 생성 완료", description: "할인 정보를 입력하고 카페에 게시하세요." });
     } catch (e: any) {
+        const errorMessage = `미리보기 생성 오류: ${e.message}`;
         toast({ variant: "destructive", title: "미리보기 생성 오류", description: e.message });
+        setPreviewContent(`<p>${errorMessage}</p>`);
     } finally {
       setIsGeneratingPreview(false);
     }
-  };
+};
+
 
   const handlePostToNaverCafe = async () => {
-    if (!combinedInfo || !previewContent) return;
+    if (!combinedInfo || !previewContent) {
+      toast({ variant: "destructive", title: "게시 불가", description: "먼저 미리보기를 생성해주세요." });
+      return;
+    }
+  
     setIsLoading(true);
+    setCafePostResult({ status: 'loading', message: '네이버 카페에 글을 게시하는 중...' });
+  
     const product = form.getValues();
+    const isDollar = (originalInput?: string, price?: number): boolean => {
+      if (originalInput && originalInput.includes('$')) return true;
+      if (price !== undefined && price < 1000) return true;
+      return false;
+    }
+    const productPriceNum = parsePrice(product.productPrice);
+    const coinDiscountNum = parsePrice(product.coinDiscountValue);
+    const discountCodePriceNum = parsePrice(product.discountCodePrice);
+    const storeCouponPriceNum = parsePrice(product.storeCouponPrice);
+    const cardPriceNum = parsePrice(product.cardPrice);
+
+    let finalPriceForRate = productPriceNum;
+    if (coinDiscountNum > 0 && productPriceNum > 0) {
+      const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
+      if (coinDiscountType === 'rate') {
+          let coinDiscountValue;
+          if (isPriceInDollar) {
+              coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+          } else {
+              coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+          }
+          finalPriceForRate -= coinDiscountValue;
+      } else {
+          finalPriceForRate -= coinDiscountNum;
+      }
+    }
+    if (discountCodePriceNum > 0) finalPriceForRate -= discountCodePriceNum;
+    if (storeCouponPriceNum > 0) finalPriceForRate -= storeCouponPriceNum;
+    if (cardPriceNum > 0) finalPriceForRate -= cardPriceNum;
+    finalPriceForRate = Math.max(0, finalPriceForRate);
+
+    const discountRate = productPriceNum > 0 ? ((productPriceNum - finalPriceForRate) / productPriceNum) * 100 : 0;
+    const originalTitle = form.getValues("Subject_title") || combinedInfo.product_title;
+    const finalSubject = discountRate > 0 ? `(${Math.floor(discountRate)}%) ${originalTitle}` : originalTitle;
+
+    const productTag = product.productTag || '';
     
+    let club_id = "31609361";
+    let menu_id = "2"; // 기본값
+
+    if (productTag.includes('#샤오미스토리')) {
+        club_id = "27738104";
+        menu_id = "649";
+    } else if (productTag.includes('패션') || productTag.includes('#패션')) {
+        menu_id = "26";
+    } else if (product.discountCode) {
+        menu_id = "8";
+    }
+
+    const cafePayload = {
+      subject: finalSubject,
+      content: previewContent,
+      image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
+      club_id: club_id,
+      menu_id: menu_id
+    };
+
+    console.log("[PROXY-NAVER-CAFE] Forwarding payload:", cafePayload);
+
+     if (combinedInfo.kakao_urls && combinedInfo.kakao_urls.length > 0) {
+        const formatKakaoPrice = (price: number, originalInput?: string): string => {
+            if (isDollar(originalInput, price)) {
+                return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
+        };
+
+        let finalPrice = productPriceNum;
+        let kakaoContent = `상품명 : ${product.Subject_title || combinedInfo.product_title}\n`;
+        if (productPriceNum > 0) kakaoContent += `할인판매가 : ${formatKakaoPrice(productPriceNum, product.productPrice)}\n`;
+
+        if (coinDiscountNum > 0 && productPriceNum > 0) {
+            const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
+            if (coinDiscountType === 'rate') {
+                let coinDiscountValue;
+                if (isPriceInDollar) {
+                    coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+                } else {
+                    coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                }
+                finalPrice -= coinDiscountValue;
+                kakaoContent += `코인할인율 : ${coinDiscountNum}%\n`;
+            } else {
+                finalPrice -= coinDiscountNum;
+                kakaoContent += `코인할인 : -${formatKakaoPrice(coinDiscountNum, product.coinDiscountValue)}\n`;
+            }
+        }
+        if (discountCodePriceNum > 0 && product.discountCode) {
+            finalPrice -= discountCodePriceNum;
+            kakaoContent += `할인코드 : -${formatKakaoPrice(discountCodePriceNum, product.discountCodePrice)} (${product.discountCode})\n`;
+        }
+        if (storeCouponPriceNum > 0 && product.storeCouponCode) {
+            finalPrice -= storeCouponPriceNum;
+            kakaoContent += `스토어쿠폰 : -${formatKakaoPrice(storeCouponPriceNum, product.storeCouponPrice)} (${product.storeCouponCode})\n`;
+        }
+        if (cardPriceNum > 0 && product.cardCompanyName) {
+            finalPrice -= cardPriceNum;
+            kakaoContent += `카드할인 : -${formatKakaoPrice(cardPriceNum, product.cardPrice)} (${product.cardCompanyName})\n`;
+        }
+        finalPrice = Math.max(0, finalPrice);
+        const totalDiscountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
+        
+        if (finalPrice < productPriceNum && productPriceNum > 0) {
+            kakaoContent += `할인구매가 : ${formatKakaoPrice(finalPrice, product.productPrice)} (${Math.floor(totalDiscountRate)}%)`;
+        }
+
+        const kakaoPayload = {
+            kakao_content: kakaoContent,
+            kakao_url: combinedInfo.kakao_urls[0],
+        };
+
+        console.log("카카오 전송 데이터:", kakaoPayload);
+
+        // 비동기 호출, 결과 기다리지 않음
+        fetch("/api/post-to-kakao", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(kakaoPayload),
+        }).then(response => {
+            if (!response.ok) {
+                console.error("카카오톡 전송 API 호출 실패");
+            } else {
+                console.log("카카오톡 전송 API 호출 성공");
+            }
+        }).catch(error => {
+            console.error("카카오톡 전송 중 오류 발생:", error);
+        });
+    }
+  
     try {
-      const response = await fetch("/api/post-to-naver-cafe", {
+      const cafeResponse = await fetch("/api/post-to-naver-cafe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: product.Subject_title || combinedInfo.product_title,
-          content: previewContent,
-          image_urls: combinedInfo.product_main_image_url ? [combinedInfo.product_main_image_url] : [],
-          club_id: "31609361", 
-          menu_id: "2"
-        }),
+        body: JSON.stringify(cafePayload),
       });
   
-      const result = await response.json();
-      if (response.ok && result.url) {
-          toast({ title: "카페 게시 성공!", description: "네이버 카페에 게시물이 등록되었습니다." });
-          if (selectedRowNumber !== null) {
+      const result = await cafeResponse.json();
+
+      if (cafeResponse.ok && result.url) {
+          const articleUrl = result.url;
+          setCafePostResult({ status: 'success', message: `상품이 네이버 카페에 성공적으로 게시되었습니다. URL: ${articleUrl}` });
+          toast({
+              title: "성공!",
+              description: `상품이 네이버 카페에 성공적으로 게시되었습니다.`,
+          });
+          
+          try {
+              let finalPrice = productPriceNum;
+              if (coinDiscountNum > 0 && productPriceNum > 0) {
+                const isPriceInDollar = isDollar(product.productPrice, productPriceNum);
+                if (coinDiscountType === 'rate') {
+                    let coinDiscountValue;
+                    if (isPriceInDollar) {
+                        coinDiscountValue = Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100;
+                    } else {
+                        coinDiscountValue = Math.floor(productPriceNum * (coinDiscountNum / 100));
+                    }
+                    finalPrice -= coinDiscountValue;
+                } else {
+                    finalPrice -= coinDiscountNum;
+                }
+              }
+              if (discountCodePriceNum > 0) finalPrice -= discountCodePriceNum;
+              if (storeCouponPriceNum > 0) finalPrice -= storeCouponPriceNum;
+              if (cardPriceNum > 0) finalPrice -= cardPriceNum;
+              finalPrice = Math.max(0, finalPrice);
+  
+              const sheetDiscountRate = productPriceNum > 0 ? ((productPriceNum - finalPrice) / productPriceNum) * 100 : 0;
+  
+              const allReviews = [
+                  combinedInfo.korean_summary1,
+                  combinedInfo.korean_summary2,
+                  combinedInfo.korean_summary3,
+                  combinedInfo.korean_summary4,
+                  combinedInfo.korean_summary5,
+              ];
+              const selectedReviewTexts = allReviews
+                .filter((review, index) => review && reviewSelections[index].included);
+
+              const firstSelectedReview = selectedReviewTexts[0] || '';
+              const allSelectedReviews = selectedReviewTexts.join(' | ');
+
+              const formatSheetPrice = (priceNum: number, originalInput?: string): string => {
+                  if (!originalInput && priceNum === 0) return '';
+                  if (isDollar(originalInput, priceNum)) {
+                      return '$' + priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  }
+                  return new Intl.NumberFormat('ko-KR').format(Math.floor(priceNum)) + '원';
+              };
+              
+              let coinDiscountSheetValue = '';
+                if (product.coinDiscountValue) {
+                    if (coinDiscountType === 'rate') {
+                        coinDiscountSheetValue = `${product.coinDiscountValue}%`;
+                    } else {
+                        coinDiscountSheetValue = formatSheetPrice(coinDiscountNum, product.coinDiscountValue);
+                    }
+                }
+
+              const newValues: { [key: string]: any } = {
+                  "글쓰기 시간": new Date().toISOString(),
+                  'Subject_title': form.getValues("Subject_title") || '',
+                  'full_product_name': combinedInfo.product_title || '',
+                  '할인판매가': formatSheetPrice(productPriceNum, product.productPrice),
+                  '할인구매가': formatSheetPrice(finalPrice, product.productPrice),
+                  '이미지URL': combinedInfo.product_main_image_url || '',
+                  '총판매': combinedInfo.sale_volume,
+                  '총리뷰': combinedInfo.total_num,
+                  '국내리뷰': combinedInfo.korean_local_count,
+                  '고객리뷰요약': combinedInfo.korean_summary || '',
+                  '할인율': `${Math.floor(sheetDiscountRate)}%`,
+                  '게시물URL': articleUrl,
+                  'af_link': combinedInfo.final_url || '',
+                  'kakao_urls': combinedInfo.kakao_urls.join(', ') || '',
+                  'review_all': allSelectedReviews || '',
+                  '고객리뷰': firstSelectedReview,
+                  '코인할인': coinDiscountSheetValue,
+                  '할인코드': product.discountCode || '',
+                  '할인코드 할인가': formatSheetPrice(discountCodePriceNum, product.discountCodePrice),
+                  '스토어쿠폰 코드': product.storeCouponCode || '',
+                  '스토어쿠폰 코드 할인가': formatSheetPrice(storeCouponPriceNum, product.storeCouponPrice),
+                  '카드사명': product.cardCompanyName || '',
+                  '카드할인가': formatSheetPrice(cardPriceNum, product.cardPrice),
+                  '상품태그': product.productTag || '',
+              };
+
+              // 'data' 시트에서 해당 항목을 'checkup: 1'로 업데이트
+              if (selectedRowNumber !== null) {
+                  await fetch('/api/sheets', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          rowNumber: selectedRowNumber,
+                          newValues: { checkup: '1' }
+                      }),
+                  });
+              }
+
+              // 'sns_upload' 시트에 새 행으로 데이터 추가
               await fetch('/api/sheets', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ rowNumber: selectedRowNumber, newValues: { checkup: '1' } }),
+                  body: JSON.stringify({
+                      sheetName: 'sns_upload',
+                      newValues
+                  }),
               });
-              setSheetData(prev => prev.filter(d => d.rowNumber !== selectedRowNumber));
+  
+              // Reset state for next operation
+              if(selectedRowNumber !== null) {
+                setSheetData(prev => prev.filter(d => d.rowNumber !== selectedRowNumber));
+              }
+              setSelectedRowNumber(null);
+              form.reset();
+              setCombinedInfo(null);
+              setPreviewContent("");
+              handleResetCalculator();
+              setReviewSelections(Array(5).fill({ included: false, summarized: false }));
+              setPasteAndGoValue('');
+  
+          } catch (sheetError) {
+              console.error("Failed to update sheet after posting:", sheetError);
+              toast({
+                  variant: "destructive",
+                  title: "시트 업데이트 실패",
+                  description: "네이버 카페 글쓰기는 성공했으나, 시트 상태를 업데이트하는 데 실패했습니다. 새로고침 후 확인해주세요.",
+              });
           }
       } else {
-          throw new Error(result.error || '게시 실패');
+          const cafeErrorMessage = result.error?.message || result.error || `게시물 URL을 찾을 수 없습니다. 응답: ${JSON.stringify(result)}`;
+          throw new Error(`네이버 카페 게시 실패: ${cafeErrorMessage}`);
       }
     } catch (error: any) {
-        toast({ variant: "destructive", title: "오류 발생", description: error.message });
+        setCafePostResult({ status: 'error', message: error.message || "알 수 없는 오류가 발생했습니다." });
+        toast({
+            variant: "destructive",
+            title: "오류 발생",
+            description: error.message || "네이버 카페 글쓰기 중 오류가 발생했습니다.",
+        });
     } finally {
         setIsLoading(false);
     }
+};
+
+  const handleDeleteSheetRow = async (rowNumber: number) => {
+    const originalData = [...sheetData];
+    setSheetData(prevData => prevData.filter(item => item.rowNumber !== rowNumber));
+    if (selectedRowNumber === rowNumber) {
+        setSelectedRowNumber(null);
+        form.reset();
+        setCombinedInfo(null);
+        setPreviewContent("");
+    }
+
+    try {
+        const response = await fetch('/api/sheets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rowNumber, newValues: { checkup: '1' } }),
+        });
+
+        if (!response.ok) {
+            const errorResult = await response.json();
+            throw new Error(errorResult.error || 'Failed to delete row');
+        }
+        toast({ title: "성공", description: `항목(Row: ${rowNumber})이 삭제처리 되었습니다.` });
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "삭제 실패",
+            description: `항목(Row: ${rowNumber}) 삭제 중 오류 발생: ${error.message}`,
+        });
+        setSheetData(originalData);
+    }
   };
 
-  const handleReviewSelectionChange = (index: number) => {
+  const handleSelectSheetItem = (item: SheetData) => {
+    if (selectedRowNumber === item.rowNumber) {
+        setSelectedRowNumber(null);
+        form.reset();
+        setCombinedInfo(null);
+        setPreviewContent("");
+        setReviewSelections(Array(5).fill({ included: false, summarized: false }));
+        setPasteAndGoValue('');
+    } 
+    else {
+        setSelectedRowNumber(item.rowNumber);
+        form.setValue("Subject_title", item.상품명 || "");
+    }
+  };
+
+  const handleImageDownload = async () => {
+    if (!combinedInfo?.product_main_image_url) {
+      toast({ variant: "destructive", title: "다운로드 실패", description: "이미지 URL이 없습니다." });
+      return;
+    }
+    try {
+      const response = await fetch(combinedInfo.product_main_image_url);
+      if (!response.ok) {
+        throw new Error('Image fetch failed');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = combinedInfo.product_main_image_url.split('/').pop()?.split('?')[0] || 'download.jpg';
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "성공", description: "이미지 다운로드를 시작합니다." });
+    } catch (error) {
+      console.error("Image download failed:", error);
+      toast({ variant: "destructive", title: "다운로드 실패", description: "이미지를 다운로드하는 중 오류가 발생했습니다." });
+    }
+  };
+
+
+  const handleReviewSelectionChange = (index: number, type: 'included' | 'summarized') => {
+    const cardRef = reviewCardRefs.current[index];
+    
     setReviewSelections(prev => {
         const newSelections = [...prev];
-        newSelections[index] = { ...newSelections[index], included: !newSelections[index].included };
+        const currentSelection = { ...newSelections[index] };
+
+        if (type === 'included') {
+            currentSelection.included = !currentSelection.included;
+            if (!currentSelection.included) {
+                currentSelection.summarized = false;
+            }
+        } else if (type === 'summarized') {
+            if (currentSelection.included) {
+                currentSelection.summarized = !currentSelection.summarized;
+            }
+        }
+        
+        newSelections[index] = currentSelection;
         return newSelections;
+    });
+
+    if (cardRef) {
+        cardRef.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+};
+  
+  const handleCopyHtml = () => {
+    if (!previewContent) {
+      toast({
+        variant: "destructive",
+        title: "복사 실패",
+        description: "복사할 HTML 내용이 없습니다.",
+      });
+      return;
+    }
+    navigator.clipboard.writeText(previewContent);
+    toast({
+      title: "복사 완료",
+      description: "HTML 소스가 클립보드에 복사되었습니다.",
     });
   };
 
+  const formFields = {
+    required: [
+        { name: "Subject_title", label: "제목", placeholder: "작업 대기 목록에서 선택하거나 직접 입력", isRequired: false },
+        { name: "productUrl", label: "알리익스프레스 상품 URL", placeholder: "https://www.aliexpress.com/...", isRequired: true },
+        { name: "affShortKey", label: "제휴 단축 키", placeholder: "예: _onQoGf7", isRequired: true },
+        { name: "productPrice", label: "상품판매가", placeholder: "예: 25 또는 30000원 또는 $25", isRequired: false },
+        { name: "coinDiscountValue", label: "코인할인", placeholder: coinDiscountType === 'rate' ? "예: 10" : "예: 2000", isRequired: false },
+        { name: "productTag", label: "상품태그", placeholder: "예: #캠핑 #가성비", isRequired: false },
+    ],
+    collapsible: [
+        { name: "discountCode", label: "할인코드", placeholder: "예: KR1234", type: "text" },
+        { name: "discountCodePrice", label: "할인코드 할인가", placeholder: "예: 5 또는 5000원", type: "text" },
+        { name: "storeCouponCode", label: "스토어쿠폰 코드", placeholder: "예: STORE1000", type: "text" },
+        { name: "storeCouponPrice", label: "스토어쿠폰 코드 할인가", placeholder: "예: 2 또는 2000원", type: "text" },
+        { name: "cardCompanyName", label: "카드사명", placeholder: "예: 카카오페이", type: "text" },
+        { name: "cardPrice", label: "카드할인가", placeholder: "예: 3 또는 3000원", type: "text" },
+    ]
+  };
+  
+  const getAlertVariant = (status: CafePostStatus): "default" | "destructive" => {
+    switch (status) {
+        case 'success':
+            return 'default';
+        case 'error':
+            return 'destructive';
+        case 'loading':
+        case 'idle':
+        default:
+            return 'default';
+    }
+  };
+
+  const reviews = combinedInfo ? [
+    combinedInfo.korean_summary1,
+    combinedInfo.korean_summary2,
+    combinedInfo.korean_summary3,
+    combinedInfo.korean_summary4,
+    combinedInfo.korean_summary5,
+  ].filter(Boolean) : [];
+
+  useEffect(() => {
+    if (selectedRowNumber === null) {
+      form.reset();
+      handleResetCalculator();
+      setPasteAndGoValue('');
+    } else {
+        const selectedItem = sheetData.find(item => item.rowNumber === selectedRowNumber);
+        if (selectedItem) {
+            form.setValue("Subject_title", selectedItem.상품명 || "");
+        }
+    }
+  }, [selectedRowNumber, form, sheetData]);
+  
   useEffect(() => {
     if(combinedInfo) {
-      setPreviewContent(generateHtmlContent(combinedInfo, reviewSelections, coinDiscountType));
+      const content = generateHtmlContent(combinedInfo, reviewSelections, coinDiscountType);
+      setPreviewContent(content);
     }
   }, [reviewSelections, combinedInfo, generateHtmlContent, coinDiscountType]);
 
   return (
-    <main className="min-h-screen bg-[#f8f9fb] p-4 sm:p-6 md:p-10">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header className="text-center space-y-4 mb-12">
-          <div className="flex items-center justify-center gap-3">
-            <div className="bg-primary p-2 rounded-2xl shadow-lg shadow-primary/20">
-                <Rocket className="h-8 w-8 text-white" />
-            </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-neutral-900">
-                ALI<span className="text-primary">CAFE</span> HELPER
-            </h1>
-          </div>
-          <p className="text-neutral-500 font-medium max-w-lg mx-auto leading-relaxed">알리익스프레스 상품 포스팅을 위한 가장 스마트한 도구. 상품 정보를 자동으로 분석하고 카페 게시물 HTML을 생성합니다.</p>
+    <main className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
+      <div className="mx-auto max-w-3xl">
+        <header className="mb-8 text-center">
+          <h1 className="text-4xl font-extrabold text-primary flex items-center justify-center gap-3">
+            <Rocket className="h-10 w-10" />
+            Aliexpress 네이버 카페 글쓰기
+          </h1>
+          <p className="mt-2 text-lg text-muted-foreground">
+            상품 정보를 입력하고 네이버 카페에 바로 글을 게시하세요.
+          </p>
         </header>
 
-         <Card className="border-none shadow-xl bg-white overflow-hidden rounded-3xl">
-            <CardHeader className="bg-neutral-900 text-white flex flex-row items-center justify-between py-6 px-8">
-                <div>
-                    <CardTitle className="text-xl font-bold flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-primary" />
-                        작업 대기 목록
-                    </CardTitle>
-                    <CardDescription className="text-neutral-400 mt-1">구글 시트에서 실시간으로 불러온 최신 상품들입니다.</CardDescription>
+         <Card className="shadow-lg mb-8">
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                    <CardTitle>작업 대기 목록</CardTitle>
+                    <CardDescription>
+                    구글 시트에서 가져온 작업 목록입니다.
+                    </CardDescription>
                 </div>
-                <Button variant="ghost" size="icon" onClick={fetchSheetData} disabled={isSheetLoading} className="text-white hover:bg-white/10 rounded-full h-12 w-12 transition-all">
-                    <RefreshCw className={isSheetLoading ? 'animate-spin h-5 w-5' : 'h-5 w-5'} />
+                <Button variant="outline" size="icon" onClick={fetchSheetData} disabled={isSheetLoading}>
+                    <RefreshCw className={`h-4 w-4 ${isSheetLoading ? 'animate-spin' : ''}`} />
+                    <span className="sr-only">새로고침</span>
                 </Button>
             </CardHeader>
-            <CardContent className="p-8">
+            <CardContent>
               {isSheetLoading ? (
-                 <div className="flex flex-col items-center justify-center p-20 gap-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <p className="text-sm font-semibold text-neutral-400">시트 데이터를 불러오는 중...</p>
+                 <div className="flex items-center justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                  </div>
-              ) : sheetData.length > 0 ? (
-                <Carousel className="w-full">
-                  <CarouselContent className="-ml-4">
+              ) : sheetError ? (
+                <Alert variant="destructive">
+                  <XCircle className="h-4 w-4" />
+                  <AlertTitle>오류</AlertTitle>
+                  <AlertDescription>{sheetError}</AlertDescription>
+                </Alert>
+              ) : sheetData.length === 0 ? (
+                 <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertTitle>완료</AlertTitle>
+                    <AlertDescription>대기중인 작업 목록이 없습니다.</AlertDescription>
+                 </Alert>
+              ) : (
+                <Carousel setApi={setCarouselApi} className="w-full">
+                  <CarouselContent>
                     {sheetData.map((item) => (
-                      <CarouselItem key={item.rowNumber} className="pl-4 basis-full md:basis-1/2 lg:basis-1/3 xl:basis-1/4">
-                        <div 
-                            className={`group cursor-pointer p-6 border-2 rounded-2xl transition-all duration-300 h-full flex flex-col justify-between ${selectedRowNumber === item.rowNumber ? "border-primary bg-primary/[0.03] shadow-lg shadow-primary/5" : "border-neutral-100 bg-white hover:border-neutral-200 hover:shadow-md"}`}
-                            onClick={() => {
-                                setSelectedRowNumber(item.rowNumber);
-                                form.setValue("Subject_title", item.상품명 || "");
-                                form.setValue("productUrl", item.게시URL || "");
-                                toast({ title: "상품 선택됨", description: item.상품명 });
-                            }}
-                        >
-                          <div className="space-y-4">
-                              <div className="flex justify-between items-start">
-                                <Badge variant={selectedRowNumber === item.rowNumber ? "default" : "secondary"} className="px-3 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider">ROW {item.rowNumber}</Badge>
-                                <span className="text-[10px] font-medium text-neutral-400">{item.Runtime ? new Date(item.Runtime).toLocaleDateString() : ''}</span>
-                              </div>
-                              <h3 className="font-bold text-sm leading-snug line-clamp-3 min-h-[4.5em] group-hover:text-primary transition-colors">{item.상품명}</h3>
-                          </div>
-                          <div className="flex items-center justify-between mt-6 pt-4 border-t border-neutral-50">
-                            <p className="text-[11px] font-bold text-neutral-400 uppercase">{item.사이트 || 'Aliexpress'}</p>
-                            {item.게시URL && (
-                                <a href={item.게시URL} target="_blank" rel="noopener noreferrer" className="p-2 bg-neutral-50 rounded-full text-neutral-400 hover:text-primary hover:bg-primary/10 transition-all" onClick={(e) => e.stopPropagation()}>
-                                    <ExternalLink className="h-4 w-4" />
-                                </a>
-                            )}
-                          </div>
+                      <CarouselItem key={item.rowNumber}>
+                        <div className="p-1">
+                          <Card className={selectedRowNumber === item.rowNumber ? "border-primary" : ""}>
+                            <CardHeader>
+                              <CardTitle className="truncate text-lg">{item.상품명 || "상품명 없음"}</CardTitle>
+                              <CardDescription>{item.사이트 || "사이트 정보 없음"}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <p className="text-2xl font-bold text-primary">{item.게시가격 || "가격 정보 없음"}</p>
+                                {item.Runtime && (
+                                    <p className="text-xs text-muted-foreground">
+                                        확인일시: {new Date(item.Runtime).toLocaleString('ko-KR')}
+                                    </p>
+                                )}
+                                <div className="grid grid-cols-1 gap-2">
+                                     <Button asChild variant="outline" className="w-full">
+                                        <a href={item.게시URL} target="_blank" rel="noopener noreferrer">URL 가서 확인하기</a>
+                                    </Button>
+                                </div>
+                                <Separator />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button 
+                                        onClick={() => handleSelectSheetItem(item)}
+                                        variant={selectedRowNumber === item.rowNumber ? "default" : "outline"}
+                                        className="w-full"
+                                    >
+                                        <CheckCircle className={`mr-2 h-4 w-4 ${selectedRowNumber !== item.rowNumber && 'hidden'}`} />
+                                        {selectedRowNumber === item.rowNumber ? "선택 해제" : "작업 선택"}
+                                    </Button>
+                                    <Button onClick={() => handleDeleteSheetRow(item.rowNumber)} variant="destructive" className="w-full">
+                                        <Trash2 className="mr-2 h-4 w-4"/>
+                                        삭제
+                                    </Button>
+                                </div>
+                            </CardContent>
+                          </Card>
                         </div>
                       </CarouselItem>
                     ))}
                   </CarouselContent>
-                  <div className="flex justify-center gap-3 mt-8">
-                    <CarouselPrevious className="static translate-y-0 h-10 w-10 rounded-full shadow-sm hover:bg-neutral-900 hover:text-white transition-all border-none" />
-                    <CarouselNext className="static translate-y-0 h-10 w-10 rounded-full shadow-sm hover:bg-neutral-900 hover:text-white transition-all border-none" />
-                  </div>
+                  <CarouselPrevious className="flex" />
+                  <CarouselNext className="flex" />
                 </Carousel>
-              ) : (
-                <div className="text-center py-20 bg-neutral-50 rounded-3xl border-2 border-dashed border-neutral-100">
-                    <div className="bg-white p-4 rounded-full w-fit mx-auto shadow-sm mb-4">
-                        <Tag className="h-8 w-8 text-neutral-300" />
-                    </div>
-                    <p className="text-neutral-500 font-medium">대기 중인 작업이 없습니다.</p>
-                </div>
               )}
             </CardContent>
         </Card>
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <div className="lg:col-span-7 space-y-8">
-                <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Tag className="h-5 w-5 text-primary" />
-                            상품 정보 입력
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-4">
-                        <Form {...form}>
-                            <form className="space-y-6">
-                                <FormField control={form.control} name="productUrl" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">알리익스프레스 상품 URL</FormLabel>
-                                        <FormControl><Input {...field} placeholder="https://aliexpress.com/item/..." className="bg-neutral-50 border-none h-14 rounded-2xl focus-visible:ring-primary/20 text-base" /></FormControl>
-                                    </FormItem>
-                                )} />
-
-                                <FormField control={form.control} name="affShortKey" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">제휴 단축 키 (Affiliate Key)</FormLabel>
-                                        <FormControl><Input {...field} placeholder="단축 키 입력" className="bg-neutral-50 border-none h-14 rounded-2xl focus-visible:ring-primary/20" /></FormControl>
-                                    </FormItem>
-                                )} />
-
-                                <Button type="button" onClick={handleGeneratePreview} className="w-full h-16 text-lg font-black rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.01] transition-transform active:scale-[0.99]" variant="default" disabled={isGeneratingPreview}>
-                                    {isGeneratingPreview ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Eye className="mr-3 h-6 w-6" />} 
-                                    {isGeneratingPreview ? "상품 정보 분석 중..." : "상품 정보 분석 및 미리보기"}
-                                </Button>
-                            </form>
-                        </Form>
-                    </CardContent>
-                </Card>
-
-                {combinedInfo && (
-                    <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                <DollarSign className="h-5 w-5 text-primary" />
-                                할인 상세 정보
+        <Collapsible
+            open={isCalculatorOpen}
+            onOpenChange={setIsCalculatorOpen}
+            className="mb-8"
+        >
+            <Card className="shadow-lg">
+                <CollapsibleTrigger asChild>
+                    <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
+                        <div className="space-y-1.5">
+                            <CardTitle className="flex items-center gap-2">
+                                <Calculator className="h-6 w-6" />
+                                계산기
                             </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-8 pt-4">
-                            <Form {...form}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <FormField control={form.control} name="productPrice" render={({ field }) => (
-                                        <FormItem className="col-span-full">
-                                            <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">할인판매가</FormLabel>
-                                            <FormControl><Input {...field} placeholder="예: $15.50 또는 21000" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
-                                        </FormItem>
-                                    )} />
-
-                                    <div className="space-y-3">
-                                        <Label className="text-xs font-bold uppercase text-neutral-400 tracking-wider">코인할인</Label>
-                                        <div className="flex gap-2">
-                                            <Input 
-                                                className="bg-neutral-50 border-none h-12 rounded-xl" 
-                                                placeholder={coinDiscountType === 'rate' ? "할인율(%)" : "할인금액"}
-                                                onChange={(e) => form.setValue("coinDiscountValue", e.target.value)}
-                                            />
-                                            <Button 
-                                                type="button" 
-                                                variant={coinDiscountType === 'rate' ? "default" : "outline"} 
-                                                className="h-12 w-12 rounded-xl p-0" 
-                                                onClick={() => setCoinDiscountType('rate')}
-                                            ><Percent className="h-5 w-5" /></Button>
-                                            <Button 
-                                                type="button" 
-                                                variant={coinDiscountType === 'amount' ? "default" : "outline"} 
-                                                className="h-12 w-12 rounded-xl p-0" 
-                                                onClick={() => setCoinDiscountType('amount')}
-                                            ><DollarSign className="h-5 w-5" /></Button>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <FormField control={form.control} name="discountCode" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">할인코드</FormLabel>
-                                                <FormControl><Input {...field} placeholder="코드명" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="discountCodePrice" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">코드 할인액</FormLabel>
-                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
-                                            </FormItem>
-                                        )} />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <FormField control={form.control} name="storeCouponCode" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">스토어쿠폰</FormLabel>
-                                                <FormControl><Input {...field} placeholder="쿠폰명" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="storeCouponPrice" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">쿠폰 할인액</FormLabel>
-                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
-                                            </FormItem>
-                                        )} />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <FormField control={form.control} name="cardCompanyName" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">카드사할인</FormLabel>
-                                                <FormControl><Input {...field} placeholder="카드사명" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="cardPrice" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">카드 할인액</FormLabel>
-                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
-                                            </FormItem>
-                                        )} />
-                                    </div>
-                                    
-                                    <FormField control={form.control} name="productTag" render={({ field }) => (
-                                        <FormItem className="col-span-full">
-                                            <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">추가 태그 (해시태그)</FormLabel>
-                                            <FormControl><Input {...field} placeholder="#알리익스프레스 #가성비템" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
-                                        </FormItem>
-                                    )} />
-                                </div>
-                            </Form>
-
-                            <Separator className="bg-neutral-100" />
-
-                            <div className="space-y-6">
-                                <h4 className="text-sm font-bold flex items-center gap-2 text-neutral-900">
-                                    <CreditCard className="h-4 w-4 text-primary" />
-                                    구매자 리뷰 요약 (게시물 포함 여부)
-                                </h4>
-                                <div className="grid gap-3">
-                                    {[combinedInfo.korean_summary1, combinedInfo.korean_summary2, combinedInfo.korean_summary3, combinedInfo.korean_summary4, combinedInfo.korean_summary5].filter(Boolean).map((review, i) => (
-                                        <div key={i} className={`flex items-start gap-4 p-5 border-2 rounded-2xl transition-all duration-300 ${reviewSelections[i].included ? "border-primary/20 bg-primary/[0.02]" : "border-neutral-50 bg-neutral-50/50 opacity-60"}`}>
-                                            <Checkbox 
-                                                id={`review-${i}`} 
-                                                checked={reviewSelections[i].included} 
-                                                onCheckedChange={() => handleReviewSelectionChange(i)} 
-                                                className="mt-1 h-5 w-5 rounded-md"
-                                            />
-                                            <label htmlFor={`review-${i}`} className="text-sm cursor-pointer font-medium leading-relaxed text-neutral-700">{review}</label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
-
-            <div className="lg:col-span-5 space-y-8">
-                <Card className="border-none shadow-2xl rounded-3xl sticky top-8 overflow-hidden bg-white">
-                    <CardHeader className="bg-primary text-white py-6 px-8">
-                        <CardTitle className="text-xl font-bold flex items-center justify-between">
-                            최종 게시물 미리보기
-                            <Badge variant="secondary" className="bg-white/20 text-white border-none text-[10px] font-bold">PREVIEW</Badge>
-                        </CardTitle>
+                            <CardDescription>간단한 계산을 수행합니다.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); handleResetCalculator(); }}>
+                                <RefreshCw className="h-4 w-4" />
+                                <span className="sr-only">계산기 초기화</span>
+                            </Button>
+                             <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${isCalculatorOpen ? 'rotate-180' : ''}`} />
+                        </div>
                     </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="p-8">
-                            <Form {...form}>
-                                <FormField control={form.control} name="Subject_title" render={({ field }) => (
-                                    <FormItem className="mb-8">
-                                        <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">카페 게시물 제목</FormLabel>
-                                        <FormControl><Input {...field} placeholder="카페에 게시될 제목" className="bg-neutral-50 border-none font-bold h-12 rounded-xl" /></FormControl>
-                                    </FormItem>
-                                )} />
-                            </Form>
-                            
-                            <div className="border rounded-2xl bg-white p-6 h-[500px] overflow-auto shadow-inner text-sm leading-relaxed border-neutral-100">
-                                {previewContent ? (
-                                    <div dangerouslySetInnerHTML={{ __html: previewContent }} className="prose prose-neutral prose-sm max-w-none" />
-                                ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-neutral-300 gap-4">
-                                        <div className="bg-neutral-50 p-6 rounded-full">
-                                            <Eye className="h-12 w-12 opacity-10" />
-                                        </div>
-                                        <p className="font-medium">상단에서 미리보기를 생성해주세요.</p>
-                                    </div>
-                                )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <CardContent>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="calcA">값 A</Label>
+                                <Input id="calcA" type="number" placeholder="A 값을 입력하세요" value={calcA} onChange={(e) => setCalcA(e.target.value)} />
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="calcB">값 B</Label>
+                                <Input id="calcB" type="number" placeholder="B 값을 입력하세요" value={calcB} onChange={(e) => setCalcB(e.target.value)} />
+                            </div>
+                        </div>
+                        <Separator className="my-4" />
+                        <div className="grid grid-cols-2 gap-4 text-center">
+                            <div className="p-4 bg-muted/50 rounded-lg">
+                                <p className="text-sm font-medium text-muted-foreground">C = A + B</p>
+                                <p className="text-2xl font-bold text-primary">{calcC.toLocaleString()}</p>
+                            </div>
+                            <div className="p-4 bg-muted/50 rounded-lg">
+                                <p className="text-sm font-medium text-muted-foreground">D = (B / C * 100)%</p>
+                                <p className="text-2xl font-bold text-primary">{calcD.toFixed(2)}%</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </CollapsibleContent>
+            </Card>
+        </Collapsible>
+
+
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>정보 입력</CardTitle>
+            <CardDescription>
+              글을 쓸 상품의 URL과 제휴 키, 할인 정보를 입력해주세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(handlePostToNaverCafe)}
+                className="space-y-8"
+              >
+                <div className="space-y-4 rounded-lg border p-4">
+                    <CardTitle className="text-xl mb-4">URL 복사붙여넣기</CardTitle>
+                    <div className="space-y-2">
+                        <Label htmlFor="paste-and-go">데이터 붙여넣기</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                              id="paste-and-go" 
+                              placeholder="...|제목|https://..."
+                              value={pasteAndGoValue} 
+                              onChange={(e) => setPasteAndGoValue(e.target.value)}
+                          />
+                          <Button type="button" onClick={handlePasteAndGo}>
+                            <Zap className="mr-2 h-4 w-4" />
+                            적용하기
+                          </Button>
+                        </div>
+                         <p className="text-xs text-muted-foreground">
+                            붙여넣기 후 '적용하기'를 누르면 가격, 제목, URL이 자동 입력됩니다.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-4 rounded-lg border p-4">
+                    <CardTitle className="text-xl mb-4">필수 정보</CardTitle>
+                    {formFields.required.map((fieldInfo) => (
+                      <FormField
+                        key={fieldInfo.name}
+                        control={form.control}
+                        name={fieldInfo.name as keyof FormData}
+                        render={({ field }) => (
+                          <FormItem>
+                             <FormLabel>
+                                {fieldInfo.label}
+                                {fieldInfo.isRequired && <span className="text-destructive"> *</span>}
+                            </FormLabel>
+                            {fieldInfo.name === 'affShortKey' && (
+                                <div className="flex flex-wrap gap-2 pt-2 pb-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c2R7VbXB')}>
+                                    엄마
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c3Xja9WB')}>
+                                    상희
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_Dcj12VJ')}>
+                                    지희
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('affShortKey', '_c40nbXCX')}>
+                                    현성
+                                </Button>
+                                </div>
+                            )}
+                             {fieldInfo.name === 'productTag' && (
+                                <div className="pt-2 flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            const currentValue = form.getValues("productTag") || "";
+                                            const textToAppend = '#패션 - 3개 담으면 20%할인 행사 바로가기 → https://saletem.page.link/eknz';
+                                            form.setValue('productTag', currentValue ? `${currentValue} ${textToAppend}` : textToAppend);
+                                        }}
+                                    >
+                                        패션
+                                    </Button>
+                                     <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            const currentValue = form.getValues("productTag") || "";
+                                            const textToAppend = '#샤오미 #샤오미스토리';
+                                            form.setValue('productTag', currentValue ? `${currentValue} ${textToAppend}` : textToAppend);
+                                        }}
+                                    >
+                                        샤오미카페
+                                    </Button>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              {fieldInfo.name === 'coinDiscountValue' ? (
+                                <>
+                                  <Button 
+                                      type="button" 
+                                      variant="outline" 
+                                      onClick={() => setCoinDiscountType(prev => prev === 'rate' ? 'amount' : 'rate')}
+                                      className="w-16 flex-shrink-0"
+                                  >
+                                      {coinDiscountType === 'rate' ? '%' : '액'}
+                                  </Button>
+                                  <FormControl className="flex-grow">
+                                    <Input
+                                      placeholder={fieldInfo.placeholder}
+                                      {...field}
+                                      value={field.value ?? ""}
+                                    />
+                                  </FormControl>
+                                </>
+                              ) : (
+                                <FormControl>
+                                  <Input
+                                    placeholder={fieldInfo.placeholder}
+                                    {...field}
+                                    value={field.value ?? ""}
+                                  />
+                                </FormControl>
+                              )}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                      <Collapsible>
+                          <CollapsibleTrigger asChild>
+                              <Button type="button" variant="outline" className="w-full">
+                                  <ChevronDown className="h-4 w-4 mr-2" />
+                                  추가 할인 정보 입력 (선택)
+                              </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="space-y-4 pt-4">
+                              {formFields.collapsible.map((fieldInfo) => (
+                                  <FormField
+                                  key={fieldInfo.name}
+                                  control={form.control}
+                                  name={fieldInfo.name as keyof FormData}
+                                  render={({ field }) => (
+                                      <FormItem>
+                                      <FormLabel>
+                                          {fieldInfo.label}
+                                      </FormLabel>
+                                      <FormControl>
+                                          <Input
+                                          type={fieldInfo.type}
+                                          placeholder={fieldInfo.placeholder}
+                                          {...field}
+                                          value={field.value ?? ""}
+                                          />
+                                      </FormControl>
+                                      <FormMessage />
+                                      </FormItem>
+                                  )}
+                                  />
+                              ))}
+                          </CollapsibleContent>
+                      </Collapsible>
+                      <Button
+                        type="button"
+                        onClick={handleGeneratePreview}
+                        className="w-full mt-4"
+                        disabled={isGeneratingPreview}
+                      >
+                        {isGeneratingPreview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
+                        미리보기 생성
+                      </Button>
+                </div>
+                
+                {combinedInfo && (
+                  <div>
+                    <Separator className="my-8" />
+                    <div className="space-y-6">
+                        <div className="space-y-4 rounded-lg border p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <CardTitle className="text-xl">미리보기</CardTitle>
+                                <div className="flex flex-wrap gap-2 justify-end">
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)} disabled={!previewContent}>
+                                        {isHtmlMode ? <Pilcrow className="mr-2 h-4 w-4" /> : <Code className="mr-2 h-4 w-4" />}
+                                        {isHtmlMode ? "미리보기" : "HTML 보기"}
+                                    </Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={handleCopyHtml} disabled={!previewContent}>
+                                        <ClipboardCopy className="mr-2 h-4 w-4" />
+                                        HTML 복사
+                                    </Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={handleImageDownload} disabled={!combinedInfo?.product_main_image_url}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        이미지 다운로드
+                                    </Button>
+                                </div>
+                            </div>
+                          
+                          {isGeneratingPreview ? (
+                             <div className="flex items-center justify-center h-96">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                             </div>
+                          ) : previewContent && (
+                            <>
+                              {isHtmlMode ? (
+                                 <Textarea
+                                    id="preview-html"
+                                    placeholder="HTML 소스..."
+                                    value={previewContent}
+                                    onChange={(e) => setPreviewContent(e.target.value)}
+                                    className="h-96 text-sm font-mono bg-muted/30"
+                                  />
+                              ) : (
+                                 <div
+                                    id="preview-display"
+                                    className="h-96 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background prose prose-sm max-w-none overflow-y-auto"
+                                    dangerouslySetInnerHTML={{ __html: previewContent }}
+                                 />
+                              )}
+                            </>
+                          )}
+
                         </div>
                         
-                        <div className="px-8 pb-8">
-                            <Button 
-                                onClick={handlePostToNaverCafe} 
-                                className="w-full h-20 text-2xl font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all disabled:grayscale" 
-                                disabled={isLoading || !previewContent}
-                            >
-                                {isLoading ? <Loader2 className="animate-spin mr-3 h-8 w-8" /> : <Rocket className="mr-3 h-8 w-8" />} 
-                                {isLoading ? "게시 중..." : "네이버 카페 게시하기"}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
+                        {reviews.length > 0 && (
+                           <div className="rounded-lg border p-4">
+                                <CardTitle className="text-xl mb-2">AI 리뷰 선택</CardTitle>
+                                 <Carousel className="w-full relative px-8">
+                                    <CarouselContent>
+                                        {reviews.map((review, index) => (
+                                            <CarouselItem key={index}>
+                                                <div 
+                                                    className="p-1" 
+                                                    ref={el => reviewCardRefs.current[index] = el}
+                                                >
+                                                    <div className="flex flex-col gap-3 p-4 rounded-md border bg-muted/40 h-full">
+                                                        <ScrollArea className="flex-grow h-32">
+                                                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                                                {review as string}
+                                                            </p>
+                                                        </ScrollArea>
+                                                        <Separator />
+                                                        <div className="flex items-center justify-end gap-4 pt-2">
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`include-review-${index}`}
+                                                                    checked={reviewSelections[index].included}
+                                                                    onCheckedChange={() => handleReviewSelectionChange(index, 'included')}
+                                                                />
+                                                                <label htmlFor={`include-review-${index}`} className="text-xs font-medium leading-none cursor-pointer">
+                                                                    포함
+                                                                </label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`summarize-review-${index}`}
+                                                                    checked={reviewSelections[index].summarized}
+                                                                    onCheckedChange={() => handleReviewSelectionChange(index, 'summarized')}
+                                                                    disabled={!reviewSelections[index].included}
+                                                                />
+                                                                <label htmlFor={`summarize-review-${index}`} className="text-xs font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                                    줄임
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CarouselItem>
+                                        ))}
+                                    </CarouselContent>
+                                    <CarouselPrevious className="flex -left-2 z-10" />
+                                    <CarouselNext className="flex -right-2 z-10" />
+                                </Carousel>
+                            </div>
+                        )}
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full text-lg py-6"
+                  disabled={isLoading || !previewContent}
+                >
+                  {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Rocket className="mr-2 h-5 w-5" />}
+                  {isLoading ? "게시 중..." : "네이버 카페 글쓰기"}
+                </Button>
+
+                {cafePostResult && cafePostResult.status !== 'idle' && (
+                  <Alert variant={getAlertVariant(cafePostResult.status)}>
+                    <AlertTitle>
+                      {cafePostResult.status === 'loading' && '처리 중'}
+                      {cafePostResult.status === 'success' && '성공'}
+                      {cafePostResult.status === 'error' && '오류'}
+                    </AlertTitle>
+                    <AlertDescription>
+                      <p className="whitespace-pre-wrap font-sans mb-4">{cafePostResult.message}</p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
       </div>
-      <footer className="mt-24 text-center text-neutral-400 text-xs font-medium pb-10">
-          © 2024 ALICAFE HELPER. 제휴 마케팅 자동화 도구.
-      </footer>
     </main>
   );
 }
