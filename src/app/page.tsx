@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Rocket, RefreshCw, Eye, Tag, DollarSign, Percent, CreditCard, ExternalLink } from "lucide-react";
+import { Loader2, Rocket, RefreshCw, Eye, Tag, DollarSign, Percent, CreditCard, ExternalLink, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -60,6 +60,7 @@ interface SheetData {
   게시가격?: string;
   게시URL?: string;
   Runtime?: string;
+  checkup?: string;
   [key: string]: any;
 }
 
@@ -164,11 +165,11 @@ export default function Home() {
         return new Intl.NumberFormat('ko-KR').format(Math.floor(price)) + '원';
     };
 
-    let content = `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">`;
-    content += `<p style="font-size: 18px; font-weight: bold; color: #333;">${info.product_title}</p><br />`;
+    let content = `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">`;
+    content += `<p style="font-size: 20px; font-weight: bold; color: #111; margin-bottom: 15px;">${info.product_title}</p>`;
 
     if (info.product_main_image_url) {
-        content += `<img src="${info.product_main_image_url}" style="width: 100%; border-radius: 8px; margin-bottom: 20px;" /><br />`;
+        content += `<div style="text-align: center; margin-bottom: 25px;"><img src="${info.product_main_image_url}" style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" /></div>`;
     }
 
     const productPriceNum = parsePrice(product.productPrice);
@@ -179,8 +180,9 @@ export default function Home() {
 
     let finalPrice = productPriceNum;
     
+    let priceDetails = "";
     if (productPriceNum > 0) {
-      content += `<p>할인판매가: ${formatPrice(productPriceNum, product.productPrice)}</p>`;
+      priceDetails += `<p style="margin: 5px 0;">할인판매가: <span style="text-decoration: line-through; color: #888;">${formatPrice(productPriceNum, product.productPrice)}</span></p>`;
     }
     
     if (coinDiscountNum > 0 && productPriceNum > 0) {
@@ -188,31 +190,37 @@ export default function Home() {
         const coinValue = isDollar(product.productPrice, productPriceNum) 
             ? Math.round((productPriceNum * (coinDiscountNum / 100)) * 100) / 100
             : Math.floor(productPriceNum * (coinDiscountNum / 100));
-        content += `<p>코인할인: -${formatPrice(coinValue, product.productPrice)} ( ${coinDiscountNum}% )</p>`;
+        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">코인할인: -${formatPrice(coinValue, product.productPrice)} ( ${coinDiscountNum}% )</p>`;
         finalPrice -= coinValue;
       } else {
-        content += `<p>코인할인: -${formatPrice(coinDiscountNum, product.coinDiscountValue)}</p>`;
+        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">코인할인: -${formatPrice(coinDiscountNum, product.coinDiscountValue)}</p>`;
         finalPrice -= coinDiscountNum;
       }
     }
     if (discountCodePriceNum > 0 && product.discountCode) {
-        content += `<p>할인코드: -${formatPrice(discountCodePriceNum, product.discountCodePrice)} ( ${product.discountCode} )</p>`;
+        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">할인코드: -${formatPrice(discountCodePriceNum, product.discountCodePrice)} ( ${product.discountCode} )</p>`;
         finalPrice -= discountCodePriceNum;
     }
     if (storeCouponPriceNum > 0 && product.storeCouponCode) {
-        content += `<p>스토어쿠폰: -${formatPrice(storeCouponPriceNum, product.storeCouponPrice)} ( ${product.storeCouponCode} )</p>`;
+        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">스토어쿠폰: -${formatPrice(storeCouponPriceNum, product.storeCouponPrice)} ( ${product.storeCouponCode} )</p>`;
         finalPrice -= storeCouponPriceNum;
     }
     if (cardPriceNum > 0 && product.cardCompanyName) {
-        content += `<p>카드할인: -${formatPrice(cardPriceNum, product.cardPrice)} ( ${product.cardCompanyName} )</p>`;
+        priceDetails += `<p style="margin: 5px 0; color: #ff5000;">카드할인: -${formatPrice(cardPriceNum, product.cardPrice)} ( ${product.cardCompanyName} )</p>`;
         finalPrice -= cardPriceNum;
     }
     
-    if(finalPrice < productPriceNum && productPriceNum > 0) {
-        content += `<p style="font-size: 20px; color: #ff5000;"><b>최종구매가: ${formatPrice(Math.max(0, finalPrice), product.productPrice)}</b></p>`;
+    if (priceDetails) {
+        content += `<div style="background: #fff9f5; padding: 15px; border-left: 4px solid #ff5000; border-radius: 4px; margin-bottom: 20px;">${priceDetails}</div>`;
+    }
+
+    if(finalPrice > 0) {
+        content += `<p style="font-size: 24px; color: #ff5000; margin-bottom: 25px;"><b>최종구매가: ${formatPrice(Math.max(0, finalPrice), product.productPrice)}</b></p>`;
     }
     
-    content += `<br /><p>👉 <a href='${info.final_url}' style="color: #0070f3; text-decoration: none; font-weight: bold;">특가상품 바로가기</a></p><br />`;
+    content += `<div style="text-align: center; margin: 30px 0;">`;
+    content += `<a href='${info.final_url}' style="background-color: #ff5000; color: #fff; text-decoration: none; padding: 15px 30px; border-radius: 30px; font-weight: bold; font-size: 18px; display: inline-block;">🔥 특가상품 바로가기 🔥</a>`;
+    content += `</div>`;
     
     const reviewsToAdd = [info.korean_summary1, info.korean_summary2, info.korean_summary3, info.korean_summary4, info.korean_summary5]
     .map((review, index) => ({ review, selection: selections[index] }))
@@ -222,21 +230,22 @@ export default function Home() {
         if (selection.summarized && reviewContent.length > 50) {
             reviewContent = `${reviewContent.substring(0, 50)}...`;
         }
-        return `<li style="margin-bottom: 8px;">${reviewContent}</li>`;
+        return `<li style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">${reviewContent}</li>`;
     }).join('');
 
     if(reviewsToAdd) {
-        content += `<div style="background-color: #f7f7f7; padding: 15px; border-radius: 8px; margin-top: 20px;">`;
-        content += `<p style="font-weight: bold; margin-top: 0;">실제 구매자 리뷰 요약:</p>`;
-        content += `<ul style="padding-left: 20px; margin-bottom: 0;">${reviewsToAdd}</ul>`;
-        content += `</div><br />`;
+        content += `<div style="background-color: #fcfcfc; padding: 20px; border: 1px solid #eee; border-radius: 12px; margin-top: 30px;">`;
+        content += `<p style="font-weight: bold; margin-top: 0; color: #111; font-size: 16px;">⭐ 실제 구매자 리뷰 요약:</p>`;
+        content += `<ul style="padding-left: 15px; margin-bottom: 0; list-style-type: none;">${reviewsToAdd}</ul>`;
+        content += `</div>`;
     }
 
     if (product.productTag) {
-        content += `<p style="color: #666; font-size: 13px;">${product.productTag.trim()}</p>`;
+        content += `<p style="color: #888; font-size: 13px; margin-top: 25px;">${product.productTag.trim()}</p>`;
     }
     
-    content += `<p style="color: #999; font-size: 12px; margin-top: 20px;">* 해당 링크를 통해 구매가 발생할 시, 제휴 마케팅 활동의 일환으로 일정액의 수수료를 제공받을 수 있습니다.</p>`;
+    content += `<hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />`;
+    content += `<p style="color: #999; font-size: 12px;">* 해당 링크를 통해 구매가 발생할 시, 제휴 마케팅 활동의 일환으로 일정액의 수수료를 제공받을 수 있습니다.</p>`;
     content += `</div>`;
 
     return content;
@@ -360,41 +369,46 @@ export default function Home() {
   }, [reviewSelections, combinedInfo, generateHtmlContent, coinDiscountType]);
 
   return (
-    <main className="min-h-screen bg-neutral-50 p-4 sm:p-6 md:p-10">
-      <div className="mx-auto max-w-5xl space-y-8">
-        <header className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Rocket className="h-12 w-12 text-primary animate-pulse" />
-            <h1 className="text-4xl font-black tracking-tighter text-neutral-900">
+    <main className="min-h-screen bg-[#f8f9fb] p-4 sm:p-6 md:p-10">
+      <div className="mx-auto max-w-6xl space-y-8">
+        <header className="text-center space-y-4 mb-12">
+          <div className="flex items-center justify-center gap-3">
+            <div className="bg-primary p-2 rounded-2xl shadow-lg shadow-primary/20">
+                <Rocket className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-4xl font-extrabold tracking-tight text-neutral-900">
                 ALI<span className="text-primary">CAFE</span> HELPER
             </h1>
           </div>
-          <p className="text-neutral-500 font-medium">알리익스프레스 상품 포스팅을 위한 가장 스마트한 도구</p>
+          <p className="text-neutral-500 font-medium max-w-lg mx-auto leading-relaxed">알리익스프레스 상품 포스팅을 위한 가장 스마트한 도구. 상품 정보를 자동으로 분석하고 카페 게시물 HTML을 생성합니다.</p>
         </header>
 
-         <Card className="border-none shadow-xl bg-white overflow-hidden">
-            <CardHeader className="bg-neutral-900 text-white flex flex-row items-center justify-between py-4">
+         <Card className="border-none shadow-xl bg-white overflow-hidden rounded-3xl">
+            <CardHeader className="bg-neutral-900 text-white flex flex-row items-center justify-between py-6 px-8">
                 <div>
-                    <CardTitle className="text-lg">작업 대기 목록</CardTitle>
-                    <CardDescription className="text-neutral-400">구글 시트에서 불러온 상품들</CardDescription>
+                    <CardTitle className="text-xl font-bold flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                        작업 대기 목록
+                    </CardTitle>
+                    <CardDescription className="text-neutral-400 mt-1">구글 시트에서 실시간으로 불러온 최신 상품들입니다.</CardDescription>
                 </div>
-                <Button variant="ghost" size="icon" onClick={fetchSheetData} disabled={isSheetLoading} className="text-white hover:bg-neutral-800">
-                    <RefreshCw className={isSheetLoading ? 'animate-spin' : ''} />
+                <Button variant="ghost" size="icon" onClick={fetchSheetData} disabled={isSheetLoading} className="text-white hover:bg-white/10 rounded-full h-12 w-12 transition-all">
+                    <RefreshCw className={isSheetLoading ? 'animate-spin h-5 w-5' : 'h-5 w-5'} />
                 </Button>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent className="p-8">
               {isSheetLoading ? (
-                 <div className="flex flex-col items-center justify-center p-10 gap-4">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <p className="text-sm text-neutral-500">시트 데이터를 불러오는 중...</p>
+                 <div className="flex flex-col items-center justify-center p-20 gap-4">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                    <p className="text-sm font-semibold text-neutral-400">시트 데이터를 불러오는 중...</p>
                  </div>
               ) : sheetData.length > 0 ? (
                 <Carousel className="w-full">
-                  <CarouselContent className="-ml-2 md:-ml-4">
+                  <CarouselContent className="-ml-4">
                     {sheetData.map((item) => (
-                      <CarouselItem key={item.rowNumber} className="pl-2 md:pl-4 basis-full md:basis-1/2 lg:basis-1/3">
+                      <CarouselItem key={item.rowNumber} className="pl-4 basis-full md:basis-1/2 lg:basis-1/3 xl:basis-1/4">
                         <div 
-                            className={`group cursor-pointer p-4 border-2 rounded-xl transition-all hover:shadow-md ${selectedRowNumber === item.rowNumber ? "border-primary bg-primary/5" : "border-neutral-100 bg-white"}`}
+                            className={`group cursor-pointer p-6 border-2 rounded-2xl transition-all duration-300 h-full flex flex-col justify-between ${selectedRowNumber === item.rowNumber ? "border-primary bg-primary/[0.03] shadow-lg shadow-primary/5" : "border-neutral-100 bg-white hover:border-neutral-200 hover:shadow-md"}`}
                             onClick={() => {
                                 setSelectedRowNumber(item.rowNumber);
                                 form.setValue("Subject_title", item.상품명 || "");
@@ -402,16 +416,18 @@ export default function Home() {
                                 toast({ title: "상품 선택됨", description: item.상품명 });
                             }}
                         >
-                          <div className="flex justify-between items-start mb-2">
-                            <Badge variant={selectedRowNumber === item.rowNumber ? "default" : "secondary"} className="text-[10px]">ROW {item.rowNumber}</Badge>
-                            <span className="text-[10px] text-neutral-400">{item.Runtime ? new Date(item.Runtime).toLocaleDateString() : ''}</span>
+                          <div className="space-y-4">
+                              <div className="flex justify-between items-start">
+                                <Badge variant={selectedRowNumber === item.rowNumber ? "default" : "secondary"} className="px-3 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider">ROW {item.rowNumber}</Badge>
+                                <span className="text-[10px] font-medium text-neutral-400">{item.Runtime ? new Date(item.Runtime).toLocaleDateString() : ''}</span>
+                              </div>
+                              <h3 className="font-bold text-sm leading-snug line-clamp-3 min-h-[4.5em] group-hover:text-primary transition-colors">{item.상품명}</h3>
                           </div>
-                          <h3 className="font-bold text-sm line-clamp-2 min-h-[40px] mb-2 group-hover:text-primary transition-colors">{item.상품명}</h3>
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-neutral-500 truncate">{item.사이트 || 'Aliexpress'}</p>
+                          <div className="flex items-center justify-between mt-6 pt-4 border-t border-neutral-50">
+                            <p className="text-[11px] font-bold text-neutral-400 uppercase">{item.사이트 || 'Aliexpress'}</p>
                             {item.게시URL && (
-                                <a href={item.게시URL} target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-primary" onClick={(e) => e.stopPropagation()}>
-                                    <ExternalLink className="h-3 w-3" />
+                                <a href={item.게시URL} target="_blank" rel="noopener noreferrer" className="p-2 bg-neutral-50 rounded-full text-neutral-400 hover:text-primary hover:bg-primary/10 transition-all" onClick={(e) => e.stopPropagation()}>
+                                    <ExternalLink className="h-4 w-4" />
                                 </a>
                             )}
                           </div>
@@ -419,45 +435,50 @@ export default function Home() {
                       </CarouselItem>
                     ))}
                   </CarouselContent>
-                  <div className="flex justify-end gap-2 mt-4">
-                    <CarouselPrevious className="static translate-y-0" />
-                    <CarouselNext className="static translate-y-0" />
+                  <div className="flex justify-center gap-3 mt-8">
+                    <CarouselPrevious className="static translate-y-0 h-10 w-10 rounded-full shadow-sm hover:bg-neutral-900 hover:text-white transition-all border-none" />
+                    <CarouselNext className="static translate-y-0 h-10 w-10 rounded-full shadow-sm hover:bg-neutral-900 hover:text-white transition-all border-none" />
                   </div>
                 </Carousel>
               ) : (
-                <div className="text-center py-10 text-neutral-500">대기 중인 작업이 없습니다.</div>
+                <div className="text-center py-20 bg-neutral-50 rounded-3xl border-2 border-dashed border-neutral-100">
+                    <div className="bg-white p-4 rounded-full w-fit mx-auto shadow-sm mb-4">
+                        <Tag className="h-8 w-8 text-neutral-300" />
+                    </div>
+                    <p className="text-neutral-500 font-medium">대기 중인 작업이 없습니다.</p>
+                </div>
               )}
             </CardContent>
         </Card>
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-7 space-y-6">
-                <Card className="border-none shadow-xl">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="lg:col-span-7 space-y-8">
+                <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
                             <Tag className="h-5 w-5 text-primary" />
-                            기본 정보
+                            상품 정보 입력
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-4">
                         <Form {...form}>
-                            <form className="space-y-4">
+                            <form className="space-y-6">
                                 <FormField control={form.control} name="productUrl" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-xs font-bold uppercase text-neutral-500">알리익스프레스 상품 URL</FormLabel>
-                                        <FormControl><Input {...field} placeholder="https://aliexpress.com/item/..." className="bg-neutral-50 border-none h-12" /></FormControl>
+                                        <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">알리익스프레스 상품 URL</FormLabel>
+                                        <FormControl><Input {...field} placeholder="https://aliexpress.com/item/..." className="bg-neutral-50 border-none h-14 rounded-2xl focus-visible:ring-primary/20 text-base" /></FormControl>
                                     </FormItem>
                                 )} />
 
                                 <FormField control={form.control} name="affShortKey" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-xs font-bold uppercase text-neutral-500">제휴 단축 키 (Affiliate Key)</FormLabel>
-                                        <FormControl><Input {...field} placeholder="단축 키 입력" className="bg-neutral-50 border-none h-12" /></FormControl>
+                                        <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">제휴 단축 키 (Affiliate Key)</FormLabel>
+                                        <FormControl><Input {...field} placeholder="단축 키 입력" className="bg-neutral-50 border-none h-14 rounded-2xl focus-visible:ring-primary/20" /></FormControl>
                                     </FormItem>
                                 )} />
 
-                                <Button type="button" onClick={handleGeneratePreview} className="w-full h-14 text-lg font-bold shadow-lg" variant="default" disabled={isGeneratingPreview}>
-                                    {isGeneratingPreview ? <Loader2 className="animate-spin mr-2" /> : <Eye className="mr-2" />} 
+                                <Button type="button" onClick={handleGeneratePreview} className="w-full h-16 text-lg font-black rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.01] transition-transform active:scale-[0.99]" variant="default" disabled={isGeneratingPreview}>
+                                    {isGeneratingPreview ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Eye className="mr-3 h-6 w-6" />} 
                                     {isGeneratingPreview ? "상품 정보 분석 중..." : "상품 정보 분석 및 미리보기"}
                                 </Button>
                             </form>
@@ -466,117 +487,117 @@ export default function Home() {
                 </Card>
 
                 {combinedInfo && (
-                    <Card className="border-none shadow-xl">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
+                    <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-lg font-bold flex items-center gap-2">
                                 <DollarSign className="h-5 w-5 text-primary" />
                                 할인 상세 정보
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-6">
+                        <CardContent className="space-y-8 pt-4">
                             <Form {...form}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <FormField control={form.control} name="productPrice" render={({ field }) => (
                                         <FormItem className="col-span-full">
-                                            <FormLabel className="text-xs font-bold uppercase text-neutral-500">할인판매가</FormLabel>
-                                            <FormControl><Input {...field} placeholder="예: $15.50 또는 21000" className="bg-neutral-50 border-none" /></FormControl>
+                                            <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">할인판매가</FormLabel>
+                                            <FormControl><Input {...field} placeholder="예: $15.50 또는 21000" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
                                         </FormItem>
                                     )} />
 
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-bold uppercase text-neutral-500">코인할인</Label>
+                                    <div className="space-y-3">
+                                        <Label className="text-xs font-bold uppercase text-neutral-400 tracking-wider">코인할인</Label>
                                         <div className="flex gap-2">
                                             <Input 
-                                                className="bg-neutral-50 border-none" 
+                                                className="bg-neutral-50 border-none h-12 rounded-xl" 
                                                 placeholder={coinDiscountType === 'rate' ? "할인율(%)" : "할인금액"}
                                                 onChange={(e) => form.setValue("coinDiscountValue", e.target.value)}
                                             />
                                             <Button 
                                                 type="button" 
                                                 variant={coinDiscountType === 'rate' ? "default" : "outline"} 
-                                                size="sm" 
+                                                className="h-12 w-12 rounded-xl p-0" 
                                                 onClick={() => setCoinDiscountType('rate')}
-                                            ><Percent className="h-4 w-4" /></Button>
+                                            ><Percent className="h-5 w-5" /></Button>
                                             <Button 
                                                 type="button" 
                                                 variant={coinDiscountType === 'amount' ? "default" : "outline"} 
-                                                size="sm" 
+                                                className="h-12 w-12 rounded-xl p-0" 
                                                 onClick={() => setCoinDiscountType('amount')}
-                                            ><DollarSign className="h-4 w-4" /></Button>
+                                            ><DollarSign className="h-5 w-5" /></Button>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <FormField control={form.control} name="discountCode" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-500">할인코드</FormLabel>
-                                                <FormControl><Input {...field} placeholder="코드명" className="bg-neutral-50 border-none" /></FormControl>
+                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">할인코드</FormLabel>
+                                                <FormControl><Input {...field} placeholder="코드명" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="discountCodePrice" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-500">코드 할인액</FormLabel>
-                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none" /></FormControl>
+                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">코드 할인액</FormLabel>
+                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
                                             </FormItem>
                                         )} />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <FormField control={form.control} name="storeCouponCode" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-500">스토어쿠폰</FormLabel>
-                                                <FormControl><Input {...field} placeholder="쿠폰명" className="bg-neutral-50 border-none" /></FormControl>
+                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">스토어쿠폰</FormLabel>
+                                                <FormControl><Input {...field} placeholder="쿠폰명" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="storeCouponPrice" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-500">쿠폰 할인액</FormLabel>
-                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none" /></FormControl>
+                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">쿠폰 할인액</FormLabel>
+                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
                                             </FormItem>
                                         )} />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <FormField control={form.control} name="cardCompanyName" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-500">카드사할인</FormLabel>
-                                                <FormControl><Input {...field} placeholder="카드사명" className="bg-neutral-50 border-none" /></FormControl>
+                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">카드사할인</FormLabel>
+                                                <FormControl><Input {...field} placeholder="카드사명" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
                                             </FormItem>
                                         )} />
                                         <FormField control={form.control} name="cardPrice" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs font-bold uppercase text-neutral-500">카드 할인액</FormLabel>
-                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none" /></FormControl>
+                                                <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">카드 할인액</FormLabel>
+                                                <FormControl><Input {...field} placeholder="금액" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
                                             </FormItem>
                                         )} />
                                     </div>
                                     
                                     <FormField control={form.control} name="productTag" render={({ field }) => (
                                         <FormItem className="col-span-full">
-                                            <FormLabel className="text-xs font-bold uppercase text-neutral-500">추가 태그 (해시태그)</FormLabel>
-                                            <FormControl><Input {...field} placeholder="#알리익스프레스 #가성비템" className="bg-neutral-50 border-none" /></FormControl>
+                                            <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">추가 태그 (해시태그)</FormLabel>
+                                            <FormControl><Input {...field} placeholder="#알리익스프레스 #가성비템" className="bg-neutral-50 border-none h-12 rounded-xl" /></FormControl>
                                         </FormItem>
                                     )} />
                                 </div>
                             </Form>
 
-                            <Separator />
+                            <Separator className="bg-neutral-100" />
 
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-bold flex items-center gap-2">
+                            <div className="space-y-6">
+                                <h4 className="text-sm font-bold flex items-center gap-2 text-neutral-900">
                                     <CreditCard className="h-4 w-4 text-primary" />
-                                    구매자 리뷰 요약 (포함할 리뷰 선택)
+                                    구매자 리뷰 요약 (게시물 포함 여부)
                                 </h4>
-                                <div className="space-y-2">
+                                <div className="grid gap-3">
                                     {[combinedInfo.korean_summary1, combinedInfo.korean_summary2, combinedInfo.korean_summary3, combinedInfo.korean_summary4, combinedInfo.korean_summary5].filter(Boolean).map((review, i) => (
-                                        <div key={i} className={`flex items-start gap-3 p-3 border-2 rounded-lg transition-all ${reviewSelections[i].included ? "border-primary/20 bg-primary/5" : "border-neutral-50 bg-neutral-50/50"}`}>
+                                        <div key={i} className={`flex items-start gap-4 p-5 border-2 rounded-2xl transition-all duration-300 ${reviewSelections[i].included ? "border-primary/20 bg-primary/[0.02]" : "border-neutral-50 bg-neutral-50/50 opacity-60"}`}>
                                             <Checkbox 
                                                 id={`review-${i}`} 
                                                 checked={reviewSelections[i].included} 
                                                 onCheckedChange={() => handleReviewSelectionChange(i)} 
-                                                className="mt-1"
+                                                className="mt-1 h-5 w-5 rounded-md"
                                             />
-                                            <label htmlFor={`review-${i}`} className="text-sm cursor-pointer leading-tight text-neutral-700">{review}</label>
+                                            <label htmlFor={`review-${i}`} className="text-sm cursor-pointer font-medium leading-relaxed text-neutral-700">{review}</label>
                                         </div>
                                     ))}
                                 </div>
@@ -586,44 +607,46 @@ export default function Home() {
                 )}
             </div>
 
-            <div className="lg:col-span-5 space-y-6">
-                <Card className="border-none shadow-xl sticky top-8">
-                    <CardHeader className="bg-primary text-white py-4">
-                        <CardTitle className="text-lg flex items-center justify-between">
-                            최종 미리보기
-                            <Badge variant="secondary" className="bg-white/20 text-white border-none">HTML MODE</Badge>
+            <div className="lg:col-span-5 space-y-8">
+                <Card className="border-none shadow-2xl rounded-3xl sticky top-8 overflow-hidden bg-white">
+                    <CardHeader className="bg-primary text-white py-6 px-8">
+                        <CardTitle className="text-xl font-bold flex items-center justify-between">
+                            최종 게시물 미리보기
+                            <Badge variant="secondary" className="bg-white/20 text-white border-none text-[10px] font-bold">PREVIEW</Badge>
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <div className="p-6">
+                        <div className="p-8">
                             <Form {...form}>
                                 <FormField control={form.control} name="Subject_title" render={({ field }) => (
-                                    <FormItem className="mb-4">
-                                        <FormLabel className="text-xs font-bold uppercase text-neutral-500">카페 게시물 제목</FormLabel>
-                                        <FormControl><Input {...field} placeholder="카페에 게시될 제목" className="bg-neutral-50 border-none font-bold" /></FormControl>
+                                    <FormItem className="mb-8">
+                                        <FormLabel className="text-xs font-bold uppercase text-neutral-400 tracking-wider">카페 게시물 제목</FormLabel>
+                                        <FormControl><Input {...field} placeholder="카페에 게시될 제목" className="bg-neutral-50 border-none font-bold h-12 rounded-xl" /></FormControl>
                                     </FormItem>
                                 )} />
                             </Form>
                             
-                            <div className="border rounded-xl bg-white p-4 h-[450px] overflow-auto shadow-inner text-sm leading-relaxed">
+                            <div className="border rounded-2xl bg-white p-6 h-[500px] overflow-auto shadow-inner text-sm leading-relaxed border-neutral-100">
                                 {previewContent ? (
                                     <div dangerouslySetInnerHTML={{ __html: previewContent }} className="prose prose-neutral prose-sm max-w-none" />
                                 ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-neutral-400 gap-2">
-                                        <Eye className="h-10 w-10 opacity-20" />
-                                        <p>미리보기가 여기에 표시됩니다.</p>
+                                    <div className="h-full flex flex-col items-center justify-center text-neutral-300 gap-4">
+                                        <div className="bg-neutral-50 p-6 rounded-full">
+                                            <Eye className="h-12 w-12 opacity-10" />
+                                        </div>
+                                        <p className="font-medium">상단에서 미리보기를 생성해주세요.</p>
                                     </div>
                                 )}
                             </div>
                         </div>
                         
-                        <div className="px-6 pb-6">
+                        <div className="px-8 pb-8">
                             <Button 
                                 onClick={handlePostToNaverCafe} 
-                                className="w-full h-16 text-xl font-black shadow-lg shadow-primary/20" 
+                                className="w-full h-20 text-2xl font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all disabled:grayscale" 
                                 disabled={isLoading || !previewContent}
                             >
-                                {isLoading ? <Loader2 className="animate-spin mr-2 h-6 w-6" /> : <Rocket className="mr-2 h-6 w-6" />} 
+                                {isLoading ? <Loader2 className="animate-spin mr-3 h-8 w-8" /> : <Rocket className="mr-3 h-8 w-8" />} 
                                 {isLoading ? "게시 중..." : "네이버 카페 게시하기"}
                             </Button>
                         </div>
@@ -632,8 +655,8 @@ export default function Home() {
             </div>
         </div>
       </div>
-      <footer className="mt-20 text-center text-neutral-400 text-xs">
-          © 2024 ALICAFE HELPER. All rights reserved.
+      <footer className="mt-24 text-center text-neutral-400 text-xs font-medium pb-10">
+          © 2024 ALICAFE HELPER. 제휴 마케팅 자동화 도구.
       </footer>
     </main>
   );
